@@ -24,6 +24,9 @@
 #define IRECV_ERROR_UNABLE_TO_CONNECT  -3
 #define IRECV_ERROR_INVALID_INPUT      -4
 #define IRECV_ERROR_UNKNOWN            -5
+#define IRECV_ERROR_FILE_NOT_FOUND     -6
+#define IRECV_ERROR_USB_UPLOAD         -7
+#define IRECV_ERROR_USB_STATUS         -8
 
 enum {
 	kAppleId       = 0x05AC,
@@ -44,5 +47,5 @@ int irecv_exit(irecv_device* device);
 int irecv_init(irecv_device** device);
 int irecv_reset(irecv_device* device);
 int irecv_close(irecv_device* device);
-int irecv_command(irecv_device* device, const char* command);
-
+int irecv_send_file(irecv_device* device, const char* filename);
+int irecv_send_command(irecv_device* device, const char* command);

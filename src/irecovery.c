@@ -22,7 +22,7 @@
 #include <libirecovery.h>
 
 enum {
-	kResetDevice, kSendCommand
+	kResetDevice, kSendCommand, kSendFile
 };
 
 void print_usage() {
@@ -51,8 +51,13 @@ int main(int argc, char** argv) {
 			break;
 
 		case 'c':
-			argument = optarg;
 			action = kSendCommand;
+			argument = optarg;
+			break;
+
+		case 'f':
+			action = kSendFile;
+			argument = optarg;
 			break;
 
 		default:
@@ -77,8 +82,12 @@ int main(int argc, char** argv) {
 		irecv_reset(device);
 		break;
 
+	case kSendFile:
+		irecv_send_file(device, argument);
+		break;
+
 	case kSendCommand:
-		irecv_command(device, argument);
+		irecv_send_command(device, argument);
 		break;
 
 	default:

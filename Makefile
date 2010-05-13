@@ -1,4 +1,4 @@
-all:
+all: static
 	@echo "Please choose either macosx, linux, or windows"
 
 static:

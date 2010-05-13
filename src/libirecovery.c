@@ -120,7 +120,7 @@ void irecv_set_debug(int level) {
 	irecv_debug = level;
 }
 
-int irecv_command(irecv_device* device, const char* command) {
+int irecv_send_command(irecv_device* device, const char* command) {
 	if(device == NULL || device->handle == NULL) {
 		return IRECV_ERROR_NO_DEVICE;
 	}
@@ -138,6 +138,152 @@ int irecv_command(irecv_device* device, const char* command) {
 	return IRECV_SUCCESS;
 }
 
-int irecv_upload(irecv_device* device, const char* filename) {
+int irecv_send_file(irecv_device* device, const char* filename) {
+	FILE* file = fopen(filename, "rb");
+	if (file == NULL) {
+		return IRECV_ERROR_FILE_NOT_FOUND;
+	}
+
+	fseek(file, 0, SEEK_END);
+	int length = ftell(file);
+	fseek(file, 0, SEEK_SET);
+
+	unsigned char* buffer = (unsigned char*) malloc(length);
+	if (buffer == NULL) {
+		fclose(file);
+		return IRECV_ERROR_OUT_OF_MEMORY;
+	}
+
+	int bytes = fread(buffer, 1, length, file);
+	fclose(file);
+
+	if(bytes != length) {
+		free(buffer);
+		return IRECV_ERROR_UNKNOWN;
+	}
+
+	return irecv_send_buffer(device, buffer, length);
+}
+
+unsigned int irecv_get_status(irecv_device* device) {
+	unsigned char status[6];
+	memset(status, '\0', 6);
+	if(libusb_control_transfer(device->handle, 0xA1, 3, 0, 0, status, 6, 500) != 6) {
+		return IRECV_ERROR_USB_STATUS;
+	}
+	return (unsigned int) status[4];
+}
+
+int irecv_send_buffer(irecv_device* device, unsigned char* buffer, int length) {
+	int packets = length / 0x800;
+	if (length % 0x800) {
+		packets++;
+	}
+
+	int last = length % 0x800;
+	if (!last) {
+		last = 0x800;
+	}
+
+	int i = 0;
+	char status[6];
+	for (i = 0; i < packets; i++) {
+		int size = i + 1 < packets ? 0x800 : last;
+		int bytes = libusb_control_transfer(device->handle, 0x21, 1, i, 0, &buffer[i * 0x800], size, 500);
+		if (bytes != size) {
+			free(buffer);
+			return IRECV_ERROR_USB_UPLOAD;
+		}
+
+		if (irecv_get_status(device) != 5) {
+			free(buffer);
+			return IRECV_ERROR_USB_STATUS;
+		}
+	}
+
+	libusb_control_transfer(device->handle, 0x21, 1, i, 0, buffer, 0, 1000);
+	for (i = 6; i <= 8; i++) {
+		if (irecv_get_status(device) != i) {
+			free(buffer);
+			return IRECV_ERROR_USB_STATUS;
+		}
+	}
+
+	free(buffer);
 	return IRECV_SUCCESS;
 }
+
+/*
+int send_file(struct libusb_device_handle *handle, const char* filename, int loadOffset) {
+	FILE* file = fopen(filename, "rb");
+	if (file == NULL) {
+		printf("send_file: File %s not found.\n", filename);
+		return -1;
+	}
+
+	fseek(file, 0, SEEK_END);
+	int len = ftell(file);
+	fseek(file, 0, SEEK_SET);
+
+	char* buffer = malloc(len + loadOffset);
+	if (buffer == NULL) {
+		printf("send_file: Error allocating memory!\n");
+		fclose(file);
+		return -1;
+	}
+
+	fread(&buffer[loadOffset], 1, len, file);
+	fclose(file);
+
+	len += loadOffset;
+
+	int packets = len / 0x800;
+	if (len % 0x800) {
+		packets++;
+	}
+
+	int last = len % 0x800;
+	if (!last) {
+		last = 0x800;
+	}
+
+	int i = 0;
+	char response[6];
+	for (i = 0; i < packets; i++) {
+		int size = i + 1 < packets ? 0x800 : last;
+
+		if (!libusb_control_transfer(handle, 0x21, 1, i, 0, &buffer[i * 0x800], size, 1000)) {
+			printf("send_file: Error sending packet!\n");
+			return -1;
+		}
+
+		if (libusb_control_transfer(handle, 0xA1, 3, 0, 0, response, 6, 1000) != 6) {
+			printf("send_file: Error receiving status!\n");
+			return -1;
+
+		} else {
+			if (response[4] != 5) {
+				printf("send_file: Status error!\n");
+				return -1;
+			}
+		}
+	}
+
+	libusb_control_transfer(handle, 0x21, 1, i, 0, buffer, 0, 1000);
+	for (i = 6; i <= 8; i++) {
+		if (libusb_control_transfer(handle, 0xA1, 3, 0, 0, response, 6, 1000) != 6) {
+			printf("send_file: Error receiving status!\n");
+			return -1;
+
+		} else {
+			if (response[4] != i) {
+				printf("send_file: Status error!\n");
+				return -1;
+			}
+		}
+	}
+
+	free(buffer);
+	return 0;
+}
+*/
