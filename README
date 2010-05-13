@@ -5,12 +5,3 @@ iRecovery is a libusb-based commandline utility for Mac OS X, Windows, and Linux
 It's completely open-source, the source code is released under the terms of the GNU General Public License v3.
 The full license text can be found in the LICENSE file.
 
-== Usage ==
-
-	./iRecovery -s 			starts a shell.
-	./iRecovery -r 			usb reset.
-	./iRecovery -f <file>		uploads a file.
-	./iRecovery -c "command"	send a single command.
-	./iRecovery -l <file>		sends a set of commands from a file (one per line).
-	./Irecovery -x <file>		uploads a file then resets the usb connection.
-	
