@@ -23,14 +23,13 @@
 
 #include "libirecovery.h"
 
-static unsigned int debug = 1;
+static unsigned int irecv_debug = 0;
 
 int irecv_init(irecv_device** p_device) {
 	struct libusb_context* usb_context = NULL;
 
 	libusb_init(&usb_context);
-	if (debug)
-		libusb_set_debug(usb_context, 3);
+	if (irecv_debug) libusb_set_debug(usb_context, 3);
 
 	irecv_device* device = (irecv_device*) malloc(sizeof(irecv_device));
 	if (device == NULL) {
@@ -60,7 +59,7 @@ int irecv_open(irecv_device* device) {
 	for (i = 0; i < usb_device_count; i++) {
 		usb_device = usb_device_list[i];
 		libusb_get_device_descriptor(usb_device, &usb_descriptor);
-		if (usb_descriptor.idVendor == kAppleVendorId) {
+		if (usb_descriptor.idVendor == kAppleId) {
 
 			libusb_open(usb_device, &usb_handle);
 			if (usb_handle == NULL) {
@@ -113,5 +112,32 @@ int irecv_exit(irecv_device* device) {
 		device = NULL;
 	}
 
+	return IRECV_SUCCESS;
+}
+
+void irecv_set_debug(int level) {
+	printf("Debug has been set to %d\n", level);
+	irecv_debug = level;
+}
+
+int irecv_command(irecv_device* device, const char* command) {
+	if(device == NULL || device->handle == NULL) {
+		return IRECV_ERROR_NO_DEVICE;
+	}
+
+	ssize_t length = strlen(command);
+	if(length >= 0x100) {
+		return IRECV_ERROR_INVALID_INPUT;
+	}
+
+	int ret = libusb_control_transfer(device->handle, 0x40, 0, 0, 0, (unsigned char*) command, length+1, 100);
+	if(ret < 0) {
+		return IRECV_ERROR_UNKNOWN;
+	}
+
+	return IRECV_SUCCESS;
+}
+
+int irecv_upload(irecv_device* device, const char* filename) {
 	return IRECV_SUCCESS;
 }

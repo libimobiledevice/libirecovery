@@ -18,14 +18,15 @@
 
 #include <libusb-1.0/libusb.h>
 
-#define kAppleVendorId 0x05AC
-
-#define IRECV_SUCCESS 0
-#define IRECV_ERROR_NO_DEVICE -1
-#define IRECV_ERROR_OUT_OF_MEMORY -2
-#define IRECV_ERROR_UNABLE_TO_CONNECT -3
+#define IRECV_SUCCESS                   0
+#define IRECV_ERROR_NO_DEVICE          -1
+#define IRECV_ERROR_OUT_OF_MEMORY      -2
+#define IRECV_ERROR_UNABLE_TO_CONNECT  -3
+#define IRECV_ERROR_INVALID_INPUT      -4
+#define IRECV_ERROR_UNKNOWN            -5
 
 enum {
+	kAppleId       = 0x05AC,
 	kKernelMode    = 0x1294,
 	kRecoveryMode  = 0x1281,
 	kDfuMode       = 0x1227
@@ -37,9 +38,11 @@ typedef struct {
 	struct libusb_device_handle* handle;
 } irecv_device;
 
-int irecv_init(irecv_device** device);
+void irecv_set_debug(int level);
 int irecv_open(irecv_device* device);
+int irecv_exit(irecv_device* device);
+int irecv_init(irecv_device** device);
 int irecv_reset(irecv_device* device);
 int irecv_close(irecv_device* device);
-int irecv_exit(irecv_device* device);
+int irecv_command(irecv_device* device, const char* command);
 

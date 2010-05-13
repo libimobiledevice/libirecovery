@@ -17,9 +17,50 @@
  **/
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <libirecovery.h>
 
+enum {
+	kResetDevice, kSendCommand
+};
+
+void print_usage() {
+	printf("iRecovery - iDevice Recovery Utility\n");
+	printf("Usage: ./irecovery [args]\n");
+	exit(1);
+}
+
 int main(int argc, char** argv) {
+	int opt = 0;
+	int action = 0;
+	char* argument = NULL;
+	if(argc == 1) print_usage();
+	while ((opt = getopt(argc, argv, "dhrc:f:")) > 0) {
+		switch (opt) {
+		case 'd':
+			irecv_set_debug(1);
+			break;
+
+		case 'h':
+			print_usage();
+			break;
+
+		case 'r':
+			action = kResetDevice;
+			break;
+
+		case 'c':
+			argument = optarg;
+			action = kSendCommand;
+			break;
+
+		default:
+			fprintf(stderr, "Unknown argument\n");
+			break;
+		}
+	}
+
 	irecv_device* device = NULL;
 	if(irecv_init(&device) < 0) {
 		fprintf(stderr, "Unable to initialize libirecovery\n");
@@ -31,26 +72,19 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-	switch (device->mode) {
-	case kRecoveryMode:
-		printf("Found device in recovery mode\n");
+	switch(action) {
+	case kResetDevice:
+		irecv_reset(device);
 		break;
 
-	case kDfuMode:
-		printf("Found device in DFU mode\n");
-		break;
-
-	case kKernelMode:
-		printf("Found device in kernel mode\n");
+	case kSendCommand:
+		irecv_command(device, argument);
 		break;
 
 	default:
-		printf("No device found\n");
+		fprintf(stderr, "Unknown action\n");
 		break;
 	}
-
-	printf("Sending USB reset...\n");
-	irecv_reset(device);
 
 	irecv_exit(device);
 	return 0;

@@ -1,4 +1,4 @@
-all: static
+all:
 	@echo "Please choose either macosx, linux, or windows"
 
 static:
@@ -20,7 +20,7 @@ windows:
 	gcc -o irecovery irecovery.c -I. -lirecovery
 		
 clean:
-	rm -rf irecovery libirecovery.o libirecovery.so
+	rm -rf irecovery libirecovery.o libirecovery.so libirecovery.a
 		
 
 		
