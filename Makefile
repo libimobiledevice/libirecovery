@@ -1,5 +1,10 @@
-all:
+all: static
 	@echo "Please choose either macosx, linux, or windows"
+
+static:
+	gcc -o libirecovery.o -c src/libirecovery.c -g -I./include
+	ar rs libirecovery.a libirecovery.o
+	gcc -o irecovery src/irecovery.c -g -I./include -L. -lirecovery -lreadline -lusb-1.0
 
 linux:
 	gcc -o libirecovery.o -c src/libirecovery.c -g -I./include -lreadline -fPIC 

@@ -79,23 +79,21 @@ int irecv_open(irecv_device* device) {
 }
 
 int irecv_reset(irecv_device* device) {
-	if (device != NULL) {
-		if (device->handle != NULL) {
-			libusb_reset_device(device->handle);
-		}
+	if (device == NULL || device->handle != NULL) {
+		return IRECV_ERROR_NO_DEVICE;
 	}
 
+	libusb_reset_device(device->handle);
 	return IRECV_SUCCESS;
 }
 
 int irecv_close(irecv_device* device) {
-	if (device != NULL) {
-		if (device->handle != NULL) {
-			libusb_close(device->handle);
-			device->handle = NULL;
-		}
+	if (device == NULL || device->handle != NULL) {
+		return IRECV_ERROR_NO_DEVICE;
 	}
 
+	libusb_close(device->handle);
+	device->handle = NULL;
 	return IRECV_SUCCESS;
 }
 
