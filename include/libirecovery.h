@@ -39,5 +39,7 @@ typedef struct {
 
 int irecv_init(irecv_device** device);
 int irecv_open(irecv_device* device);
+int irecv_reset(irecv_device* device);
 int irecv_close(irecv_device* device);
 int irecv_exit(irecv_device* device);
+

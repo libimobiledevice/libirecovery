@@ -49,6 +49,9 @@ int main(int argc, char** argv) {
 		break;
 	}
 
+	printf("Sending USB reset...\n");
+	irecv_reset(device);
+
 	irecv_exit(device);
 	return 0;
 }

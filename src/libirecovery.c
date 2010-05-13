@@ -78,6 +78,16 @@ int irecv_open(irecv_device* device) {
 	return IRECV_ERROR_NO_DEVICE;
 }
 
+int irecv_reset(irecv_device* device) {
+	if (device != NULL) {
+		if (device->handle != NULL) {
+			libusb_reset_device(device->handle);
+		}
+	}
+
+	return IRECV_SUCCESS;
+}
+
 int irecv_close(irecv_device* device) {
 	if (device != NULL) {
 		if (device->handle != NULL) {
