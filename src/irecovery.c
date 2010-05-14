@@ -28,6 +28,11 @@ enum {
 void print_usage() {
 	printf("iRecovery - iDevice Recovery Utility\n");
 	printf("Usage: ./irecovery [args]\n");
+	printf("\t-c <cmd>\tSend command to device.\n");
+	printf("\t-d\t\tStart irecovery in debug mode.\n");
+	printf("\t-f <file>\tSend file to device.\n");
+	printf("\t-h\t\tShow this help.\n");
+	printf("\t-r\t\tReset device.\n");
 	exit(1);
 }
 
