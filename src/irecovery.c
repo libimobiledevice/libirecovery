@@ -20,10 +20,48 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <libirecovery.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 enum {
-	kResetDevice, kSendCommand, kSendFile
+	kResetDevice, kStartShell, kSendCommand, kSendFile
 };
+
+void print_shell_usage() {
+	printf("Usage:\n");
+	printf("\t:f <file>\tSend file to device.\n");
+	printf("\t:h\t\tShow this help.\n");
+	printf("\t:q\t\tQuit interactive shell.\n");
+}
+
+void init_shell(irecv_device* device) {
+	int ret;
+
+	for(;;) {
+		char* cmd = readline("iRecovery> ");
+		if(cmd && *cmd) {
+			add_history(cmd);
+			if(cmd[0] == ':') {
+				strtok(cmd, " ");
+				char* arg = strtok(0, " ");
+				
+				if(cmd[1] == 'q') {
+					break;
+				} else if(cmd[1] == 'h') {
+					print_shell_usage();
+				} else if(cmd[1] == 'f') {
+					ret = irecv_send_file(device, arg);
+					// TODO: error messages
+				}
+			} else {
+				ret = irecv_send_command(device, cmd);
+				// TODO: error messages
+			}
+
+			free(cmd);
+		}
+	}
+}
 
 void print_usage() {
 	printf("iRecovery - iDevice Recovery Utility\n");
@@ -33,6 +71,7 @@ void print_usage() {
 	printf("\t-f <file>\tSend file to device.\n");
 	printf("\t-h\t\tShow this help.\n");
 	printf("\t-r\t\tReset device.\n");
+	printf("\t-s\t\tStart interactive shell.\n");
 	exit(1);
 }
 
@@ -41,7 +80,7 @@ int main(int argc, char** argv) {
 	int action = 0;
 	char* argument = NULL;
 	if(argc == 1) print_usage();
-	while ((opt = getopt(argc, argv, "dhrc:f:")) > 0) {
+	while ((opt = getopt(argc, argv, "dhrsc:f:")) > 0) {
 		switch (opt) {
 		case 'd':
 			irecv_set_debug(1);
@@ -53,6 +92,10 @@ int main(int argc, char** argv) {
 
 		case 'r':
 			action = kResetDevice;
+			break;
+
+		case 's':
+			action = kStartShell;
 			break;
 
 		case 'c':
@@ -93,6 +136,10 @@ int main(int argc, char** argv) {
 
 	case kSendCommand:
 		irecv_send_command(device, argument);
+		break;
+
+	case kStartShell:
+		init_shell(device);
 		break;
 
 	default:
