@@ -49,3 +49,4 @@ int irecv_reset(irecv_device* device);
 int irecv_close(irecv_device* device);
 int irecv_send_file(irecv_device* device, const char* filename);
 int irecv_send_command(irecv_device* device, const char* command);
+int irecv_send_buffer(irecv_device* device, unsigned char* buffer, int length);

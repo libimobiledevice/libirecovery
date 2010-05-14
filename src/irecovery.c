@@ -99,13 +99,13 @@ int main(int argc, char** argv) {
 			action = kStartShell;
 			break;
 
-		case 'c':
-			action = kSendCommand;
+		case 'f':
+			action = kSendFile;
 			argument = optarg;
 			break;
 
-		case 'f':
-			action = kSendFile;
+		case 'c':
+			action = kSendCommand;
 			argument = optarg;
 			break;
 
