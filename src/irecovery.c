@@ -46,6 +46,7 @@ void init_shell(irecv_device* device) {
 				char* arg = strtok(0, " ");
 				
 				if(cmd[1] == 'q') {
+					free(cmd);
 					break;
 				} else if(cmd[1] == 'h') {
 					print_shell_usage();
