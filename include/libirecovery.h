@@ -35,18 +35,31 @@ enum {
 	kDfuMode       = 0x1227
 };
 
-typedef struct {
+struct irecv_device;
+typedef struct irecv_device irecv_device_t;
+
+typedef int(*irecv_send_callback)(irecv_device_t* device, unsigned char* data, unsigned int size);
+typedef int(*irecv_receive_callback)(irecv_device_t* device, unsigned char* data, unsigned int size);
+
+struct irecv_device {
 	unsigned int mode;
+	unsigned int debug;
 	struct libusb_context* context;
 	struct libusb_device_handle* handle;
-} irecv_device;
+	irecv_receive_callback receive_callback;
+	irecv_send_callback send_callback;
+};
 
-void irecv_set_debug(int level);
-int irecv_open(irecv_device* device);
-int irecv_exit(irecv_device* device);
-int irecv_init(irecv_device** device);
-int irecv_reset(irecv_device* device);
-int irecv_close(irecv_device* device);
-int irecv_send_file(irecv_device* device, const char* filename);
-int irecv_send_command(irecv_device* device, const char* command);
-int irecv_send_buffer(irecv_device* device, unsigned char* buffer, int length);
+irecv_device_t* irecv_init();
+int irecv_open(irecv_device_t* device);
+int irecv_exit(irecv_device_t* device);
+int irecv_reset(irecv_device_t* device);
+int irecv_close(irecv_device_t* device);
+void irecv_update(irecv_device_t* device);
+void irecv_set_debug(irecv_device_t* device, int level);
+int irecv_send_file(irecv_device_t* device, const char* filename);
+int irecv_send_command(irecv_device_t* device, unsigned char* command);
+int irecv_send_buffer(irecv_device_t* device, unsigned char* buffer, int length);
+int irecv_set_sender(irecv_device_t* device, irecv_send_callback callback);
+int irecv_set_receiver(irecv_device_t* device, irecv_receive_callback callback);
+

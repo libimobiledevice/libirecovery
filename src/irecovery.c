@@ -23,44 +23,76 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
+#define FILE_HISTORY_PATH "~/.irecovery/history"
+
 enum {
 	kResetDevice, kStartShell, kSendCommand, kSendFile
 };
 
+static unsigned int exit_shell = 0;
+
 void print_shell_usage() {
 	printf("Usage:\n");
-	printf("\t:f <file>\tSend file to device.\n");
-	printf("\t:h\t\tShow this help.\n");
-	printf("\t:q\t\tQuit interactive shell.\n");
+	printf("\t/upload <file>\tSend file to device.\n");
+	printf("\t/help\t\tShow this help.\n");
+	printf("\t/exit\t\tExit interactive shell.\n");
 }
 
-void init_shell(irecv_device* device) {
-	int ret;
+void parse_command(irecv_device_t* device, unsigned char* command, unsigned int size) {
+	char* cmd = strtok(command, " ");
+	if(!strcmp(command, "/exit")) {
+		exit_shell = 1;
+	} else
+	
+	if(!strcmp(command, "/help")) {
+		print_shell_usage();
+	} else
+	
+	if(!strcmp(command, "/upload")) {
+		char* filename = strtok(0, " ");
+		if(filename != NULL) {
+			irecv_send_file(device, filename);
+		}
+	}
+}
 
-	for(;;) {
-		char* cmd = readline("iRecovery> ");
+int recv_callback(irecv_device_t* device, unsigned char* data, unsigned int size) {
+	int i = 0;
+	for(i = 0; i < size; i++) {
+		printf("%c", data[i]);
+	}
+	return size;
+}
+
+int send_callback(irecv_device_t* device, unsigned char* command, unsigned int size) {
+	if(command[0] == '/') {
+		parse_command(device, command, size);
+		return 0;
+	}
+	return size;
+}
+
+void load_command_history() {
+	read_history(FILE_HISTORY_PATH);
+}
+
+void append_command_to_history(char* cmd) {
+	add_history(cmd);
+	write_history(FILE_HISTORY_PATH);
+}
+
+void init_shell(irecv_device_t* device) {
+	load_command_history();
+	irecv_set_sender(device, &send_callback);
+	irecv_set_receiver(device, &recv_callback);
+	while(!exit_shell) {
+		char* cmd = readline("> ");
 		if(cmd && *cmd) {
-			add_history(cmd);
-			if(cmd[0] == ':') {
-				strtok(cmd, " ");
-				char* arg = strtok(0, " ");
-				
-				if(cmd[1] == 'q') {
-					free(cmd);
-					break;
-				} else if(cmd[1] == 'h') {
-					print_shell_usage();
-				} else if(cmd[1] == 'f') {
-					ret = irecv_send_file(device, arg);
-					// TODO: error messages
-				}
-			} else {
-				ret = irecv_send_command(device, cmd);
-				// TODO: error messages
-			}
-
+			irecv_send_command(device, cmd);
+			append_command_to_history(cmd);
 			free(cmd);
 		}
+		irecv_update(device);
 	}
 }
 
@@ -78,13 +110,14 @@ void print_usage() {
 
 int main(int argc, char** argv) {
 	int opt = 0;
+	int debug = 0;
 	int action = 0;
 	char* argument = NULL;
 	if(argc == 1) print_usage();
 	while ((opt = getopt(argc, argv, "dhrsc:f:")) > 0) {
 		switch (opt) {
 		case 'd':
-			irecv_set_debug(1);
+			debug = 1;
 			break;
 
 		case 'h':
@@ -115,11 +148,12 @@ int main(int argc, char** argv) {
 		}
 	}
 
-	irecv_device* device = NULL;
-	if(irecv_init(&device) < 0) {
+	irecv_device_t* device = irecv_init();
+	if(device == NULL) {
 		fprintf(stderr, "Unable to initialize libirecovery\n");
 		return -1;
 	}
+	if(debug) irecv_set_debug(device, 1);
 
 	if(irecv_open(device) < 0) {
 		fprintf(stderr, "Unable to open device\n");
