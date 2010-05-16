@@ -29,7 +29,8 @@ enum {
 	kResetDevice, kStartShell, kSendCommand, kSendFile
 };
 
-static unsigned int exit_shell = 0;
+static unsigned int quit = 0;
+static unsigned int debug = 0;
 
 void print_shell_usage() {
 	printf("Usage:\n");
@@ -41,7 +42,7 @@ void print_shell_usage() {
 void parse_command(irecv_device_t* device, unsigned char* command, unsigned int size) {
 	char* cmd = strtok(command, " ");
 	if(!strcmp(command, "/exit")) {
-		exit_shell = 1;
+		quit = 1;
 	} else
 	
 	if(!strcmp(command, "/help")) {
@@ -56,7 +57,7 @@ void parse_command(irecv_device_t* device, unsigned char* command, unsigned int 
 	}
 }
 
-int recv_callback(irecv_device_t* device, unsigned char* data, unsigned int size) {
+int recv_callback(irecv_device_t* device, unsigned char* data, int size) {
 	int i = 0;
 	for(i = 0; i < size; i++) {
 		printf("%c", data[i]);
@@ -64,7 +65,7 @@ int recv_callback(irecv_device_t* device, unsigned char* data, unsigned int size
 	return size;
 }
 
-int send_callback(irecv_device_t* device, unsigned char* command, unsigned int size) {
+int send_callback(irecv_device_t* device, unsigned char* command, int size) {
 	if(command[0] == '/') {
 		parse_command(device, command, size);
 		return 0;
@@ -85,14 +86,14 @@ void init_shell(irecv_device_t* device) {
 	load_command_history();
 	irecv_set_sender(device, &send_callback);
 	irecv_set_receiver(device, &recv_callback);
-	while(!exit_shell) {
+	while(!quit) {
+		irecv_update(device);
 		char* cmd = readline("> ");
 		if(cmd && *cmd) {
 			irecv_send_command(device, cmd);
 			append_command_to_history(cmd);
 			free(cmd);
 		}
-		irecv_update(device);
 	}
 }
 
@@ -110,7 +111,6 @@ void print_usage() {
 
 int main(int argc, char** argv) {
 	int opt = 0;
-	int debug = 0;
 	int action = 0;
 	char* argument = NULL;
 	if(argc == 1) print_usage();
