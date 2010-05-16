@@ -30,7 +30,7 @@ enum {
 };
 
 static unsigned int quit = 0;
-static unsigned int debug = 0;
+static unsigned int verbose = 0;
 
 void print_shell_usage() {
 	printf("Usage:\n");
@@ -50,7 +50,7 @@ void parse_command(irecv_device_t* device, unsigned char* command, unsigned int 
 	} else
 	
 	if(!strcmp(command, "/upload")) {
-		char* filename = strtok(0, " ");
+		char* filename = strtok(NULL, " ");
 		if(filename != NULL) {
 			irecv_send_file(device, filename);
 		}
@@ -87,10 +87,16 @@ void init_shell(irecv_device_t* device) {
 	irecv_set_sender(device, &send_callback);
 	irecv_set_receiver(device, &recv_callback);
 	while(!quit) {
-		irecv_update(device);
+		if(irecv_update(device) != IRECV_SUCCESS) {
+			break;
+		}
+		
 		char* cmd = readline("> ");
 		if(cmd && *cmd) {
-			irecv_send_command(device, cmd);
+			if(irecv_send_command(device, cmd) != IRECV_SUCCESS) {
+				quit = 1;
+			}
+			
 			append_command_to_history(cmd);
 			free(cmd);
 		}
@@ -100,8 +106,8 @@ void init_shell(irecv_device_t* device) {
 void print_usage() {
 	printf("iRecovery - iDevice Recovery Utility\n");
 	printf("Usage: ./irecovery [args]\n");
+	printf("\t-v\t\tStart irecovery in verbose mode.\n");
 	printf("\t-c <cmd>\tSend command to device.\n");
-	printf("\t-d\t\tStart irecovery in debug mode.\n");
 	printf("\t-f <file>\tSend file to device.\n");
 	printf("\t-h\t\tShow this help.\n");
 	printf("\t-r\t\tReset device.\n");
@@ -114,10 +120,10 @@ int main(int argc, char** argv) {
 	int action = 0;
 	char* argument = NULL;
 	if(argc == 1) print_usage();
-	while ((opt = getopt(argc, argv, "dhrsc:f:")) > 0) {
+	while ((opt = getopt(argc, argv, "vhrsc:f:")) > 0) {
 		switch (opt) {
-		case 'd':
-			debug = 1;
+		case 'v':
+			verbose += 1;
 			break;
 
 		case 'h':
@@ -153,7 +159,7 @@ int main(int argc, char** argv) {
 		fprintf(stderr, "Unable to initialize libirecovery\n");
 		return -1;
 	}
-	if(debug) irecv_set_debug(device, 1);
+	if(verbose) irecv_set_debug(device, verbose);
 
 	if(irecv_open(device) < 0) {
 		fprintf(stderr, "Unable to open device\n");

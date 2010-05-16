@@ -58,6 +58,7 @@ struct irecv_device {
 };
 
 irecv_device_t* irecv_init();
+const char* irecv_strerror(irecv_error_t error);
 irecv_error_t irecv_open(irecv_device_t* device);
 irecv_error_t irecv_exit(irecv_device_t* device);
 irecv_error_t irecv_reset(irecv_device_t* device);

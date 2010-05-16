@@ -27,6 +27,21 @@
 #define BUFFER_SIZE 0x1000
 #define debug(...) if(device->debug) fprintf(stderr, __VA_ARGS__)
 
+const char* irecv_error_invalid_input     = "Invalid input";
+const char* irecv_error_unknown           = "Unknown error";
+const char* irecv_error_file_not_found    = "Unable to find file";
+const char* irecv_error_usb_status        = "Invalid device status";
+const char* irecv_error_no_device         = "Unable to find device";
+const char* irecv_error_out_of_memory     = "Unable to allocate memory";
+const char* irecv_error_unable_to_connect = "Unable to connect to device";
+const char* irecv_error_usb_interface     = "Unable to set device interface";
+const char* irecv_error_success           = "Command completed successfully";
+const char* irecv_error_usb_upload        = "Unable to upload data to device";
+const char* irecv_error_usb_configuration = "Unable to set device configuration";
+
+int irecv_default_sender(irecv_device_t* device, unsigned char* data, int size);
+int irecv_default_receiver(irecv_device_t* device, unsigned char* data, int size);
+
 irecv_device_t* irecv_init() {
 	struct libusb_context* usb_context = NULL;
 
@@ -36,8 +51,10 @@ irecv_device_t* irecv_init() {
 		return NULL;
 	}
 	memset(device, '\0', sizeof(irecv_device_t));
-	device->context = usb_context;
 
+	irecv_set_receiver(device, &irecv_default_receiver);
+	irecv_set_sender(device, &irecv_default_sender);
+	device->context = usb_context;
 	return device;
 }
 
@@ -112,8 +129,10 @@ irecv_error_t irecv_set_interface(irecv_device_t* device, int interface, int alt
 		return IRECV_ERROR_USB_INTERFACE;
 	}
 	
-	if(libusb_set_interface_alt_setting(device->handle, interface, alt_interface) < 0) {
-		return IRECV_ERROR_USB_INTERFACE;
+	if(alt_interface > 0) {
+		if(libusb_set_interface_alt_setting(device->handle, interface, alt_interface) < 0) {
+			return IRECV_ERROR_USB_INTERFACE;
+		}
 	}
 	
 	device->interface = interface;
@@ -170,6 +189,7 @@ irecv_error_t irecv_set_debug(irecv_device_t* device, int level) {
 	
 	libusb_set_debug(device->context, level);
 	device->debug = level;
+	return IRECV_SUCCESS;
 }
 
 irecv_error_t irecv_send_command(irecv_device_t* device, unsigned char* command) {
@@ -177,23 +197,21 @@ irecv_error_t irecv_send_command(irecv_device_t* device, unsigned char* command)
 		return IRECV_ERROR_NO_DEVICE;
 	}
 
-	ssize_t length = strlen(command);
+	unsigned int length = strlen(command);
 	if(length >= 0x100) {
-		return IRECV_ERROR_INVALID_INPUT;
+		length = 0xFF;
 	}
 	
 	if(device->send_callback != NULL) {
 		// Call our user defined callback first, this must return a number of bytes to send
 		//   or zero to abort send.
 		length = device->send_callback(device, command, length);
-		if(length > 0) {
-			int ret = libusb_control_transfer(device->handle, 0x40, 0, 0, 0, (unsigned char*) command, length+1, 100);
-			if(ret < 0) {
-				return IRECV_ERROR_UNKNOWN;
-			}
-		}
 	}
 
+	if(length > 0) {
+		libusb_control_transfer(device->handle, 0x40, 0, 0, 0, command, length+1, 100);
+	}
+	
 	return IRECV_SUCCESS;
 }
 
@@ -299,13 +317,27 @@ irecv_error_t irecv_update(irecv_device_t* device) {
 	int bytes = 0;
 	while(libusb_bulk_transfer(device->handle, 0x81, buffer, BUFFER_SIZE, &bytes, 100) == 0) {
 		if(bytes > 0) {
-			if(device->receive_callback(device, buffer, bytes) != bytes) {
-				return IRECV_ERROR_UNKNOWN;
+			if(device->receive_callback != NULL) {
+				if(device->receive_callback(device, buffer, bytes) != bytes) {
+					return IRECV_ERROR_UNKNOWN;
+				}
 			}
 		} else break;
 	}
 	
 	return IRECV_SUCCESS;
+}
+
+int irecv_default_sender(irecv_device_t* device, unsigned char* data, int size) {
+	return size;
+}
+
+int irecv_default_receiver(irecv_device_t* device, unsigned char* data, int size) {
+	int i = 0;
+	for(i = 0; i < size; i++) {
+		printf("%c", data[i]);
+	}
+	return size;
 }
 
 irecv_error_t irecv_set_receiver(irecv_device_t* device, irecv_receive_callback callback) {
@@ -324,4 +356,46 @@ irecv_error_t irecv_set_sender(irecv_device_t* device, irecv_send_callback callb
 	
 	device->send_callback = callback;
 	return IRECV_SUCCESS;
+}
+
+const char* irecv_strerror(irecv_error_t error) {
+	switch(error) {
+	case IRECV_SUCCESS:
+		return irecv_error_success;
+		
+	case IRECV_ERROR_NO_DEVICE:
+		return irecv_error_no_device;
+		
+	case IRECV_ERROR_OUT_OF_MEMORY:
+		return irecv_error_out_of_memory;
+		
+	case IRECV_ERROR_UNABLE_TO_CONNECT:
+		return irecv_error_unable_to_connect;
+		
+	case IRECV_ERROR_INVALID_INPUT:
+		return irecv_error_invalid_input;
+		
+	case IRECV_ERROR_UNKNOWN:
+		return irecv_error_unknown;
+		
+	case IRECV_ERROR_FILE_NOT_FOUND:
+		return irecv_error_file_not_found;
+		
+	case IRECV_ERROR_USB_UPLOAD:
+		return irecv_error_usb_upload;
+		
+	case IRECV_ERROR_USB_STATUS:
+		return irecv_error_usb_status;
+		
+	case IRECV_ERROR_USB_INTERFACE:
+		return irecv_error_usb_interface;
+		
+	case IRECV_ERROR_USB_CONFIGURATION:
+		return irecv_error_usb_configuration;
+		
+	default:
+		return irecv_error_unknown;
+	}
+	
+	return NULL;
 }
