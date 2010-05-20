@@ -58,9 +58,10 @@ irecv_device_t* irecv_init() {
 	return device;
 }
 
-irecv_error_t irecv_open(irecv_device_t* device) {
+irecv_error_t irecv_open(irecv_device_t* device, const char *uuid) {
 	int i = 0;
 	int usb_device_count = 0;
+	char serial[256];
 	struct libusb_device* usb_device = NULL;
 	struct libusb_device** usb_device_list = NULL;
 	struct libusb_device_handle* usb_handle = NULL;
@@ -75,28 +76,58 @@ irecv_error_t irecv_open(irecv_device_t* device) {
 	for (i = 0; i < usb_device_count; i++) {
 		usb_device = usb_device_list[i];
 		libusb_get_device_descriptor(usb_device, &usb_descriptor);
-		if (usb_descriptor.idVendor == kAppleId) {
+		if (usb_descriptor.idVendor == APPLE_VENDOR_ID) {
+			/* verify this device is in a mode we understand */
+			if (usb_descriptor.idProduct == kRecoveryMode1 ||
+				usb_descriptor.idProduct == kRecoveryMode2 ||
+				usb_descriptor.idProduct == kRecoveryMode3 ||
+				usb_descriptor.idProduct == kRecoveryMode4 ||
+				usb_descriptor.idProduct == kDfuMode) {
 
-			libusb_open(usb_device, &usb_handle);
-			if (usb_handle == NULL) {
+				libusb_open(usb_device, &usb_handle);
+				if (usb_handle == NULL) {
+					libusb_free_device_list(usb_device_list, 1);
+					return IRECV_ERROR_UNABLE_TO_CONNECT;
+				}
+
+				/* get serial number */
+				if (libusb_get_string_descriptor_ascii (usb_handle, usb_descriptor.iSerialNumber, serial, sizeof(serial)) < 0) {
+					libusb_free_device_list(usb_device_list, 1);
+					libusb_close(usb_handle);
+					return IRECV_ERROR_UNABLE_TO_CONNECT;
+				}
+
+				/* match uuid if required */
+				if (uuid != NULL) {
+					if (strcmp(uuid, serial)) {
+						libusb_close(usb_handle);
+						continue;
+					}
+				}
+
+				/* identified a valid recovery device */
 				libusb_free_device_list(usb_device_list, 1);
-				return IRECV_ERROR_UNABLE_TO_CONNECT;
+
+				device->handle = usb_handle;
+				device->uuid = strdup(serial);
+				device->mode = (irecv_mode_t) usb_descriptor.idProduct;
+
+				debug("opening UUID \"%s\"... ", device->uuid);
+
+				error = irecv_set_configuration(device, 1);
+				if(error != IRECV_SUCCESS) {
+					debug("setting configuration... ");
+					return error;
+				}
+
+				error = irecv_set_interface(device, 1, 1);
+				if(error != IRECV_SUCCESS) {
+					debug("setting interface... ");
+					return error;
+				}
+
+				return IRECV_SUCCESS;
 			}
-			libusb_free_device_list(usb_device_list, 1);
-			
-			device->handle = usb_handle;
-			device->mode = (irecv_mode_t) usb_descriptor.idProduct;
-			error = irecv_set_configuration(device, 1);
-			if(error != IRECV_SUCCESS) {
-				return error;
-			}
-			
-			error = irecv_set_interface(device, 1, 1);
-			if(error != IRECV_SUCCESS) {
-				return error;
-			}
-			
-			return IRECV_SUCCESS;
 		}
 	}
 
@@ -158,7 +189,11 @@ irecv_error_t irecv_close(irecv_device_t* device) {
 		libusb_close(device->handle);
 		device->handle = NULL;
 	}
-	
+
+	if(device->uuid != NULL) {
+		free(device->uuid);
+	}
+
 	return IRECV_SUCCESS;
 }
 

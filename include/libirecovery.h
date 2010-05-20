@@ -32,10 +32,13 @@ typedef enum {
 	IRECV_ERROR_USB_CONFIGURATION = -10
 } irecv_error_t;
 
+#define APPLE_VENDOR_ID 0x05AC
+
 typedef enum {
-	kAppleId       = 0x05AC,
-	kKernelMode    = 0x1294,
-	kRecoveryMode  = 0x1281,
+	kRecoveryMode1 = 0x1280,
+	kRecoveryMode2 = 0x1281,
+	kRecoveryMode3 = 0x1282,
+	kRecoveryMode4 = 0x1283,
 	kDfuMode       = 0x1227
 } irecv_mode_t;
 
@@ -50,6 +53,7 @@ struct irecv_device {
 	int config;
 	int interface;
 	int alt_interface;
+	char *uuid;
 	irecv_mode_t mode;
 	libusb_context* context;
 	libusb_device_handle* handle;
@@ -59,7 +63,7 @@ struct irecv_device {
 
 irecv_device_t* irecv_init();
 const char* irecv_strerror(irecv_error_t error);
-irecv_error_t irecv_open(irecv_device_t* device);
+irecv_error_t irecv_open(irecv_device_t* device, const char *uuid);
 irecv_error_t irecv_exit(irecv_device_t* device);
 irecv_error_t irecv_reset(irecv_device_t* device);
 irecv_error_t irecv_close(irecv_device_t* device);

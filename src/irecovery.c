@@ -52,8 +52,10 @@ void parse_command(irecv_device_t* device, unsigned char* command, unsigned int 
 	} else
 
 	if(!strcmp(cmd, "/reconnect")) {
+		char* uuid = strdup(device->uuid);
 		irecv_close(device);
-		irecv_open(device);
+		irecv_open(device, uuid);
+		free(uuid);
 	} else
 	
 	if(!strcmp(cmd, "/upload")) {
@@ -151,6 +153,7 @@ void print_usage() {
 	printf("iRecovery - iDevice Recovery Utility\n");
 	printf("Usage: ./irecovery [args]\n");
 	printf("\t-v\t\tStart irecovery in verbose mode.\n");
+	printf("\t-u <uuid>\ttarget specific device by its 40-digit device UUID\n");
 	printf("\t-c <cmd>\tSend command to device.\n");
 	printf("\t-f <file>\tSend file to device.\n");
 	printf("\t-h\t\tShow this help.\n");
@@ -163,9 +166,10 @@ int main(int argc, char** argv) {
 	int opt = 0;
 	int action = 0;
 	char* argument = NULL;
+	char *uuid = NULL;
 	irecv_error_t error = 0;
 	if(argc == 1) print_usage();
-	while ((opt = getopt(argc, argv, "vhrsc:f:")) > 0) {
+	while ((opt = getopt(argc, argv, "vhru:sc:f:")) > 0) {
 		switch (opt) {
 		case 'v':
 			verbose += 1;
@@ -177,6 +181,10 @@ int main(int argc, char** argv) {
 
 		case 'r':
 			action = kResetDevice;
+			break;
+
+		case 'u':
+			uuid = optarg;
 			break;
 
 		case 's':
@@ -195,7 +203,7 @@ int main(int argc, char** argv) {
 
 		default:
 			fprintf(stderr, "Unknown argument\n");
-			break;
+			return -1;
 		}
 	}
 
@@ -209,14 +217,16 @@ int main(int argc, char** argv) {
 	int i = 0;
 	for(i = 0; i <= 5; i++) {
 		debug("Attempting to connect... ");
+
+		if(irecv_open(device, uuid) < 0) sleep(1);
+		else break;
+
+		debug("failed. No recovery device found.\n");
+
 		if(i == 5) {
 			irecv_exit(device);
 			return -1;
 		}
-
-		if(irecv_open(device) < 0) sleep(1);
-		else break;
-		debug("failed\n");
 	}
 
 	switch(action) {
