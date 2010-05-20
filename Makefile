@@ -1,4 +1,4 @@
-all: static
+all:
 	@echo "Please choose either macosx, linux, or windows"
 
 static:
@@ -18,6 +18,16 @@ macosx:
 windows:
 	gcc -o libirecovery.dll -c src/libirecovery.c -I. -lusb-1.0 -lreadline -shared -fPIC
 	gcc -o irecovery irecovery.c -I. -lirecovery -lreadline
+	
+install:
+	cp libirecovery.so /usr/local/lib/libirecovery.so
+	cp include/libirecovery.h /usr/local/include/libirecovery.h
+	cp irecovery /usr/local/bin/irecovery
+	
+uninstall:
+	rm -rf /usr/local/lib/libirecovery.so
+	rm -rf include/libirecovery.h /usr/local/include/libirecovery.h
+	rm -rf /usr/local/bin/irecovery
 		
 clean:
 	rm -rf irecovery libirecovery.o libirecovery.so libirecovery.a

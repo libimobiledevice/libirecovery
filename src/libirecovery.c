@@ -332,7 +332,7 @@ irecv_error_t irecv_send_buffer(irecv_device_t* device, unsigned char* buffer, u
 	unsigned int status = 0;
 	for (i = 0; i < packets; i++) {
 		int size = i + 1 < packets ? 0x800 : last;
-		int bytes = libusb_control_transfer(device->handle, 0x21, 1, i, 0, &buffer[i * 0x800], size, 1000);
+		int bytes = libusb_control_transfer(device->handle, 0x21, 1, 0, 0, &buffer[i * 0x800], size, 1000);
 		if (bytes != size) {
 			return IRECV_ERROR_USB_UPLOAD;
 		}
@@ -350,18 +350,13 @@ irecv_error_t irecv_send_buffer(irecv_device_t* device, unsigned char* buffer, u
 
 	}
 
-	//char command[0x100];
-	//memset(command, '\0', 0x100);
-	//snprintf(command, 0x100, "setenv filesize %d", length);
-	libusb_control_transfer(device->handle, 0x21, 1, i, 0, buffer, 0, 1000);
+	libusb_control_transfer(device->handle, 0x21, 1, 0, 0, buffer, 0, 1000);
 	for (i = 0; i < 3; i++) {
 		error = irecv_get_status(device, &status);
 		if(error != IRECV_SUCCESS) {
 			return error;
 		}
 	}
-
-	//irecv_send_command(device, command);
 
 	return IRECV_SUCCESS;
 }
