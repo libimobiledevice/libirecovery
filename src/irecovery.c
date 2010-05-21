@@ -35,12 +35,12 @@ static unsigned int verbose = 0;
 
 void print_shell_usage() {
 	printf("Usage:\n");
-	printf("\t/upload <file>\tSend file to device.\n");
+	printf("\t/upload <file>\tSend file to client.\n");
 	printf("\t/help\t\tShow this help.\n");
 	printf("\t/exit\t\tExit interactive shell.\n");
 }
 
-void parse_command(irecv_device_t* device, unsigned char* command, unsigned int size) {
+void parse_command(irecv_client_t client, unsigned char* command, unsigned int size) {
 	char* cmd = strtok(strdup(command), " ");
 	debug("Executing %s %s\n", cmd, command);
 	if(!strcmp(cmd, "/exit")) {
@@ -50,25 +50,18 @@ void parse_command(irecv_device_t* device, unsigned char* command, unsigned int 
 	if(!strcmp(cmd, "/help")) {
 		print_shell_usage();
 	} else
-
-	if(!strcmp(cmd, "/reconnect")) {
-		char* uuid = strdup(device->uuid);
-		irecv_close(device);
-		irecv_open(device, uuid);
-		free(uuid);
-	} else
 	
 	if(!strcmp(cmd, "/upload")) {
 		char* filename = strtok(NULL, " ");
 		debug("Sending %s\n", filename);
 		if(filename != NULL) {
-			irecv_send_file(device, filename);
+			irecv_send_file(client, filename);
 		}
 	}
 	free(cmd);
 }
 
-int recv_callback(irecv_device_t* device, unsigned char* data, int size) {
+int recv_callback(irecv_client_t client, unsigned char* data, int size) {
 	int i = 0;
 	for(i = 0; i < size; i++) {
 		printf("%c", data[i]);
@@ -76,23 +69,23 @@ int recv_callback(irecv_device_t* device, unsigned char* data, int size) {
 	return size;
 }
 
-int send_callback(irecv_device_t* device, unsigned char* command, int size) {
+int send_callback(irecv_client_t client, unsigned char* command, int size) {
 	irecv_error_t error = 0;
 	if(command[0] == '/') {
-		parse_command(device, command, size);
+		parse_command(client, command, size);
 		return 0;
 	}
 
 	if(strstr(command, "getenv") != NULL) {
 		unsigned char* value = NULL;
-		error = irecv_send_command(device, command);
-		if(error != IRECV_SUCCESS) {
+		error = irecv_send_command(client, command);
+		if(error != IRECV_E_SUCCESS) {
 			debug("%s\n", irecv_strerror(error));
 			return error;
 		}
 
-		error = irecv_getenv(device, &value);
-		if(error != IRECV_SUCCESS) {
+		error = irecv_getenv(client, &value);
+		if(error != IRECV_E_SUCCESS) {
 			debug("%s\n", irecv_strerror(error));
 			return error;
 		}
@@ -103,8 +96,8 @@ int send_callback(irecv_device_t* device, unsigned char* command, int size) {
 	}
 
 	if(!strcmp(command, "reboot")) {
-		error = irecv_send_command(device, command);
-		if(error != IRECV_SUCCESS) {
+		error = irecv_send_command(client, command);
+		if(error != IRECV_E_SUCCESS) {
 			debug("%s\n", irecv_strerror(error));
 			return error;
 		}
@@ -124,22 +117,22 @@ void append_command_to_history(char* cmd) {
 	write_history(FILE_HISTORY_PATH);
 }
 
-void init_shell(irecv_device_t* device) {
+void init_shell(irecv_client_t client) {
 	irecv_error_t error = 0;
 	load_command_history();
-	irecv_set_sender(device, &send_callback);
-	irecv_set_receiver(device, &recv_callback);
+	irecv_set_sender(client, &send_callback);
+	irecv_set_receiver(client, &recv_callback);
 	while(!quit) {
-		error = irecv_receive(device);
-		if(error != IRECV_SUCCESS) {
+		error = irecv_receive(client);
+		if(error != IRECV_E_SUCCESS) {
 			debug("%s\n", irecv_strerror(error));
 			break;
 		}
 		
 		char* cmd = readline("> ");
 		if(cmd && *cmd) {
-			error = irecv_send(device, cmd);
-			if(error != IRECV_SUCCESS) {
+			error = irecv_send(client, cmd);
+			if(error != IRECV_E_SUCCESS) {
 				quit = 1;
 			}
 			
@@ -153,16 +146,17 @@ void print_usage() {
 	printf("iRecovery - iDevice Recovery Utility\n");
 	printf("Usage: ./irecovery [args]\n");
 	printf("\t-v\t\tStart irecovery in verbose mode.\n");
-	printf("\t-u <uuid>\ttarget specific device by its 40-digit device UUID\n");
-	printf("\t-c <cmd>\tSend command to device.\n");
-	printf("\t-f <file>\tSend file to device.\n");
+	printf("\t-u <uuid>\ttarget specific client by its 40-digit client UUID\n");
+	printf("\t-c <cmd>\tSend command to client.\n");
+	printf("\t-f <file>\tSend file to client.\n");
 	printf("\t-h\t\tShow this help.\n");
-	printf("\t-r\t\tReset device.\n");
+	printf("\t-r\t\tReset client.\n");
 	printf("\t-s\t\tStart interactive shell.\n");
 	exit(1);
 }
 
 int main(int argc, char** argv) {
+	int i = 0;
 	int opt = 0;
 	int action = 0;
 	char* argument = NULL;
@@ -179,12 +173,12 @@ int main(int argc, char** argv) {
 			print_usage();
 			break;
 
-		case 'r':
-			action = kResetDevice;
-			break;
-
 		case 'u':
 			uuid = optarg;
+			break;
+
+		case 'r':
+			action = kResetDevice;
 			break;
 
 		case 's':
@@ -207,45 +201,37 @@ int main(int argc, char** argv) {
 		}
 	}
 
-	irecv_device_t* device = irecv_init();
-	if(device == NULL) {
-		fprintf(stderr, "Unable to initialize libirecovery\n");
-		return -1;
-	}
-	if(verbose) irecv_set_debug(device, verbose);
-
-	int i = 0;
+	irecv_client_t client = NULL;
 	for(i = 0; i <= 5; i++) {
-		debug("Attempting to connect... ");
+		debug("Attempting to connect... \n");
 
-		if(irecv_open(device, uuid) < 0) sleep(1);
+		if(irecv_open(&client, uuid) != IRECV_E_SUCCESS) sleep(1);
 		else break;
 
-		debug("failed. No recovery device found.\n");
-
 		if(i == 5) {
-			irecv_exit(device);
 			return -1;
 		}
 	}
 
+	if(verbose) irecv_set_debug(client, verbose);
+
 	switch(action) {
 	case kResetDevice:
-		irecv_reset(device);
+		irecv_reset(client);
 		break;
 
 	case kSendFile:
-		error = irecv_send_file(device, argument);
+		error = irecv_send_file(client, argument);
 		debug("%s\n", irecv_strerror(error));
 		break;
 
 	case kSendCommand:
-		error = irecv_send_command(device, argument);
+		error = irecv_send_command(client, argument);
 		debug("%s\n", irecv_strerror(error));
 		break;
 
 	case kStartShell:
-		init_shell(device);
+		init_shell(client);
 		break;
 
 	default:
@@ -253,7 +239,7 @@ int main(int argc, char** argv) {
 		break;
 	}
 
-	irecv_exit(device);
+	irecv_close(client);
 	return 0;
 }
 

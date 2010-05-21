@@ -1,4 +1,4 @@
-all:
+all: linux
 	@echo "Please choose either macosx, linux, or windows"
 
 static:
@@ -26,7 +26,7 @@ install:
 	
 uninstall:
 	rm -rf /usr/local/lib/libirecovery.so
-	rm -rf include/libirecovery.h /usr/local/include/libirecovery.h
+	rm -rf /usr/local/include/libirecovery.h
 	rm -rf /usr/local/bin/irecovery
 		
 clean:
