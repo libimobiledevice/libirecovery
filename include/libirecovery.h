@@ -18,29 +18,29 @@
 
 #include <libusb-1.0/libusb.h>
 
-typedef enum {
-	IRECV_E_SUCCESS =             0,
-	IRECV_E_NO_DEVICE =          -1,
-	IRECV_E_OUT_OF_MEMORY =      -2,
-	IRECV_E_UNABLE_TO_CONNECT =  -3,
-	IRECV_E_INVALID_INPUT =      -4,
-	IRECV_E_UNKNOWN =            -5,
-	IRECV_E_FILE_NOT_FOUND =     -6,
-	IRECV_E_USB_UPLOAD =         -7,
-	IRECV_E_USB_STATUS =         -8,
-	IRECV_E_USB_INTERFACE =      -9,
-	IRECV_E_USB_CONFIGURATION =  -10
-} irecv_error_t;
-
 #define APPLE_VENDOR_ID 0x05AC
 
-typedef enum {
+enum {
 	kRecoveryMode1 = 0x1280,
 	kRecoveryMode2 = 0x1281,
 	kRecoveryMode3 = 0x1282,
 	kRecoveryMode4 = 0x1283,
 	kDfuMode       = 0x1227
-} irecv_mode_t;
+};
+
+typedef enum {
+	IRECV_E_SUCCESS =              0,
+	IRECV_E_NO_DEVICE =           -1,
+	IRECV_E_OUT_OF_MEMORY =       -2,
+	IRECV_E_UNABLE_TO_CONNECT =   -3,
+	IRECV_E_INVALID_INPUT =       -4,
+	IRECV_E_FILE_NOT_FOUND =      -5,
+	IRECV_E_USB_UPLOAD =          -6,
+	IRECV_E_USB_STATUS =          -7,
+	IRECV_E_USB_INTERFACE =       -8,
+	IRECV_E_USB_CONFIGURATION =   -9,
+	IRECV_E_UNKNOWN_ERROR =     -255
+} irecv_error_t;
 
 struct irecv_client;
 typedef struct irecv_client* irecv_client_t;
@@ -53,8 +53,7 @@ struct irecv_client {
 	int config;
 	int interface;
 	int alt_interface;
-	char *uuid;
-	irecv_mode_t mode;
+	unsigned short mode;
 	libusb_context* context;
 	libusb_device_handle* handle;
 	irecv_send_callback send_callback;

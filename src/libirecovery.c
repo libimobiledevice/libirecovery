@@ -27,18 +27,6 @@
 #define BUFFER_SIZE 0x1000
 #define debug(...) if(client->debug) fprintf(stderr, __VA_ARGS__)
 
-const char* irecv_error_invalid_input     = "Invalid input";
-const char* irecv_error_unknown           = "Unknown error";
-const char* irecv_error_file_not_found    = "Unable to find file";
-const char* irecv_error_usb_status        = "Invalid device status";
-const char* irecv_error_no_device         = "Unable to find device";
-const char* irecv_error_out_of_memory     = "Unable to allocate memory";
-const char* irecv_error_unable_to_connect = "Unable to connect to device";
-const char* irecv_error_usb_interface     = "Unable to set device interface";
-const char* irecv_error_success           = "Command completed successfully";
-const char* irecv_error_usb_upload        = "Unable to upload data to device";
-const char* irecv_error_usb_configuration = "Unable to set device configuration";
-
 int irecv_default_sender(irecv_client_t client, unsigned char* data, int size);
 int irecv_default_receiver(irecv_client_t client, unsigned char* data, int size);
 
@@ -85,22 +73,17 @@ irecv_error_t irecv_open(irecv_client_t* pclient, const char* uuid) {
 					return IRECV_E_OUT_OF_MEMORY;
 				}
 				memset(client, '\0', sizeof(irecv_client_t));
+				client->interface = -1;
 				client->handle = usb_handle;
 				client->context = usb_context;
-				client->mode = (irecv_mode_t) usb_descriptor.idProduct;
+				client->mode = usb_descriptor.idProduct;
 
 				error = irecv_set_configuration(client, 1);
 				if(error != IRECV_E_SUCCESS) {
 					return error;
 				}
 
-				error = irecv_set_interface(client, 1, 1);
-				if(error != IRECV_E_SUCCESS) {
-					return error;
-				}
-
 				*pclient = client;
-				printf("done");
 				return IRECV_E_SUCCESS;
 			}
 		}
@@ -133,9 +116,11 @@ irecv_error_t irecv_set_interface(irecv_client_t client, int interface, int alt_
 		return IRECV_E_NO_DEVICE;
 	}
 
-	debug("Setting to interface %d:%d", interface, alt_interface);
-	libusb_reset_device(client->handle);
+	if(client->interface == interface) {
+		return IRECV_E_SUCCESS;
+	}
 
+	debug("Setting to interface %d:%d", interface, alt_interface);
 	if (libusb_claim_interface(client->handle, interface) < 0) {
 		return IRECV_E_USB_INTERFACE;
 	}
@@ -150,7 +135,7 @@ irecv_error_t irecv_set_interface(irecv_client_t client, int interface, int alt_
 }
 
 irecv_error_t irecv_reset(irecv_client_t client) {
-	if (client == NULL || client->handle != NULL) {
+	if (client == NULL || client->handle == NULL) {
 		return IRECV_E_NO_DEVICE;
 	}
 
@@ -161,7 +146,9 @@ irecv_error_t irecv_reset(irecv_client_t client) {
 irecv_error_t irecv_close(irecv_client_t client) {
 	if (client != NULL) {
 		if (client->handle != NULL) {
-			libusb_release_interface(client->handle, 1);
+			if(client->interface >= 0) {
+				libusb_release_interface(client->handle, client->interface);
+			}
 			libusb_close(client->handle);
 			client->handle = NULL;
 		}
@@ -169,10 +156,6 @@ irecv_error_t irecv_close(irecv_client_t client) {
 		if (client->context != NULL) {
 			libusb_exit(client->context);
 			client->context = NULL;
-		}
-
-		if(client->uuid != NULL) {
-			free(client->uuid);
 		}
 
 		free(client);
@@ -220,6 +203,11 @@ irecv_error_t irecv_send_command(irecv_client_t client, unsigned char* command) 
 		return IRECV_E_NO_DEVICE;
 	}
 
+	irecv_error_t error = irecv_set_interface(client, 1, 1);
+	if(error != IRECV_E_SUCCESS) {
+		return error;
+	}
+
 	unsigned int length = strlen(command);
 	if(length >= 0x100) {
 		length = 0xFF;
@@ -257,7 +245,7 @@ irecv_error_t irecv_send_file(irecv_client_t client, const char* filename) {
 
 	if(bytes != length) {
 		free(buffer);
-		return IRECV_E_UNKNOWN;
+		return IRECV_E_UNKNOWN_ERROR;
 	}
 
 	irecv_error_t error = irecv_send_buffer(client, buffer, length);
@@ -271,6 +259,11 @@ irecv_error_t irecv_get_status(irecv_client_t client, unsigned int* status) {
 		return IRECV_E_NO_DEVICE;
 	}
 	
+	irecv_error_t error = irecv_set_interface(client, 1, 1);
+	if(error != IRECV_E_SUCCESS) {
+		return error;
+	}
+
 	unsigned char buffer[6];
 	memset(buffer, '\0', 6);
 	if(libusb_control_transfer(client->handle, 0xA1, 3, 0, 0, buffer, 6, 1000) != 6) {
@@ -287,6 +280,11 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 	irecv_error_t error = 0;
 	if(client == NULL || client->handle == NULL) {
 		return IRECV_E_NO_DEVICE;
+	}
+
+	error = irecv_set_interface(client, 1, 1);
+	if(error != IRECV_E_SUCCESS) {
+		return error;
 	}
 
 	int last = length % 0x800;
@@ -312,7 +310,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 		}
 
 		if(status != 5) {
-			return IRECV_E_USB_STATUS;
+			return IRECV_E_USB_UPLOAD;
 		}
 
 	}
@@ -335,12 +333,17 @@ irecv_error_t irecv_receive(irecv_client_t client) {
 		return IRECV_E_NO_DEVICE;
 	}
 
+	irecv_error_t error = irecv_set_interface(client, 1, 1);
+	if(error != IRECV_E_SUCCESS) {
+		return error;
+	}
+
 	int bytes = 0;
 	while(libusb_bulk_transfer(client->handle, 0x81, buffer, BUFFER_SIZE, &bytes, 100) == 0) {
 		if(bytes > 0) {
 			if(client->receive_callback != NULL) {
 				if(client->receive_callback(client, buffer, bytes) != bytes) {
-					return IRECV_E_UNKNOWN;
+					return IRECV_E_UNKNOWN_ERROR;
 				}
 			}
 		} else break;
@@ -380,14 +383,23 @@ irecv_error_t irecv_set_sender(irecv_client_t client, irecv_send_callback callba
 }
 
 irecv_error_t irecv_getenv(irecv_client_t client, unsigned char** var) {
-	unsigned char* value = (unsigned char*) malloc(0x200);
+	if(client == NULL || client->handle == NULL) {
+		return IRECV_E_NO_DEVICE;
+	}
+
+	irecv_error_t error = irecv_set_interface(client, 1, 1);
+	if(error != IRECV_E_SUCCESS) {
+		return error;
+	}
+
+	unsigned char* value = (unsigned char*) malloc(256);
 	if(value == NULL) {
 		return IRECV_E_OUT_OF_MEMORY;
 	}
 
-	int ret =  libusb_control_transfer(client->handle, 0xC0, 0, 0, 0, value, 0x200, 500);
+	int ret =  libusb_control_transfer(client->handle, 0xC0, 0, 0, 0, value, 256, 500);
 	if(ret < 0) {
-		return IRECV_E_UNKNOWN;
+		return IRECV_E_UNKNOWN_ERROR;
 	}
 
 	*var = value;
@@ -398,56 +410,59 @@ irecv_error_t irecv_getenv(irecv_client_t client, unsigned char** var) {
 irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* ecid) {
 	char info[256];
 	memset(info, '\0', 256);
-	libusb_get_string_descriptor_ascii(client->handle, 3, info, 0x100);
-	debug("%s\n", info);
+
+	if(client == NULL || client->handle == NULL) {
+		return IRECV_E_NO_DEVICE;
+	}
+
+	libusb_get_string_descriptor_ascii(client->handle, 3, info, 255);
+	printf("%d: %s\n", strlen(info), info);
 
 	unsigned char* ecid_string = strstr(info, "ECID:");
 	if(ecid_string == NULL) {
 		*ecid = 0;
-		return IRECV_E_UNKNOWN;
+		return IRECV_E_UNKNOWN_ERROR;
 	}
 	sscanf(ecid_string, "ECID:%qX", ecid);
 
+	irecv_reset(client);
 	return IRECV_E_SUCCESS;
 }
 
 const char* irecv_strerror(irecv_error_t error) {
 	switch(error) {
 	case IRECV_E_SUCCESS:
-		return irecv_error_success;
+		return "Command completed successfully";
 		
 	case IRECV_E_NO_DEVICE:
-		return irecv_error_no_device;
+		return "Unable to find device";
 		
 	case IRECV_E_OUT_OF_MEMORY:
-		return irecv_error_out_of_memory;
+		return "Out of memory";
 		
 	case IRECV_E_UNABLE_TO_CONNECT:
-		return irecv_error_unable_to_connect;
+		return "Unable to connect to device";
 		
 	case IRECV_E_INVALID_INPUT:
-		return irecv_error_invalid_input;
-		
-	case IRECV_E_UNKNOWN:
-		return irecv_error_unknown;
+		return "Invalid input";
 		
 	case IRECV_E_FILE_NOT_FOUND:
-		return irecv_error_file_not_found;
+		return "File not found";
 		
 	case IRECV_E_USB_UPLOAD:
-		return irecv_error_usb_upload;
+		return "Unable to upload data to device";
 		
 	case IRECV_E_USB_STATUS:
-		return irecv_error_usb_status;
+		return "Unable to get device status";
 		
 	case IRECV_E_USB_INTERFACE:
-		return irecv_error_usb_interface;
+		return "Unable to set device interface";
 		
 	case IRECV_E_USB_CONFIGURATION:
-		return irecv_error_usb_configuration;
+		return "Unable to set device configuration";
 		
 	default:
-		return irecv_error_unknown;
+		return "Unknown error";
 	}
 	
 	return NULL;
