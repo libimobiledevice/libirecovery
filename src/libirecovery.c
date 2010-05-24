@@ -153,7 +153,7 @@ irecv_error_t irecv_close(irecv_client_t client) {
 		}
 
 		if (client->context != NULL) {
-			libusb_exit(NULL);
+			libusb_exit(client->context);
 			client->context = NULL;
 		}
 
