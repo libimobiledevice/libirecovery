@@ -119,7 +119,7 @@ void append_command_to_history(char* cmd) {
 
 void init_shell(irecv_client_t client) {
 	irecv_error_t error = 0;
-	load_command_history();
+	//load_command_history();
 	irecv_set_sender(client, &send_callback);
 	irecv_set_receiver(client, &recv_callback);
 	while(!quit) {
@@ -136,7 +136,7 @@ void init_shell(irecv_client_t client) {
 				quit = 1;
 			}
 			
-			append_command_to_history(cmd);
+			//append_command_to_history(cmd);
 			free(cmd);
 		}
 	}
@@ -160,10 +160,9 @@ int main(int argc, char** argv) {
 	int opt = 0;
 	int action = 0;
 	char* argument = NULL;
-	char *uuid = NULL;
 	irecv_error_t error = 0;
 	if(argc == 1) print_usage();
-	while ((opt = getopt(argc, argv, "vhru:sc:f:")) > 0) {
+	while ((opt = getopt(argc, argv, "vhrsc:f:")) > 0) {
 		switch (opt) {
 		case 'v':
 			verbose += 1;
@@ -171,10 +170,6 @@ int main(int argc, char** argv) {
 
 		case 'h':
 			print_usage();
-			break;
-
-		case 'u':
-			uuid = optarg;
 			break;
 
 		case 'r':
@@ -205,7 +200,7 @@ int main(int argc, char** argv) {
 	for(i = 0; i <= 5; i++) {
 		debug("Attempting to connect... \n");
 
-		if(irecv_open(&client, uuid) != IRECV_E_SUCCESS) sleep(1);
+		if(irecv_open(&client) != IRECV_E_SUCCESS) sleep(1);
 		else break;
 
 		if(i == 5) {

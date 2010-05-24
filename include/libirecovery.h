@@ -61,7 +61,7 @@ struct irecv_client {
 };
 
 const char* irecv_strerror(irecv_error_t error);
-irecv_error_t irecv_open(irecv_client_t* client, const char *uuid);
+irecv_error_t irecv_open(irecv_client_t* client);
 irecv_error_t irecv_reset(irecv_client_t client);
 irecv_error_t irecv_close(irecv_client_t client);
 irecv_error_t irecv_receive(irecv_client_t client);

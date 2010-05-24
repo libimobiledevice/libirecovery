@@ -30,7 +30,7 @@
 int irecv_default_sender(irecv_client_t client, unsigned char* data, int size);
 int irecv_default_receiver(irecv_client_t client, unsigned char* data, int size);
 
-irecv_error_t irecv_open(irecv_client_t* pclient, const char* uuid) {
+irecv_error_t irecv_open(irecv_client_t* pclient) {
 	int i = 0;
 	char serial[256];
 	struct libusb_device* usb_device = NULL;
@@ -63,16 +63,15 @@ irecv_error_t irecv_open(irecv_client_t* pclient, const char* uuid) {
 				}
 				libusb_set_debug(usb_context, 3);
 
-				/* identified a valid recovery device */
-				libusb_free_device_list(usb_device_list, 1);
+				libusb_free_device_list(usb_device_list, 0);
 
-				irecv_client_t client = (irecv_client_t) malloc(sizeof(irecv_client_t));
+				irecv_client_t client = (irecv_client_t) malloc(sizeof(struct irecv_client));
 				if (client == NULL) {
 					libusb_close(usb_handle);
 					libusb_exit(usb_context);
 					return IRECV_E_OUT_OF_MEMORY;
 				}
-				memset(client, '\0', sizeof(irecv_client_t));
+				memset(client, '\0', sizeof(struct irecv_client));
 				client->interface = -1;
 				client->handle = usb_handle;
 				client->context = usb_context;
@@ -154,7 +153,7 @@ irecv_error_t irecv_close(irecv_client_t client) {
 		}
 
 		if (client->context != NULL) {
-			libusb_exit(client->context);
+			libusb_exit(NULL);
 			client->context = NULL;
 		}
 
