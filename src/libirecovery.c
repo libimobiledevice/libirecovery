@@ -428,6 +428,21 @@ irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* ecid) {
 	return IRECV_E_SUCCESS;
 }
 
+
+irecv_error_t irecv_send_exploit(irecv_client_t client) {
+	if(client == NULL || client->handle == NULL) {
+		return IRECV_E_NO_DEVICE;
+	}
+
+	irecv_error_t error = irecv_set_interface(client, 1, 1);
+	if(error != IRECV_E_SUCCESS) {
+		return error;
+	}
+
+	libusb_control_transfer(client->handle, 0x21, 2, 0, 0, NULL, 0, 100);
+	return IRECV_E_SUCCESS;
+}
+
 const char* irecv_strerror(irecv_error_t error) {
 	switch(error) {
 	case IRECV_E_SUCCESS:

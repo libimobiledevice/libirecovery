@@ -27,7 +27,7 @@
 #define debug(...) if(verbose) fprintf(stderr, __VA_ARGS__)
 
 enum {
-	kResetDevice, kStartShell, kSendCommand, kSendFile
+	kResetDevice, kStartShell, kSendCommand, kSendFile, kSendExploit
 };
 
 static unsigned int quit = 0;
@@ -146,9 +146,9 @@ void print_usage() {
 	printf("iRecovery - iDevice Recovery Utility\n");
 	printf("Usage: ./irecovery [args]\n");
 	printf("\t-v\t\tStart irecovery in verbose mode.\n");
-	printf("\t-u <uuid>\ttarget specific client by its 40-digit client UUID\n");
 	printf("\t-c <cmd>\tSend command to client.\n");
 	printf("\t-f <file>\tSend file to client.\n");
+	printf("\t-k [exploit]\tSend usb exploit to client.\n");
 	printf("\t-h\t\tShow this help.\n");
 	printf("\t-r\t\tReset client.\n");
 	printf("\t-s\t\tStart interactive shell.\n");
@@ -162,7 +162,7 @@ int main(int argc, char** argv) {
 	char* argument = NULL;
 	irecv_error_t error = 0;
 	if(argc == 1) print_usage();
-	while ((opt = getopt(argc, argv, "vhrsc:f:")) > 0) {
+	while ((opt = getopt(argc, argv, "vhrsc:f:k::")) > 0) {
 		switch (opt) {
 		case 'v':
 			verbose += 1;
@@ -187,6 +187,11 @@ int main(int argc, char** argv) {
 
 		case 'c':
 			action = kSendCommand;
+			argument = optarg;
+			break;
+
+		case 'k':
+			action = kSendExploit;
 			argument = optarg;
 			break;
 
@@ -222,6 +227,18 @@ int main(int argc, char** argv) {
 
 	case kSendCommand:
 		error = irecv_send_command(client, argument);
+		debug("%s\n", irecv_strerror(error));
+		break;
+
+	case kSendExploit:
+		if(argument != NULL) {
+			error = irecv_send_file(client, argument);
+			if(error != IRECV_E_SUCCESS) {
+				debug("%s\n", irecv_strerror(error));
+				break;
+			}
+		}
+		error = irecv_send_exploit(client);
 		debug("%s\n", irecv_strerror(error));
 		break;
 

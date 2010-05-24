@@ -65,6 +65,7 @@ irecv_error_t irecv_open(irecv_client_t* client);
 irecv_error_t irecv_reset(irecv_client_t client);
 irecv_error_t irecv_close(irecv_client_t client);
 irecv_error_t irecv_receive(irecv_client_t client);
+irecv_error_t irecv_send_exploit(irecv_client_t client);
 irecv_error_t irecv_set_debug(irecv_client_t client, int level);
 irecv_error_t irecv_getenv(irecv_client_t client, unsigned char** var);
 irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* pecid);
