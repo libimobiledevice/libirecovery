@@ -43,18 +43,18 @@ void print_shell_usage() {
 void parse_command(irecv_client_t client, unsigned char* command, unsigned int size) {
 	char* cmd = strtok(strdup(command), " ");
 	debug("Executing %s %s\n", cmd, command);
-	if(!strcmp(cmd, "/exit")) {
+	if (!strcmp(cmd, "/exit")) {
 		quit = 1;
 	} else
-	
-	if(!strcmp(cmd, "/help")) {
+
+	if (!strcmp(cmd, "/help")) {
 		print_shell_usage();
 	} else
-	
-	if(!strcmp(cmd, "/upload")) {
+
+	if (!strcmp(cmd, "/upload")) {
 		char* filename = strtok(NULL, " ");
 		debug("Sending %s\n", filename);
-		if(filename != NULL) {
+		if (filename != NULL) {
 			irecv_send_file(client, filename);
 		}
 	}
@@ -63,47 +63,14 @@ void parse_command(irecv_client_t client, unsigned char* command, unsigned int s
 
 int recv_callback(irecv_client_t client, unsigned char* data, int size) {
 	int i = 0;
-	for(i = 0; i < size; i++) {
+	for (i = 0; i < size; i++) {
 		printf("%c", data[i]);
 	}
 	return size;
 }
 
 int send_callback(irecv_client_t client, unsigned char* command, int size) {
-	irecv_error_t error = 0;
-	if(command[0] == '/') {
-		parse_command(client, command, size);
-		return 0;
-	}
 
-	if(strstr(command, "getenv") != NULL) {
-		unsigned char* value = NULL;
-		error = irecv_send_command(client, command);
-		if(error != IRECV_E_SUCCESS) {
-			debug("%s\n", irecv_strerror(error));
-			return error;
-		}
-
-		error = irecv_getenv(client, &value);
-		if(error != IRECV_E_SUCCESS) {
-			debug("%s\n", irecv_strerror(error));
-			return error;
-		}
-
-		printf("%s\n", value);
-		free(value);
-		return 0;
-	}
-
-	if(!strcmp(command, "reboot")) {
-		error = irecv_send_command(client, command);
-		if(error != IRECV_E_SUCCESS) {
-			debug("%s\n", irecv_strerror(error));
-			return error;
-		}
-		quit = 1;
-		return 0;
-	}
 
 	return size;
 }
@@ -119,24 +86,25 @@ void append_command_to_history(char* cmd) {
 
 void init_shell(irecv_client_t client) {
 	irecv_error_t error = 0;
-	//load_command_history();
-	irecv_set_sender(client, &send_callback);
+	load_command_history();
 	irecv_set_receiver(client, &recv_callback);
-	while(!quit) {
+	irecv_event_subscribe(client, IRECV_PRECOMMAND, &precommand_cb, NULL);
+	irecv_event_subscribe(client, IRECV_POSTCOMMAND, &postcommand_cb, NULL);
+	while (!quit) {
 		error = irecv_receive(client);
-		if(error != IRECV_E_SUCCESS) {
+		if (error != IRECV_E_SUCCESS) {
 			debug("%s\n", irecv_strerror(error));
 			break;
 		}
-		
+
 		char* cmd = readline("> ");
-		if(cmd && *cmd) {
-			error = irecv_send(client, cmd);
-			if(error != IRECV_E_SUCCESS) {
+		if (cmd && *cmd) {
+			error = irecv_send_command(client, cmd);
+			if (error != IRECV_E_SUCCESS) {
 				quit = 1;
 			}
-			
-			//append_command_to_history(cmd);
+
+			append_command_to_history(cmd);
 			free(cmd);
 		}
 	}
@@ -155,13 +123,43 @@ void print_usage() {
 	exit(1);
 }
 
+int precommand_cb(irecv_client_t client, const irecv_event_t* event) {
+	irecv_error_t error = 0;
+	if (event->data[0] == '/') {
+		parse_command(client, event->data, strlen(event->data));
+		return -1;
+	}
+	return 0;
+}
+
+int postcommand_cb(irecv_client_t client, const irecv_event_t* event) {
+	irecv_error_t error = 0;
+	if (strstr(event->data, "getenv") != NULL) {
+		unsigned char* value = NULL;
+		error = irecv_getenv(client, &value);
+		if (error != IRECV_E_SUCCESS) {
+			debug("%s\n", irecv_strerror(error));
+			return error;
+		}
+
+		printf("%s\n", value);
+		free(value);
+	}
+
+	if (!strcmp(event->data, "reboot")) {
+		quit = 1;
+	}
+
+	return 0;
+}
+
 int main(int argc, char** argv) {
 	int i = 0;
 	int opt = 0;
 	int action = 0;
 	char* argument = NULL;
 	irecv_error_t error = 0;
-	if(argc == 1) print_usage();
+	if (argc == 1) print_usage();
 	while ((opt = getopt(argc, argv, "vhrsc:f:k::")) > 0) {
 		switch (opt) {
 		case 'v':
@@ -202,20 +200,22 @@ int main(int argc, char** argv) {
 	}
 
 	irecv_client_t client = NULL;
-	for(i = 0; i <= 5; i++) {
+	for (i = 0; i <= 5; i++) {
 		debug("Attempting to connect... \n");
 
-		if(irecv_open(&client) != IRECV_E_SUCCESS) sleep(1);
-		else break;
+		if (irecv_open(&client) != IRECV_E_SUCCESS)
+			sleep(1);
+		else
+			break;
 
-		if(i == 5) {
+		if (i == 5) {
 			return -1;
 		}
 	}
 
-	if(verbose) irecv_set_debug(client, verbose);
+	if (verbose) irecv_set_debug(client, verbose);
 
-	switch(action) {
+	switch (action) {
 	case kResetDevice:
 		irecv_reset(client);
 		break;
@@ -231,9 +231,9 @@ int main(int argc, char** argv) {
 		break;
 
 	case kSendExploit:
-		if(argument != NULL) {
+		if (argument != NULL) {
 			error = irecv_send_file(client, argument);
-			if(error != IRECV_E_SUCCESS) {
+			if (error != IRECV_E_SUCCESS) {
 				debug("%s\n", irecv_strerror(error));
 				break;
 			}

@@ -25,28 +25,44 @@ enum {
 	kRecoveryMode2 = 0x1281,
 	kRecoveryMode3 = 0x1282,
 	kRecoveryMode4 = 0x1283,
-	kDfuMode       = 0x1227
+	kDfuMode = 0x1227
 };
 
 typedef enum {
-	IRECV_E_SUCCESS =              0,
-	IRECV_E_NO_DEVICE =           -1,
-	IRECV_E_OUT_OF_MEMORY =       -2,
-	IRECV_E_UNABLE_TO_CONNECT =   -3,
-	IRECV_E_INVALID_INPUT =       -4,
-	IRECV_E_FILE_NOT_FOUND =      -5,
-	IRECV_E_USB_UPLOAD =          -6,
-	IRECV_E_USB_STATUS =          -7,
-	IRECV_E_USB_INTERFACE =       -8,
-	IRECV_E_USB_CONFIGURATION =   -9,
-	IRECV_E_UNKNOWN_ERROR =     -255
+	IRECV_E_SUCCESS = 0,
+	IRECV_E_NO_DEVICE = -1,
+	IRECV_E_OUT_OF_MEMORY = -2,
+	IRECV_E_UNABLE_TO_CONNECT = -3,
+	IRECV_E_INVALID_INPUT = -4,
+	IRECV_E_FILE_NOT_FOUND = -5,
+	IRECV_E_USB_UPLOAD = -6,
+	IRECV_E_USB_STATUS = -7,
+	IRECV_E_USB_INTERFACE = -8,
+	IRECV_E_USB_CONFIGURATION = -9,
+	IRECV_E_UNKNOWN_ERROR = -255
 } irecv_error_t;
+
+typedef enum {
+	IRECV_DATA_RECV = 1,
+	IRECV_PRECOMMAND = 2,
+	IRECV_POSTCOMMAND = 3,
+	IRECV_CONNECTED = 4,
+	IRECV_DISCONNECTED = 5,
+	IRECV_PROGRESS = 6
+} irecv_event_type;
+
+typedef struct {
+	char* data;
+	irecv_event_type type;
+} irecv_event_t;
 
 struct irecv_client;
 typedef struct irecv_client* irecv_client_t;
 
 typedef int(*irecv_send_callback)(irecv_client_t client, unsigned char* data, int size);
 typedef int(*irecv_receive_callback)(irecv_client_t client, unsigned char* data, int size);
+
+typedef int(*irecv_event_cb_t)(irecv_client_t client, const irecv_event_t* event);
 
 struct irecv_client {
 	int debug;
@@ -58,9 +74,12 @@ struct irecv_client {
 	libusb_device_handle* handle;
 	irecv_send_callback send_callback;
 	irecv_receive_callback receive_callback;
+	irecv_event_cb_t precommand_callback;
+	irecv_event_cb_t postcommand_callback;
 };
 
-const char* irecv_strerror(irecv_error_t error);
+irecv_error_t irecv_event_subscribe(irecv_client_t client, irecv_event_type type, irecv_event_cb_t callback, void *user_data);
+irecv_error_t irecv_event_unsubscribe(irecv_client_t client, irecv_event_type type);
 irecv_error_t irecv_open(irecv_client_t* client);
 irecv_error_t irecv_reset(irecv_client_t client);
 irecv_error_t irecv_close(irecv_client_t client);
@@ -77,4 +96,4 @@ irecv_error_t irecv_set_sender(irecv_client_t client, irecv_send_callback callba
 irecv_error_t irecv_set_receiver(irecv_client_t client, irecv_receive_callback callback);
 irecv_error_t irecv_set_interface(irecv_client_t client, int interface, int alt_interface);
 irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned int length);
-
+const char* irecv_strerror(irecv_error_t error);
