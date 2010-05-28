@@ -33,6 +33,9 @@ enum {
 static unsigned int quit = 0;
 static unsigned int verbose = 0;
 
+int precommand_cb(irecv_client_t client, const irecv_event_t* event);
+int postcommand_cb(irecv_client_t client, const irecv_event_t* event);
+
 void print_shell_usage() {
 	printf("Usage:\n");
 	printf("\t/upload <file>\tSend file to client.\n");
