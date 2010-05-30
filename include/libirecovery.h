@@ -43,7 +43,7 @@ typedef enum {
 } irecv_error_t;
 
 typedef enum {
-	IRECV_DATA_RECV = 1,
+	IRECV_RECEIVED = 1,
 	IRECV_PRECOMMAND = 2,
 	IRECV_POSTCOMMAND = 3,
 	IRECV_CONNECTED = 4,
@@ -52,16 +52,13 @@ typedef enum {
 } irecv_event_type;
 
 typedef struct {
+	int size;
 	char* data;
 	irecv_event_type type;
 } irecv_event_t;
 
 struct irecv_client;
 typedef struct irecv_client* irecv_client_t;
-
-typedef int(*irecv_send_callback)(irecv_client_t client, unsigned char* data, int size);
-typedef int(*irecv_receive_callback)(irecv_client_t client, unsigned char* data, int size);
-
 typedef int(*irecv_event_cb_t)(irecv_client_t client, const irecv_event_t* event);
 
 struct irecv_client {
@@ -72,8 +69,7 @@ struct irecv_client {
 	unsigned short mode;
 	libusb_context* context;
 	libusb_device_handle* handle;
-	irecv_send_callback send_callback;
-	irecv_receive_callback receive_callback;
+	irecv_event_cb_t received_callback;
 	irecv_event_cb_t precommand_callback;
 	irecv_event_cb_t postcommand_callback;
 };
@@ -92,8 +88,6 @@ irecv_error_t irecv_send(irecv_client_t client, unsigned char* command);
 irecv_error_t irecv_send_file(irecv_client_t client, const char* filename);
 irecv_error_t irecv_send_command(irecv_client_t client, unsigned char* command);
 irecv_error_t irecv_set_configuration(irecv_client_t client, int configuration);
-irecv_error_t irecv_set_sender(irecv_client_t client, irecv_send_callback callback);
-irecv_error_t irecv_set_receiver(irecv_client_t client, irecv_receive_callback callback);
 irecv_error_t irecv_set_interface(irecv_client_t client, int interface, int alt_interface);
 irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned int length);
 const char* irecv_strerror(irecv_error_t error);
