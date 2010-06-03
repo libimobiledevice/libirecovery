@@ -23,6 +23,7 @@ install:
 	cp libirecovery.so /usr/local/lib/libirecovery.so
 	cp include/libirecovery.h /usr/local/include/libirecovery.h
 	cp irecovery /usr/local/bin/irecovery
+	ldconfig
 	
 uninstall:
 	rm -rf /usr/local/lib/libirecovery.so

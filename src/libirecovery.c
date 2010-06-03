@@ -393,6 +393,48 @@ irecv_error_t irecv_getenv(irecv_client_t client, unsigned char** var) {
 	return IRECV_E_SUCCESS;
 }
 
+irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid) {
+	char info[256];
+	memset(info, '\0', 256);
+
+	if (client == NULL || client->handle == NULL) {
+		return IRECV_E_NO_DEVICE;
+	}
+
+	libusb_get_string_descriptor_ascii(client->handle, 3, info, 255);
+	printf("%d: %s\n", strlen(info), info);
+
+	unsigned char* cpid_string = strstr(info, "CPID:");
+	if (cpid_string == NULL) {
+		*cpid = 0;
+		return IRECV_E_UNKNOWN_ERROR;
+	}
+	sscanf(cpid_string, "CPID:%d", cpid);
+
+	return IRECV_E_SUCCESS;
+}
+
+irecv_error_t irecv_get_bdid(irecv_client_t client, unsigned int* bdid) {
+	char info[256];
+	memset(info, '\0', 256);
+
+	if (client == NULL || client->handle == NULL) {
+		return IRECV_E_NO_DEVICE;
+	}
+
+	libusb_get_string_descriptor_ascii(client->handle, 3, info, 255);
+	printf("%d: %s\n", strlen(info), info);
+
+	unsigned char* bdid_string = strstr(info, "BDID:");
+	if (bdid_string == NULL) {
+		*bdid = 0;
+		return IRECV_E_UNKNOWN_ERROR;
+	}
+	sscanf(bdid_string, "BDID:%d", bdid);
+
+	return IRECV_E_SUCCESS;
+}
+
 irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* ecid) {
 	char info[256];
 	memset(info, '\0', 256);
@@ -411,7 +453,6 @@ irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* ecid) {
 	}
 	sscanf(ecid_string, "ECID:%qX", ecid);
 
-	irecv_reset(client);
 	return IRECV_E_SUCCESS;
 }
 
