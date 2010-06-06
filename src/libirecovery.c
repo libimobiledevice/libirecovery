@@ -324,8 +324,8 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 	}
 
 	int i = 0;
-	double count = 0;
 	double progress = 0;
+	unsigned int count = 0;
 	unsigned int status = 0;
 	for (i = 0; i < packets; i++) {
 		int size = i + 1 < packets ? 0x800 : last;
@@ -349,14 +349,11 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 		count += size;
 		if(client->progress_callback != NULL) {
 			irecv_event_t event;
+			event.progress = ((double) count/ (double) length) * 100.0;
 			event.type = IRECV_PROGRESS;
-			event.data = NULL;
-			event.size = count/length;
+			event.data = "Uploading";
+			event.size = count;
 			client->progress_callback(client, &event);
-		}
-		else if((count / (double) length) * 100.0 > progress) {
-			progress = (count / (double) length) * 100.0;
-			irecv_print_progress("Uploading", progress);
 		}
 	}
 
@@ -524,31 +521,4 @@ const char* irecv_strerror(irecv_error_t error) {
 	}
 
 	return NULL;
-}
-
-void irecv_print_progress(const char* operation, float progress) {
-	int i = 0;
-	if(progress < 0) {
-		return;
-	}
-
-	if(progress > 100) {
-		progress = 100;
-	}
-
-	printf("\r%s [", operation);
-	for(i = 0; i < 50; i++) {
-		if(i < progress / 2) {
-			printf("=");
-		} else {
-			printf(" ");
-		}
-	}
-
-	printf("] %3.1f%%", progress);
-	fflush(stdout);
-	if(progress == 100) {
-		printf("\n");
-	}
-
 }

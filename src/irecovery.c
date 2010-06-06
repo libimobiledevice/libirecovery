@@ -33,7 +33,9 @@ enum {
 static unsigned int quit = 0;
 static unsigned int verbose = 0;
 
+void print_progress_bar(const char* operation, double progress);
 int received_cb(irecv_client_t client, const irecv_event_t* event);
+int progress_cb(irecv_client_t client, const irecv_event_t* event);
 int precommand_cb(irecv_client_t client, const irecv_event_t* event);
 int postcommand_cb(irecv_client_t client, const irecv_event_t* event);
 
@@ -89,6 +91,7 @@ void append_command_to_history(char* cmd) {
 void init_shell(irecv_client_t client) {
 	irecv_error_t error = 0;
 	load_command_history();
+	irecv_event_subscribe(client, IRECV_PROGRESS, &progress_cb, NULL);
 	irecv_event_subscribe(client, IRECV_RECEIVED, &received_cb, NULL);
 	irecv_event_subscribe(client, IRECV_PRECOMMAND, &precommand_cb, NULL);
 	irecv_event_subscribe(client, IRECV_POSTCOMMAND, &postcommand_cb, NULL);
@@ -155,6 +158,39 @@ int postcommand_cb(irecv_client_t client, const irecv_event_t* event) {
 
 	if (value != NULL) free(value);
 	return 0;
+}
+
+int progress_cb(irecv_client_t client, const irecv_event_t* event) {
+	if (event->type == IRECV_PROGRESS) {
+		print_progress_bar(event->data, event->progress);
+	}
+	return 0;
+}
+
+void print_progress_bar(const char* operation, double progress) {
+	int i = 0;
+	if(progress < 0) {
+		return;
+	}
+
+	if(progress > 100) {
+		progress = 100;
+	}
+
+	printf("\r%s [", operation);
+	for(i = 0; i < 50; i++) {
+		if(i < progress / 2) {
+			printf("=");
+		} else {
+			printf(" ");
+		}
+	}
+
+	printf("] %3.1f%%", progress);
+	fflush(stdout);
+	if(progress == 100) {
+		printf("\n");
+	}
 }
 
 void print_usage() {
@@ -238,6 +274,7 @@ int main(int argc, char** argv) {
 		break;
 
 	case kSendFile:
+		irecv_event_subscribe(client, IRECV_PROGRESS, &progress_cb, NULL);
 		error = irecv_send_file(client, argument);
 		debug("%s\n", irecv_strerror(error));
 		break;
@@ -249,6 +286,7 @@ int main(int argc, char** argv) {
 
 	case kSendExploit:
 		if (argument != NULL) {
+			irecv_event_subscribe(client, IRECV_PROGRESS, &progress_cb, NULL);
 			error = irecv_send_file(client, argument);
 			if (error != IRECV_E_SUCCESS) {
 				debug("%s\n", irecv_strerror(error));
