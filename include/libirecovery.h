@@ -69,6 +69,7 @@ struct irecv_client {
 	unsigned short mode;
 	libusb_context* context;
 	libusb_device_handle* handle;
+	irecv_event_cb_t progress_callback;
 	irecv_event_cb_t received_callback;
 	irecv_event_cb_t precommand_callback;
 	irecv_event_cb_t postcommand_callback;

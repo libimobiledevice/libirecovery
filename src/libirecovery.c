@@ -27,6 +27,8 @@
 #define BUFFER_SIZE 0x1000
 #define debug(...) if(client->debug) fprintf(stderr, __VA_ARGS__)
 
+void irecv_print_progress(const char* operation, float progress);
+
 irecv_error_t irecv_open(irecv_client_t* pclient) {
 	int i = 0;
 	char serial[256];
@@ -158,6 +160,9 @@ irecv_error_t irecv_event_subscribe(irecv_client_t client, irecv_event_type type
 		client->postcommand_callback = callback;
 		break;
 
+	case IRECV_PROGRESS:
+		client->progress_callback = callback;
+
 	default:
 		return IRECV_E_UNKNOWN_ERROR;
 	}
@@ -178,6 +183,9 @@ irecv_error_t irecv_event_unsubscribe(irecv_client_t client, irecv_event_type ty
 	case IRECV_POSTCOMMAND:
 		client->postcommand_callback = NULL;
 		break;
+
+	case IRECV_PROGRESS:
+		client->progress_callback = NULL;
 
 	default:
 		return IRECV_E_UNKNOWN_ERROR;
@@ -316,6 +324,8 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 	}
 
 	int i = 0;
+	double count = 0;
+	double progress = 0;
 	unsigned int status = 0;
 	for (i = 0; i < packets; i++) {
 		int size = i + 1 < packets ? 0x800 : last;
@@ -336,6 +346,18 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 			return IRECV_E_USB_UPLOAD;
 		}
 
+		count += size;
+		if(client->progress_callback != NULL) {
+			irecv_event_t event;
+			event.type = IRECV_PROGRESS;
+			event.data = NULL;
+			event.size = count/length;
+			client->progress_callback(client, &event);
+		}
+		else if((count / (double) length) * 100.0 > progress) {
+			progress = (count / (double) length) * 100.0;
+			irecv_print_progress("Uploading", progress);
+		}
 	}
 
 	libusb_control_transfer(client->handle, 0x21, 1, 0, 0, buffer, 0, 1000);
@@ -502,4 +524,31 @@ const char* irecv_strerror(irecv_error_t error) {
 	}
 
 	return NULL;
+}
+
+void irecv_print_progress(const char* operation, float progress) {
+	int i = 0;
+	if(progress < 0) {
+		return;
+	}
+
+	if(progress > 100) {
+		progress = 100;
+	}
+
+	printf("\r%s [", operation);
+	for(i = 0; i < 50; i++) {
+		if(i < progress / 2) {
+			printf("=");
+		} else {
+			printf(" ");
+		}
+	}
+
+	printf("] %3.1f%%", progress);
+	fflush(stdout);
+	if(progress == 100) {
+		printf("\n");
+	}
+
 }
