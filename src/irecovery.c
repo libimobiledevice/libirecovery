@@ -139,24 +139,33 @@ int precommand_cb(irecv_client_t client, const irecv_event_t* event) {
 }
 
 int postcommand_cb(irecv_client_t client, const irecv_event_t* event) {
-	unsigned char* value = NULL;
+	char* value = NULL;
+	char* action = NULL;
+	char* command = NULL;
+	char* argument = NULL;
+	irecv_error_t error = IRECV_E_SUCCESS;
+
 	if (event->type == IRECV_POSTCOMMAND) {
-		irecv_error_t error = 0;
-		if (strstr(event->data, "getenv") != NULL) {
-			error = irecv_getenv(client, &value);
+		command = strdup(event->data);
+		action = strtok(command, " ");
+		if (!strcmp(action, "getenv")) {
+			argument = strtok(NULL, " ");
+			error = irecv_getenv(client, argument, &value);
 			if (error != IRECV_E_SUCCESS) {
 				debug("%s\n", irecv_strerror(error));
+				free(command);
 				return error;
 			}
 			printf("%s\n", value);
+			free(value);
 		}
 
-		if (!strcmp(event->data, "reboot")) {
+		if (!strcmp(action, "reboot")) {
 			quit = 1;
 		}
 	}
 
-	if (value != NULL) free(value);
+	if (command) free(command);
 	return 0;
 }
 

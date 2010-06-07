@@ -152,6 +152,12 @@ irecv_error_t irecv_event_subscribe(irecv_client_t client, irecv_event_type type
 		client->received_callback = callback;
 		break;
 
+	case IRECV_PROGRESS:
+		client->progress_callback = callback;
+
+	case IRECV_CONNECTED:
+		client->connected_callback = callback;
+
 	case IRECV_PRECOMMAND:
 		client->precommand_callback = callback;
 		break;
@@ -160,8 +166,8 @@ irecv_error_t irecv_event_subscribe(irecv_client_t client, irecv_event_type type
 		client->postcommand_callback = callback;
 		break;
 
-	case IRECV_PROGRESS:
-		client->progress_callback = callback;
+	case IRECV_DISCONNECTED:
+		client->disconnected_callback = callback;
 
 	default:
 		return IRECV_E_UNKNOWN_ERROR;
@@ -176,6 +182,12 @@ irecv_error_t irecv_event_unsubscribe(irecv_client_t client, irecv_event_type ty
 		client->received_callback = NULL;
 		break;
 
+	case IRECV_PROGRESS:
+		client->progress_callback = NULL;
+
+	case IRECV_CONNECTED:
+		client->connected_callback = NULL;
+
 	case IRECV_PRECOMMAND:
 		client->precommand_callback = NULL;
 		break;
@@ -184,8 +196,8 @@ irecv_error_t irecv_event_unsubscribe(irecv_client_t client, irecv_event_type ty
 		client->postcommand_callback = NULL;
 		break;
 
-	case IRECV_PROGRESS:
-		client->progress_callback = NULL;
+	case IRECV_DISCONNECTED:
+		client->disconnected_callback = NULL;
 
 	default:
 		return IRECV_E_UNKNOWN_ERROR;
@@ -196,6 +208,15 @@ irecv_error_t irecv_event_unsubscribe(irecv_client_t client, irecv_event_type ty
 
 irecv_error_t irecv_close(irecv_client_t client) {
 	if (client != NULL) {
+		if(client->disconnected_callback != NULL) {
+			irecv_event_t event;
+			event.size = 0;
+			event.data = NULL;
+			event.progress = 0;
+			event.type = IRECV_DISCONNECTED;
+			client->disconnected_callback(client, &event);
+		}
+
 		if (client->handle != NULL) {
 			libusb_release_interface(client->handle, client->interface);
 			libusb_close(client->handle);
@@ -393,22 +414,37 @@ irecv_error_t irecv_receive(irecv_client_t client) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_getenv(irecv_client_t client, unsigned char** var) {
+irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** value) {
+	char command[256];
 	if (client == NULL || client->handle == NULL) {
 		return IRECV_E_NO_DEVICE;
 	}
 
-	unsigned char* value = (unsigned char*) malloc(256);
-	if (value == NULL) {
+	*value = NULL;
+
+	if(variable == NULL) {
+		return IRECV_E_UNKNOWN_ERROR;
+	}
+
+	memset(command, '\0', sizeof(command));
+	snprintf(command, sizeof(command)-1, "getenv %s", variable);
+	irecv_error_t error = irecv_send_command(client, command);
+	if(error != IRECV_E_SUCCESS) {
+		return error;
+	}
+
+	unsigned char* response = (unsigned char*) malloc(256);
+	if (response == NULL) {
 		return IRECV_E_OUT_OF_MEMORY;
 	}
 
-	int ret = libusb_control_transfer(client->handle, 0xC0, 0, 0, 0, value, 256, 500);
+	memset(response, '\0', 256);
+	int ret = libusb_control_transfer(client->handle, 0xC0, 0, 0, 0, response, 255, 500);
 	if (ret < 0) {
 		return IRECV_E_UNKNOWN_ERROR;
 	}
 
-	*var = value;
+	*value = response;
 	return IRECV_E_SUCCESS;
 }
 
@@ -481,6 +517,26 @@ irecv_error_t irecv_send_exploit(irecv_client_t client) {
 	}
 
 	libusb_control_transfer(client->handle, 0x21, 2, 0, 0, NULL, 0, 100);
+	return IRECV_E_SUCCESS;
+}
+
+irecv_error_t irecv_setenv(irecv_client_t client, const char* variable, const char* value) {
+	char command[256];
+	if (client == NULL || client->handle == NULL) {
+		return IRECV_E_NO_DEVICE;
+	}
+
+	if(variable == NULL || value == NULL) {
+		return IRECV_E_UNKNOWN_ERROR;
+	}
+
+	memset(command, '\0', sizeof(command));
+	snprintf(command, sizeof(command)-1, "setenv %s %s", variable, value);
+	irecv_error_t error = irecv_send_command(client, command);
+	if(error != IRECV_E_SUCCESS) {
+		return error;
+	}
+
 	return IRECV_E_SUCCESS;
 }
 

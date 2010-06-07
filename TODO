@@ -1,10 +1,16 @@
 TODO List
-
-This is just a list of a couple things i've been meaning to get around to, but haven't had the chance. If you finish any of them you can go ahead and remove it from the list.
 ------------------------------------------------
 
-1) Port irecovery to libusb1.0.  I've already done this in some of my other projects, and I think westbaer's brach has already been ported but our branches forked off a long time ago.
-
-2) Add support for getenv command.  getenv sends the request variable back in a control message that can be fetched with usb_control_message(handle, 0xC0, 0, 0, 0, buffer, size, 500).
-
-3) Fix command line parsing so you can send arguments to commands.  Currently if you try "irecovery -c bgcolor 0 0 0" only "bgcolor" will be sent and none of it's arguments.
+1) libirecovery debug should be as static variable so the client doesn't need to be passed and can be set only once.
+2) Need to implement irecv_saveenv()
+3) Need to implement irecv_bootx()
+4) Neex to implement irecv_go()
+5) Need to implement irecv_bgcolor()
+6) Need to implememt irecv_setpicture()
+7) Need to impelemnt irecv_reboot()
+8) Should figure out a better place to store callbacks so the CONNECTED callback can actually be used
+9) would be nice to change to use asyncronous connections
+10) could add a function to identify whether we're connected to iBoot/iBEC/iBSS or DFU
+11) could add a function to identify which version we're connected to
+12) could add a function to return the device serial number
+13) fix command parsing to strip quotes
