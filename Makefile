@@ -13,7 +13,7 @@ linux:
 
 macosx:
 	gcc -o libirecovery.dylib -c src/libirecovery.c -dynamiclib
-	gcc -o irecovery irecovery.c -I. -lirecovery -lreadline
+	gcc -o irecovery src/irecovery.c -I./include -L. -lirecovery -lreadline -lusb-1.0
 	
 windows:
 	gcc -o libirecovery.dll -c src/libirecovery.c -I. -lusb-1.0 -lreadline -shared -fPIC
