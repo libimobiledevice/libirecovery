@@ -1,16 +1,15 @@
 TODO List
 ------------------------------------------------
 
-1) libirecovery debug should be as static variable so the client doesn't need to be passed and can be set only once.
-2) Need to implement irecv_saveenv()
-3) Need to implement irecv_bootx()
-4) Neex to implement irecv_go()
-5) Need to implement irecv_bgcolor()
-6) Need to implememt irecv_setpicture()
-7) Need to impelemnt irecv_reboot()
-8) Should figure out a better place to store callbacks so the CONNECTED callback can actually be used
-9) would be nice to change to use asyncronous connections
-10) could add a function to identify whether we're connected to iBoot/iBEC/iBSS or DFU
-11) could add a function to identify which version we're connected to
-12) could add a function to return the device serial number
-13) fix command parsing to strip quotes
+o) Need to implement irecv_saveenv()
+o) Need to implement irecv_bootx()
+o) Neex to implement irecv_go()
+o) Need to implement irecv_bgcolor()
+o) Need to implememt irecv_setpicture()
+o) Need to impelemnt irecv_reboot()
+o) Should figure out a better place to store callbacks so the CONNECTED callback can actually be used
+o) would be nice to change to use asyncronous connections
+o) could add a function to identify whether we're connected to iBoot/iBEC/iBSS or DFU
+o) could add a function to identify which version we're connected to
+o) could add a function to return the device serial number
+o) fix command parsing to strip quotes

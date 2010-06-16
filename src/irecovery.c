@@ -27,13 +27,13 @@
 #define debug(...) if(verbose) fprintf(stderr, __VA_ARGS__)
 
 enum {
-	kResetDevice, kStartShell, kSendCommand, kSendFile, kSendExploit
+	kResetDevice, kStartShell, kSendCommand, kSendFile, kSendExploit, kSendScript
 };
 
 static unsigned int quit = 0;
 static unsigned int verbose = 0;
 
-void print_progress_bar(const char* operation, double progress);
+void print_progress_bar(double progress);
 int received_cb(irecv_client_t client, const irecv_event_t* event);
 int progress_cb(irecv_client_t client, const irecv_event_t* event);
 int precommand_cb(irecv_client_t client, const irecv_event_t* event);
@@ -61,7 +61,7 @@ void parse_command(irecv_client_t client, unsigned char* command, unsigned int s
 
 	if (!strcmp(cmd, "/upload")) {
 		char* filename = strtok(NULL, " ");
-		debug("Sending %s\n", filename);
+		debug("Uploading files %s\n", filename);
 		if (filename != NULL) {
 			irecv_send_file(client, filename);
 		}
@@ -69,12 +69,21 @@ void parse_command(irecv_client_t client, unsigned char* command, unsigned int s
 
 	if (!strcmp(cmd, "/exploit")) {
 		char* filename = strtok(NULL, " ");
-		debug("Sending %s\n", filename);
+		debug("Sending exploit %s\n", filename);
 		if (filename != NULL) {
 			irecv_send_file(client, filename);
 		}
 		irecv_send_exploit(client);
-	}
+	} else
+
+		if (!strcmp(cmd, "/execute")) {
+			char* filename = strtok(NULL, " ");
+			debug("Executing script %s\n", filename);
+			if (filename != NULL) {
+				irecv_execute_script(client, filename);
+			}
+		}
+
 
 	free(action);
 }
@@ -171,12 +180,12 @@ int postcommand_cb(irecv_client_t client, const irecv_event_t* event) {
 
 int progress_cb(irecv_client_t client, const irecv_event_t* event) {
 	if (event->type == IRECV_PROGRESS) {
-		print_progress_bar(event->data, event->progress);
+		print_progress_bar(event->progress);
 	}
 	return 0;
 }
 
-void print_progress_bar(const char* operation, double progress) {
+void print_progress_bar(double progress) {
 	int i = 0;
 	if(progress < 0) {
 		return;
@@ -186,7 +195,7 @@ void print_progress_bar(const char* operation, double progress) {
 		progress = 100;
 	}
 
-	printf("\r%s [", operation);
+	printf("\r[");
 	for(i = 0; i < 50; i++) {
 		if(i < progress / 2) {
 			printf("=");
@@ -212,6 +221,7 @@ void print_usage() {
 	printf("\t-h\t\tShow this help.\n");
 	printf("\t-r\t\tReset client.\n");
 	printf("\t-s\t\tStart interactive shell.\n");
+	printf("\t-e <script>\tExecutes recovery shell script.");
 	exit(1);
 }
 
@@ -222,7 +232,7 @@ int main(int argc, char** argv) {
 	char* argument = NULL;
 	irecv_error_t error = 0;
 	if (argc == 1) print_usage();
-	while ((opt = getopt(argc, argv, "vhrsc:f:k::")) > 0) {
+	while ((opt = getopt(argc, argv, "vhrsc:f:e:k::")) > 0) {
 		switch (opt) {
 		case 'v':
 			verbose += 1;
@@ -255,6 +265,11 @@ int main(int argc, char** argv) {
 			argument = optarg;
 			break;
 
+		case 'e':
+			action = kSendScript;
+			argument = optarg;
+			break;
+
 		default:
 			fprintf(stderr, "Unknown argument\n");
 			return -1;
@@ -275,7 +290,7 @@ int main(int argc, char** argv) {
 		}
 	}
 
-	if (verbose) irecv_set_debug(client, verbose);
+	if (verbose) irecv_set_debug_level(verbose);
 
 	switch (action) {
 	case kResetDevice:
@@ -308,6 +323,13 @@ int main(int argc, char** argv) {
 
 	case kStartShell:
 		init_shell(client);
+		break;
+
+	case kSendScript:
+		error = irecv_execute_script(client, argument);
+		if(error != IRECV_E_SUCCESS) {
+			debug("%s\n", irecv_strerror(error));
+		}
 		break;
 
 	default:

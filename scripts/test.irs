@@ -1,0 +1,21 @@
+# This small script should make the device flash
+# Red, Green, Blue a few times then reboot.
+bgcolor 255 0 0
+bgcolor 0 255 0
+bgcolor 0 0 255
+bgcolor 255 0 0
+bgcolor 0 255 0
+bgcolor 0 0 255
+bgcolor 255 0 0
+bgcolor 0 255 0
+bgcolor 0 0 255
+bgcolor 255 0 0
+bgcolor 0 255 0
+bgcolor 0 0 255
+bgcolor 255 0 0
+bgcolor 0 255 0
+bgcolor 0 0 255
+bgcolor 255 0 0
+bgcolor 0 255 0
+bgcolor 0 0 255
+reboot

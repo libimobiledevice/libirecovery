@@ -25,23 +25,30 @@
 #include "libirecovery.h"
 
 #define BUFFER_SIZE 0x1000
-#define debug(...) if(client->debug) fprintf(stderr, __VA_ARGS__)
+#define debug(...) if(libirecovery_debug) fprintf(stderr, __VA_ARGS__)
 
-void irecv_print_progress(const char* operation, float progress);
+static int libirecovery_debug = 0;
+static libusb_context* libirecovery_context = NULL;
+
+int irecv_write_file(const char* filename, const void* data, size_t size);
+int irecv_read_file(const char* filename, char** data, uint32_t* size);
 
 irecv_error_t irecv_open(irecv_client_t* pclient) {
 	int i = 0;
 	char serial[256];
 	struct libusb_device* usb_device = NULL;
-	struct libusb_context* usb_context = NULL;
 	struct libusb_device** usb_device_list = NULL;
 	struct libusb_device_handle* usb_handle = NULL;
 	struct libusb_device_descriptor usb_descriptor;
 
 	*pclient = NULL;
-	libusb_init(&usb_context);
+	libusb_init(&libirecovery_context);
+	if(libirecovery_debug) {
+		irecv_set_debug_level(libirecovery_debug);
+	}
+
 	irecv_error_t error = IRECV_E_SUCCESS;
-	int usb_device_count = libusb_get_device_list(usb_context, &usb_device_list);
+	int usb_device_count = libusb_get_device_list(libirecovery_context, &usb_device_list);
 	for (i = 0; i < usb_device_count; i++) {
 		usb_device = usb_device_list[i];
 		libusb_get_device_descriptor(usb_device, &usb_descriptor);
@@ -57,7 +64,7 @@ irecv_error_t irecv_open(irecv_client_t* pclient) {
 				if (usb_handle == NULL) {
 					libusb_free_device_list(usb_device_list, 1);
 					libusb_close(usb_handle);
-					libusb_exit(usb_context);
+					libusb_exit(libirecovery_context);
 					return IRECV_E_UNABLE_TO_CONNECT;
 				}
 				libusb_free_device_list(usb_device_list, 1);
@@ -65,14 +72,13 @@ irecv_error_t irecv_open(irecv_client_t* pclient) {
 				irecv_client_t client = (irecv_client_t) malloc(sizeof(struct irecv_client));
 				if (client == NULL) {
 					libusb_close(usb_handle);
-					libusb_exit(usb_context);
+					libusb_exit(libirecovery_context);
 					return IRECV_E_OUT_OF_MEMORY;
 				}
 
 				memset(client, '\0', sizeof(struct irecv_client));
 				client->interface = 0;
 				client->handle = usb_handle;
-				client->context = usb_context;
 				client->mode = usb_descriptor.idProduct;
 
 				error = irecv_set_configuration(client, 1);
@@ -223,9 +229,9 @@ irecv_error_t irecv_close(irecv_client_t client) {
 			client->handle = NULL;
 		}
 
-		if (client->context != NULL) {
-			libusb_exit(client->context);
-			client->context = NULL;
+		if (libirecovery_context != NULL) {
+			libusb_exit(libirecovery_context);
+			libirecovery_context = NULL;
 		}
 
 		free(client);
@@ -235,14 +241,11 @@ irecv_error_t irecv_close(irecv_client_t client) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_set_debug(irecv_client_t client, int level) {
-	if (client == NULL || client->context == NULL) {
-		return IRECV_E_NO_DEVICE;
+void irecv_set_debug_level(int level) {
+	libirecovery_debug = level;
+	if(libirecovery_context) {
+		libusb_set_debug(libirecovery_context, libirecovery_debug);
 	}
-
-	libusb_set_debug(client->context, level);
-	client->debug = level;
-	return IRECV_E_SUCCESS;
 }
 
 irecv_error_t irecv_send_command(irecv_client_t client, unsigned char* command) {
@@ -350,13 +353,10 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 	unsigned int status = 0;
 	for (i = 0; i < packets; i++) {
 		int size = i + 1 < packets ? 0x800 : last;
-		int bytes = libusb_control_transfer(client->handle, 0x21, 1, 0, 0, &buffer[i * 0x800],
-				size, 1000);
+		int bytes = libusb_control_transfer(client->handle, 0x21, 1, 0, 0, &buffer[i * 0x800], size, 1000);
 		if (bytes != size) {
 			return IRECV_E_USB_UPLOAD;
 		}
-
-		debug("Sent %d bytes\n", bytes);
 
 		error = irecv_get_status(client, &status);
 		if (error != IRECV_E_SUCCESS) {
@@ -375,6 +375,8 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 			event.data = "Uploading";
 			event.size = count;
 			client->progress_callback(client, &event);
+		} else {
+			debug("Sent: %d bytes - %d of %d\n", bytes, count, length);
 		}
 	}
 
@@ -457,7 +459,6 @@ irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid) {
 	}
 
 	libusb_get_string_descriptor_ascii(client->handle, 3, info, 255);
-	printf("%d: %s\n", strlen(info), info);
 
 	unsigned char* cpid_string = strstr(info, "CPID:");
 	if (cpid_string == NULL) {
@@ -478,7 +479,6 @@ irecv_error_t irecv_get_bdid(irecv_client_t client, unsigned int* bdid) {
 	}
 
 	libusb_get_string_descriptor_ascii(client->handle, 3, info, 255);
-	printf("%d: %s\n", strlen(info), info);
 
 	unsigned char* bdid_string = strstr(info, "BDID:");
 	if (bdid_string == NULL) {
@@ -499,7 +499,6 @@ irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* ecid) {
 	}
 
 	libusb_get_string_descriptor_ascii(client->handle, 3, info, 255);
-	printf("%d: %s\n", strlen(info), info);
 
 	unsigned char* ecid_string = strstr(info, "ECID:");
 	if (ecid_string == NULL) {
@@ -517,6 +516,37 @@ irecv_error_t irecv_send_exploit(irecv_client_t client) {
 	}
 
 	libusb_control_transfer(client->handle, 0x21, 2, 0, 0, NULL, 0, 100);
+	return IRECV_E_SUCCESS;
+}
+
+irecv_error_t irecv_execute_script(irecv_client_t client, const char* filename) {
+	irecv_error_t error = IRECV_E_SUCCESS;
+	if (client == NULL || client->handle == NULL) {
+		return IRECV_E_NO_DEVICE;
+	}
+
+	int file_size = 0;
+	char* file_data = NULL;
+	if(irecv_read_file(filename, &file_data, &file_size) < 0) {
+		return IRECV_E_FILE_NOT_FOUND;
+	}
+
+	char* line = strtok(file_data, "\n");
+	while(line != NULL) {
+		if(line[0] != '#') {
+			error = irecv_send_command(client, line);
+			if(error != IRECV_E_SUCCESS) {
+				return error;
+			}
+
+			error = irecv_receive(client);
+			if(error != IRECV_E_SUCCESS) {
+				return error;
+			}
+		}
+		line = strtok(NULL, "\n");
+	}
+
 	return IRECV_E_SUCCESS;
 }
 
@@ -577,4 +607,66 @@ const char* irecv_strerror(irecv_error_t error) {
 	}
 
 	return NULL;
+}
+
+int irecv_write_file(const char* filename, const void* data, size_t size) {
+	size_t bytes = 0;
+	FILE* file = NULL;
+
+	debug("Writing data to %s\n", filename);
+	file = fopen(filename, "wb");
+	if (file == NULL) {
+		error("read_file: Unable to open file %s\n", filename);
+		return -1;
+	}
+
+	bytes = fwrite(data, 1, size, file);
+	fclose(file);
+
+	if (bytes != size) {
+		error("ERROR: Unable to write entire file: %s: %d of %d\n", filename, bytes, size);
+		return -1;
+	}
+
+	return size;
+}
+
+int irecv_read_file(const char* filename, char** data, uint32_t* size) {
+	size_t bytes = 0;
+	size_t length = 0;
+	FILE* file = NULL;
+	char* buffer = NULL;
+	debug("Reading data from %s\n", filename);
+
+	*size = 0;
+	*data = NULL;
+
+	file = fopen(filename, "rb");
+	if (file == NULL) {
+		error("read_file: File %s not found\n", filename);
+		return -1;
+	}
+
+	fseek(file, 0, SEEK_END);
+	length = ftell(file);
+	rewind(file);
+
+	buffer = (char*) malloc(length);
+	if(buffer == NULL) {
+		error("ERROR: Out of memory\n");
+		fclose(file);
+		return -1;
+	}
+	bytes = fread(buffer, 1, length, file);
+	fclose(file);
+
+	if(bytes != length) {
+		error("ERROR: Unable to read entire file\n");
+		free(buffer);
+		return -1;
+	}
+
+	*size = length;
+	*data = buffer;
+	return 0;
 }
