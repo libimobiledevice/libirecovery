@@ -5,3 +5,18 @@ iRecovery is a libusb-based commandline utility for Mac OS X, Windows, and Linux
 It's completely open-source, the source code is released under the terms of the GNU General Public License v3.
 The full license text can be found in the LICENSE file.
 
+Here's its usage:
+
+irecovery [args]
+	-v		Start irecovery in verbose mode.
+	-c <cmd>	Send command to client.
+	-f <file>	Send file to client.
+	-k [payload]	Send usb exploit to client.
+	-h		Show this help.
+	-r		Reset client.
+	-s		Start interactive shell.
+	-e <script>	Executes recovery shell script.
+
+You can get info on the shell commands here:
+http://code.google.com/p/chronicdev/wiki/iBootCommands
+
