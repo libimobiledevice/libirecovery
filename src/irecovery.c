@@ -221,7 +221,7 @@ void print_usage() {
 	printf("\t-h\t\tShow this help.\n");
 	printf("\t-r\t\tReset client.\n");
 	printf("\t-s\t\tStart interactive shell.\n");
-	printf("\t-e <script>\tExecutes recovery shell script.");
+	printf("\t-e <script>\tExecutes recovery shell script.\n");
 	exit(1);
 }
 
