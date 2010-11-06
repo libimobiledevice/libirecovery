@@ -1,19 +1,20 @@
 /**
- * iRecovery - Utility for DFU 2.0, WTF and Recovery Mode
- * Copyright (C) 2008 - 2009 westbaer
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  * GreenPois0n iRecovery - irecovery.c
+  * Copyright (C) 2010 Chronic-Dev Team
+  * Copyright (C) 2010 Joshua Hill
+  *
+  * This program is free software: you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation, either version 3 of the License, or
+  * (at your option) any later version.
+  *
+  * This program is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * GNU General Public License for more details.
+  *
+  * You should have received a copy of the GNU General Public License
+  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  **/
 
 #include <stdio.h>
@@ -63,7 +64,7 @@ void parse_command(irecv_client_t client, unsigned char* command, unsigned int s
 		char* filename = strtok(NULL, " ");
 		debug("Uploading files %s\n", filename);
 		if (filename != NULL) {
-			irecv_send_file(client, filename);
+			irecv_send_file(client, filename, 0);
 		}
 	} else
 
@@ -71,7 +72,7 @@ void parse_command(irecv_client_t client, unsigned char* command, unsigned int s
 		char* filename = strtok(NULL, " ");
 		debug("Sending exploit %s\n", filename);
 		if (filename != NULL) {
-			irecv_send_file(client, filename);
+			irecv_send_file(client, filename, 0);
 		}
 		irecv_send_exploit(client);
 	} else
@@ -225,7 +226,7 @@ void print_usage() {
 	exit(1);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char* argv[]) {
 	int i = 0;
 	int opt = 0;
 	int action = 0;
@@ -299,7 +300,7 @@ int main(int argc, char** argv) {
 
 	case kSendFile:
 		irecv_event_subscribe(client, IRECV_PROGRESS, &progress_cb, NULL);
-		error = irecv_send_file(client, argument);
+		error = irecv_send_file(client, argument, 0);
 		debug("%s\n", irecv_strerror(error));
 		break;
 
@@ -311,7 +312,7 @@ int main(int argc, char** argv) {
 	case kSendExploit:
 		if (argument != NULL) {
 			irecv_event_subscribe(client, IRECV_PROGRESS, &progress_cb, NULL);
-			error = irecv_send_file(client, argument);
+			error = irecv_send_file(client, argument, 0);
 			if (error != IRECV_E_SUCCESS) {
 				debug("%s\n", irecv_strerror(error));
 				break;
