@@ -806,7 +806,7 @@ irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** v
 irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value) {
 	int ret = 0;
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
-	*value = NULL;
+	*value = 0;
 
 	char* response = (char*) malloc(256);
 	if (response == NULL) {
@@ -816,7 +816,7 @@ irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value) {
 	memset(response, '\0', 256);
 	ret = irecv_control_transfer(client, 0xC0, 0, 0, 0, (unsigned char*) response, 255, 1000);
 
-	*value = response;
+	*value = (unsigned int) *response;
 	return IRECV_E_SUCCESS;
 }
 
