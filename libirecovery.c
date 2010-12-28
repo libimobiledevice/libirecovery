@@ -762,10 +762,11 @@ irecv_error_t irecv_receive(irecv_client_t client) {
 					return IRECV_E_SUCCESS;
 				}
 			}
+			if (bytes < BUFFER_SIZE) break;
 		} else break;
 	}
 
-	// pod2g 2010-12-28: MacOSX need a reset if read times out
+	// pod2g 2010-12-28: MacOSX need a reset if read times out, also the reset seems to improve stability when switching interfaces
 	irecv_reset(client);
 	irecv_set_interface(client, 1, 1);
 	return IRECV_E_SUCCESS;
