@@ -359,7 +359,8 @@ irecv_error_t irecv_open(irecv_client_t* pclient) {
 						return error;
 					}
 
-					error = irecv_set_interface(client, 0, 0);
+					// pod2g 2010-12-28: switched to interface 1.1 by default on non DFU modes
+					error = irecv_set_interface(client, 1, 1);
 					if (error != IRECV_E_SUCCESS) {
 						return error;
 					}
@@ -408,7 +409,8 @@ irecv_error_t irecv_set_interface(irecv_client_t client, int interface, int alt_
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
 	
 #ifndef WIN32
-	libusb_release_interface(client->handle, client->interface);
+	// pod2g 2010-12-28: this crashes iBoot on MacOSX
+	//libusb_release_interface(client->handle, client->interface);
 
 	debug("Setting to interface %d:%d\n", interface, alt_interface);
 	if (libusb_claim_interface(client->handle, interface) < 0) {
@@ -744,9 +746,10 @@ irecv_error_t irecv_receive(irecv_client_t client) {
 	char buffer[BUFFER_SIZE];
 	memset(buffer, '\0', BUFFER_SIZE);
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
-	
-	int bytes = 0;
 
+	// pod2g 2010-12-28: switch to interface 0 for console reading then return to interface 1
+	irecv_set_interface(client, 0, 0);
+	int bytes = 0;
 	while (irecv_bulk_transfer(client, 0x81, (unsigned char*) buffer, BUFFER_SIZE, &bytes, 1000) == 0) {
 		if (bytes > 0) {
 			if (client->received_callback != NULL) {
@@ -755,12 +758,16 @@ irecv_error_t irecv_receive(irecv_client_t client) {
 				event.data = buffer;
 				event.type = IRECV_RECEIVED;
 				if (client->received_callback(client, &event) != 0) {
+					irecv_set_interface(client, 1, 1);
 					return IRECV_E_SUCCESS;
 				}
 			}
 		} else break;
 	}
 
+	// pod2g 2010-12-28: MacOSX need a reset if read times out
+	irecv_reset(client);
+	irecv_set_interface(client, 1, 1);
 	return IRECV_E_SUCCESS;
 }
 
