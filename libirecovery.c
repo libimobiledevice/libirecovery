@@ -353,17 +353,20 @@ irecv_error_t irecv_open(irecv_client_t* pclient) {
 				client->interface = 0;
 				client->handle = usb_handle;
 				client->mode = usb_descriptor.idProduct;
+				
+				error = irecv_set_configuration(client, 1);
+				if (error != IRECV_E_SUCCESS) {
+					return error;
+				}
+				
 				if (client->mode != kDfuMode) {
-					error = irecv_set_configuration(client, 1);
-					if (error != IRECV_E_SUCCESS) {
-						return error;
-					}
-
 					// pod2g 2010-12-28: switched to interface 1.1 by default on non DFU modes
 					error = irecv_set_interface(client, 1, 1);
-					if (error != IRECV_E_SUCCESS) {
-						return error;
-					}
+				} else {
+					error = irecv_set_interface(client, 0, 0);
+				}
+				if (error != IRECV_E_SUCCESS) {
+					return error;
 				}
 
 				/* cache usb serial */
@@ -678,9 +681,11 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 	/* initiate transfer */
 	if (recovery_mode) {
 		error = irecv_control_transfer(client, 0x41, 0, 0, 0, NULL, 0, 1000);
-		if (error != IRECV_E_SUCCESS) {
-			return error;
-		}
+	} else {
+		error = irecv_control_transfer(client, 0x21, 4, 0, 0, NULL, 0, 1000);
+	}
+	if (error != IRECV_E_SUCCESS) {
+		return error;
 	}
 
 	int i = 0;
