@@ -262,11 +262,11 @@ int irecv_bulk_transfer(irecv_client_t client,
 							unsigned int timeout) {
 	int ret;
 
-	// pod2g 2011-01-01: switch to interface 1.1 for bulk transfers then switch back to 0.0
-	irecv_set_interface(client, 0, 0);
-
 #ifndef WIN32
 	ret = libusb_bulk_transfer(client->handle, endpoint, data, length, transferred, timeout);
+	if (ret < 0) {
+		libusb_clear_halt(client->handle, endpoint);
+	}
 #else
 	if (endpoint==0x4) {
 		ret = DeviceIoControl(client->handle, 0x220195, data, length, data, length, (PDWORD) transferred, NULL);
@@ -275,12 +275,7 @@ int irecv_bulk_transfer(irecv_client_t client,
 	}
 	ret==0?-1:0;
 #endif
-	if (ret < 0) {
-		// pod2g 2010-12-28: MacOSX need a reset if read times out, also the reset seems to improve stability when switching interfaces
-		irecv_reset(client);
-	}
 
-	irecv_set_interface(client, 1, 1);
 	return ret;
 }
 
@@ -365,13 +360,14 @@ irecv_error_t irecv_open(irecv_client_t* pclient) {
 				client->handle = usb_handle;
 				client->mode = usb_descriptor.idProduct;
 				
+
 				error = irecv_set_configuration(client, 1);
 				if (error != IRECV_E_SUCCESS) {
 					return error;
 				}
-
+				
 				if (client->mode != kDfuMode) {
-					// pod2g 2010-12-28: switched to interface 1.1 by default on non DFU modes
+					error = irecv_set_interface(client, 0, 0);
 					error = irecv_set_interface(client, 1, 1);
 				} else {
 					error = irecv_set_interface(client, 0, 0);
@@ -424,7 +420,7 @@ irecv_error_t irecv_set_interface(irecv_client_t client, int interface, int alt_
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
 	
 #ifndef WIN32
-	// pod2g 2010-12-28: this crashes iBoot on MacOSX
+	// pod2g 2011-01-07: we may want to claim multiple interfaces
 	//libusb_release_interface(client->handle, client->interface);
 
 	debug("Setting to interface %d:%d\n", interface, alt_interface);
@@ -545,8 +541,7 @@ irecv_error_t irecv_close(irecv_client_t client) {
 #ifndef WIN32
 		if (client->handle != NULL) {
 			if (client->mode != kDfuMode) {
-				// pod2g 2010-12-28: this crashes iBoot on MacOSX
-				//libusb_release_interface(client->handle, client->interface);
+				libusb_release_interface(client->handle, client->interface);
 			}
 			libusb_close(client->handle);
 			client->handle = NULL;
@@ -765,9 +760,8 @@ irecv_error_t irecv_receive(irecv_client_t client) {
 	memset(buffer, '\0', BUFFER_SIZE);
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
 
-	// pod2g 2010-12-28: switch to interface 0 for bulk transfers then return to interface 1
 	int bytes = 0;
-	while (irecv_bulk_transfer(client, 0x81, (unsigned char*) buffer, BUFFER_SIZE, &bytes, 1000) == 0) {
+	while (irecv_bulk_transfer(client, 0x81, (unsigned char*) buffer, BUFFER_SIZE, &bytes, 500) == 0) {
 		if (bytes > 0) {
 			if (client->received_callback != NULL) {
 				irecv_event_t event;
