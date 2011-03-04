@@ -2,6 +2,7 @@
   * GreenPois0n iRecovery - libirecovery.c
   * Copyright (C) 2010 Chronic-Dev Team
   * Copyright (C) 2010 Joshua Hill
+  * Copyright (C) 2008-2011 Nicolas Haunold
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -39,7 +40,7 @@ static int libirecovery_debug = 0;
 #ifndef WIN32
 static libusb_context* libirecovery_context = NULL;
 #endif
-	
+
 int irecv_write_file(const char* filename, const void* data, size_t size);
 int irecv_read_file(const char* filename, char** data, uint32_t* size);
 
@@ -62,14 +63,14 @@ void mobiledevice_closepipes(irecv_client_t client);
 
 irecv_error_t mobiledevice_connect(irecv_client_t* client) {
 	irecv_error_t ret;
-	
+
 	SP_DEVICE_INTERFACE_DATA currentInterface;
 	HDEVINFO usbDevices;
 	DWORD i;
 	LPSTR path;
 	irecv_client_t _client = (irecv_client_t) malloc(sizeof(struct irecv_client));
 	memset(_client, 0, sizeof(struct irecv_client));
-	
+
 	// Get DFU paths
 	usbDevices = SetupDiGetClassDevs(&GUID_DEVINTERFACE_DFU, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
 	if(!usbDevices) {

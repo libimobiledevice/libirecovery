@@ -1,7 +1,8 @@
 /**
   * GreenPois0n iRecovery - irecovery.c
-  * Copyright (C) 2010 Chronic-Dev Team
-  * Copyright (C) 2010 Joshua Hill
+  * Copyright (C) 2010-2011 Chronic-Dev Team
+  * Copyright (C) 2010-2011 Joshua Hill
+  * Copyright (C) 2008-2011 Nicolas Haunold
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -20,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include <libirecovery.h>
 #include <readline/readline.h>
 #include <readline/history.h>
