@@ -844,7 +844,7 @@ irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid) {
 
 irecv_error_t irecv_get_bdid(irecv_client_t client, unsigned int* bdid) {
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
-	
+
 	char* bdid_string = strstr(client->serial, "BDID:");
 	if (bdid_string == NULL) {
 		*bdid = 0;
@@ -868,6 +868,45 @@ irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* ecid) {
 	return IRECV_E_SUCCESS;
 }
 
+irecv_error_t irecv_get_srnm(irecv_client_t client, unsigned char* srnm) {
+	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+
+	char* srnmp;
+	char* srnm_string = strstr(client->serial, "SRNM:[");
+	if(srnm_string == NULL) {
+		srnm = NULL;
+		return IRECV_E_UNKNOWN_ERROR;
+	}
+
+	sscanf(srnm_string, "SRNM:[%s]", srnm);
+	srnmp = strrchr(srnm, ']');
+	if(srnmp != NULL) {
+		*srnmp = '\0';
+	}
+
+	return IRECV_E_SUCCESS;
+}
+
+irecv_error_t irecv_get_imei(irecv_client_t client, unsigned char* imei) {
+	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+
+	char* imeip;
+	char* imei_string = strstr(client->serial, "IMEI:[");
+	if (imei_string == NULL) {
+		*imei = 0;
+		return IRECV_E_UNKNOWN_ERROR;
+	}
+
+
+	sscanf(imei_string, "IMEI:[%s]", imei);
+	imeip = strrchr(imei, ']');
+	if(imeip != NULL) {
+		*imeip = '\0';
+	}
+
+	return IRECV_E_SUCCESS;
+}
+
 irecv_error_t irecv_send_exploit(irecv_client_t client) {
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
 	irecv_control_transfer(client, 0x21, 2, 0, 0, NULL, 0, 1000);
@@ -877,7 +916,7 @@ irecv_error_t irecv_send_exploit(irecv_client_t client) {
 irecv_error_t irecv_execute_script(irecv_client_t client, const char* filename) {
 	irecv_error_t error = IRECV_E_SUCCESS;
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
-	
+
 	char* file_data = NULL;
 	unsigned int file_size = 0;
 	if(irecv_read_file(filename, &file_data, &file_size) < 0) {

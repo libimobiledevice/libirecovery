@@ -46,6 +46,7 @@ void shell_usage() {
 	printf("Usage:\n");
 	printf("\t/upload <file>\tSend file to client.\n");
 	printf("\t/exploit [file]\tSend usb exploit with optional payload\n");
+	printf("\t/deviceinfo\tShow device information (ECID, IMEI, etc.)\n");
 	printf("\t/help\t\tShow this help.\n");
 	printf("\t/exit\t\tExit interactive shell.\n");
 }
@@ -67,6 +68,38 @@ void parse_command(irecv_client_t client, unsigned char* command, unsigned int s
 		debug("Uploading files %s\n", filename);
 		if (filename != NULL) {
 			irecv_send_file(client, filename, 0);
+		}
+	} else
+
+	if (!strcmp(cmd, "/deviceinfo")) {
+		int ret;
+		unsigned int cpid, bdid;
+		unsigned long long ecid;
+		unsigned char srnm[12], imei[15], bt[15];
+
+		ret = irecv_get_cpid(client, &cpid);
+		if(ret == IRECV_E_SUCCESS) {
+			printf("CPID: %d\n", cpid);
+		}
+
+		ret = irecv_get_bdid(client, &bdid);
+		if(ret == IRECV_E_SUCCESS) {
+			printf("BDID: %d\n", bdid);
+		}
+
+		ret = irecv_get_ecid(client, &ecid);
+		if(ret == IRECV_E_SUCCESS) {
+			printf("ECID: %lld\n", ecid);
+		}
+
+		ret = irecv_get_srnm(client, srnm);
+		if(ret == IRECV_E_SUCCESS) {
+			printf("SRNM: %s\n", srnm);
+		}
+
+		ret = irecv_get_imei(client, imei);
+		if(ret == IRECV_E_SUCCESS) {
+			printf("IMEI: %s\n", imei);
 		}
 	} else
 
@@ -109,6 +142,7 @@ void init_shell(irecv_client_t client) {
 	irecv_event_subscribe(client, IRECV_POSTCOMMAND, &postcommand_cb, NULL);
 	while (!quit) {
 		error = irecv_receive(client);
+
 		if (error != IRECV_E_SUCCESS) {
 			debug("%s\n", irecv_strerror(error));
 			break;
