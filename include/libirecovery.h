@@ -46,6 +46,10 @@ extern "C" {
 #define CPID_IPOD4G       8930
 #define CPID_APPLETV2     8930
 #define CPID_IPHONE42     8930
+#define CPID_IPAD21       8940
+#define CPID_IPAD22       8940
+#define CPID_IPAD23       8940
+#define CPID_IPHONE4S     8940
 
 #define BDID_UNKNOWN        -1
 #define BDID_IPHONE2G        0
@@ -59,6 +63,10 @@ extern "C" {
 #define BDID_IPOD4G          8
 #define BDID_APPLETV2       10
 #define BDID_IPHONE42        6
+#define BDID_IPAD21          4
+#define BDID_IPAD22          6
+#define BDID_IPAD23          2
+#define BDID_IPHONE4S        8
 
 #define DEVICE_UNKNOWN      -1
 #define DEVICE_IPHONE2G      0
@@ -72,6 +80,10 @@ extern "C" {
 #define DEVICE_IPOD4G        8
 #define DEVICE_APPLETV2      9
 #define DEVICE_IPHONE42     10
+#define DEVICE_IPAD21       11
+#define DEVICE_IPAD22       12
+#define DEVICE_IPAD23       13
+#define DEVICE_IPHONE4S     14
 
 enum {
 	kRecoveryMode1 = 0x1280,
