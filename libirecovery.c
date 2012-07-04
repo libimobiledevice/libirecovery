@@ -1059,7 +1059,7 @@ irecv_error_t irecv_receive(irecv_client_t client) {
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
 
 	int bytes = 0;
-	while (irecv_bulk_transfer(client, 0x81, (unsigned char*) buffer, BUFFER_SIZE, &bytes, 500) == 0) {
+	while (irecv_bulk_transfer(client, 0x81, (unsigned char*) buffer, BUFFER_SIZE, &bytes, 1000) == 0) {
 		if (bytes > 0) {
 			if (client->received_callback != NULL) {
 				irecv_event_t event;
@@ -1070,7 +1070,6 @@ irecv_error_t irecv_receive(irecv_client_t client) {
 					return IRECV_E_SUCCESS;
 				}
 			}
-			if (bytes < BUFFER_SIZE) break;
 		} else break;
 	}
 
