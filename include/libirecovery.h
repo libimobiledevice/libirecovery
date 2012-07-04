@@ -87,6 +87,11 @@ extern "C" {
 #define DEVICE_IPAD22       12
 #define DEVICE_IPAD23       13
 #define DEVICE_IPHONE4S     14
+#define DEVICE_APPLETV31    15
+#define DEVICE_IPAD24       16
+#define DEVICE_IPAD31       17
+#define DEVICE_IPAD32       18
+#define DEVICE_IPAD33       19
 
 enum {
 	kRecoveryMode1 = 0x1280,
@@ -184,7 +189,12 @@ static struct irecv_device irecv_devices[] = {
 	{ 12, "iPad2,2",    "k94ap", 0x06, 0x8940 },
 	{ 13, "iPad2,3",    "k95ap", 0x02, 0x8940 },
 	{ 14, "iPhone4,1",  "n94ap", 0x08, 0x8940 },
-	{ -1,  NULL,           NULL, -1,    -1 }
+	{ 15, "AppleTV3,1", "j33ap", 0x08, 0x8942 },
+	{ 16, "iPad2,4",    "k93aap",0x06, 0x9842 },
+	{ 17, "iPad3,1",    "j1ap",  0x00, 0x8945 },
+	{ 18, "iPad3,2",    "j2ap",  0x02, 0x8945 },
+	{ 19, "iPad3,3",    "j2aap", 0x04, 0x8945 },
+	{ -1,  NULL,         NULL,  -1,   -1 }
 };
 
 void irecv_set_debug_level(int level);
