@@ -618,6 +618,21 @@ irecv_error_t irecv_open(irecv_client_t* pclient, unsigned long long ecid) {
 	return IRECV_E_UNABLE_TO_CONNECT;
 #else
 	int ret = mobiledevice_connect(pclient, ecid);
+	if (ret == IRECV_E_SUCCESS) {
+		irecv_client_t client = *pclient;
+		int error = IRECV_E_SUCCESS;
+		if ((client->mode != kDfuMode) && (client->mode != kWTFMode)) {
+			error = irecv_set_interface(client, 0, 0);
+			if (client->mode > kRecoveryMode2) {
+				error = irecv_set_interface(client, 1, 1);
+			}
+		} else {
+			error = irecv_set_interface(client, 0, 0);
+		}
+		if (error != IRECV_E_SUCCESS) {
+			debug("WARNING: set interface failed, error %d\n", error);
+		}
+	}
 	return ret;
 #endif
 }
@@ -644,12 +659,12 @@ irecv_error_t irecv_set_configuration(irecv_client_t client, int configuration) 
 
 irecv_error_t irecv_set_interface(irecv_client_t client, int interface, int alt_interface) {
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
-	
+
+	debug("Setting to interface %d:%d\n", interface, alt_interface);
 #ifndef WIN32
 	// pod2g 2011-01-07: we may want to claim multiple interfaces
 	//libusb_release_interface(client->handle, client->interface);
 
-	debug("Setting to interface %d:%d\n", interface, alt_interface);
 	if (libusb_claim_interface(client->handle, interface) < 0) {
 		return IRECV_E_USB_INTERFACE;
 	}
@@ -657,10 +672,13 @@ irecv_error_t irecv_set_interface(irecv_client_t client, int interface, int alt_
 	if (libusb_set_interface_alt_setting(client->handle, interface, alt_interface) < 0) {
 		return IRECV_E_USB_INTERFACE;
 	}
-
+#else
+	if (irecv_control_transfer(client, 0, 0x0B, alt_interface, interface, NULL, 0, USB_TIMEOUT) < 0) {
+		return IRECV_E_USB_INTERFACE;
+	}
+#endif
 	client->interface = interface;
 	client->alt_interface = alt_interface;
-#endif
 
 	return IRECV_E_SUCCESS;
 }
