@@ -505,6 +505,9 @@ int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc_index,
 }
 
 irecv_error_t irecv_open(irecv_client_t* pclient, unsigned long long ecid) {
+	if(libirecovery_debug) {
+		irecv_set_debug_level(libirecovery_debug);
+	}
 #ifndef WIN32
 	int i = 0;
 	struct libusb_device* usb_device = NULL;
@@ -513,10 +516,6 @@ irecv_error_t irecv_open(irecv_client_t* pclient, unsigned long long ecid) {
 	struct libusb_device_descriptor usb_descriptor;
 
 	*pclient = NULL;
-	if(libirecovery_debug) {
-		irecv_set_debug_level(libirecovery_debug);
-	}
-
 	irecv_error_t error = IRECV_E_SUCCESS;
 	int usb_device_count = libusb_get_device_list(libirecovery_context, &usb_device_list);
 	for (i = 0; i < usb_device_count; i++) {
