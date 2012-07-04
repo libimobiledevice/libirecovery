@@ -53,6 +53,11 @@ extern "C" {
 #define CPID_IPAD22       0x8940
 #define CPID_IPAD23       0x8940
 #define CPID_IPHONE4S     0x8940
+#define CPID_APPLETV31    0x8942
+#define CPID_IPAD24       0x8942
+#define CPID_IPAD31       0x8945
+#define CPID_IPAD32       0x8945
+#define CPID_IPAD33       0x8945
 
 #define BDID_UNKNOWN          -1
 #define BDID_IPHONE2G       0x00
@@ -70,6 +75,11 @@ extern "C" {
 #define BDID_IPAD22         0x06
 #define BDID_IPAD23         0x02
 #define BDID_IPHONE4S       0x08
+#define BDID_APPLETV31      0x08
+#define BDID_IPAD24         0x06
+#define BDID_IPAD31         0x00
+#define BDID_IPAD32         0x02
+#define BDID_IPAD33         0x04
 
 #define DEVICE_UNKNOWN      -1
 #define DEVICE_IPHONE2G      0
