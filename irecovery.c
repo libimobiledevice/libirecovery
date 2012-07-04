@@ -250,7 +250,8 @@ void print_progress_bar(double progress) {
 
 void print_usage() {
 	printf("iRecovery - iDevice Recovery Utility\n");
-	printf("Usage: ./irecovery [args]\n");
+	printf("Usage: irecovery [args]\n");
+	printf("\t-i <ecid>\tTarget specific device by its hexadecimal ECID\n");
 	printf("\t-v\t\tStart irecovery in verbose mode.\n");
 	printf("\t-c <cmd>\tSend command to client.\n");
 	printf("\t-f <file>\tSend file to client.\n");
@@ -266,11 +267,26 @@ int main(int argc, char* argv[]) {
 	int i = 0;
 	int opt = 0;
 	int action = 0;
+	unsigned long long ecid = 0;
 	char* argument = NULL;
 	irecv_error_t error = 0;
 	if (argc == 1) print_usage();
-	while ((opt = getopt(argc, argv, "vhrsc:f:e:k::")) > 0) {
+	while ((opt = getopt(argc, argv, "i:vhrsc:f:e:k::")) > 0) {
 		switch (opt) {
+		case 'i':
+			if (optarg) {
+				char* tail = NULL;
+                                ecid = strtoull(optarg, &tail, 16);
+                                if (tail && (tail[0] != '\0')) {
+                                        ecid = 0;
+                                }
+                                if (ecid == 0) {
+                                        fprintf(stderr, "ERROR: Could not parse ECID from argument '%s'\n", optarg);
+                                        return -1;
+                                }
+			}
+			break;
+
 		case 'v':
 			verbose += 1;
 			break;
@@ -320,7 +336,7 @@ int main(int argc, char* argv[]) {
 	for (i = 0; i <= 5; i++) {
 		debug("Attempting to connect... \n");
 
-		if (irecv_open(&client) != IRECV_E_SUCCESS)
+		if (irecv_open(&client, ecid) != IRECV_E_SUCCESS)
 			sleep(1);
 		else
 			break;
