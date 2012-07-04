@@ -37,7 +37,7 @@
 
 #include "libirecovery.h"
 
-#define USB_TIMEOUT 5000
+#define USB_TIMEOUT 10000
 
 #define BUFFER_SIZE 0x1000
 #define debug(...) if(libirecovery_debug) fprintf(stderr, __VA_ARGS__)
