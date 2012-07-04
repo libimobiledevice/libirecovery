@@ -1022,6 +1022,10 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 				return error;
 			}
 		}
+
+		// we send a pseudo ZLP here just in case
+		irecv_control_transfer(client, 0x21, 1, 0, 0, 0, 0, USB_TIMEOUT);
+
 		irecv_reset(client);
 	}
 
