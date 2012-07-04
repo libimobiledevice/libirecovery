@@ -682,7 +682,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 	int recovery_mode = (client->mode != kDfuMode);
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
 
-	int packet_size = 32768;
+	int packet_size = recovery_mode ? 0x8000 : 0x800;
 	int last = length % packet_size;
 	int packets = length / packet_size;
 	if (last != 0) {
