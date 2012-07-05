@@ -20,7 +20,7 @@ ifeq ($(UNAME),Darwin)
 		LIBIRECOVERY_SHARED_LIBS = $(LIBS)
 else
 	ifeq ($(UNAME),MINGW32_NT-5.1)
-		CFLAGS = -fPIC -O3 -I include -I c:\mingw\include
+		CFLAGS = -O3 -I include -I c:\mingw\include
 		LDFLAGS = -static-libgcc -L c:\mingw\lib -L c:\mingw\bin
 		LIBS = -lusb-1.0 -lsetupapi
 
