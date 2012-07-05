@@ -22,7 +22,7 @@ else
 	ifeq ($(UNAME),MINGW32_NT-5.1)
 		CFLAGS = -O3 -I include -I c:\mingw\include
 		LDFLAGS = -static-libgcc -L c:\mingw\lib -L c:\mingw\bin
-		LIBS = -lusb-1.0 -lsetupapi
+		LIBS = -lkernel32 -lmsvcrt -lsetupapi
 
 		IRECOVERY_TARGET = irecovery.exe
 		IRECOVERY_LDFLAGS = $(LDFLAGS)
