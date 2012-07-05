@@ -29,9 +29,9 @@ ifeq ($(UNAME),Darwin)
 else
 	ifeq ($(UNAME),MINGW32_NT-5.1)
 		CFLAGS = -O3 -I include -I c:\mingw\include
-		LDFLAGS = -L c:\mingw\lib -lreadline
-		LIBS = -lreadline -lusb-1.0 -framework CoreFoundation -framework IOKit
-	
+		LDFLAGS = -L c:\mingw\lib -L c:\mingw\bin
+		LIBS = -lreadline -lusb-1.0 -lsetupapi
+
 		IRECOVERY_TARGET = irecovery.exe
 		IRECOVERY_OBJECTS = irecovery.o
 		IRECOVERY_CFLAGS = $(CFLAGS)
