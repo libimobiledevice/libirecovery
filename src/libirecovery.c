@@ -135,7 +135,7 @@ typedef struct usb_control_request {
 	char data[];
 } usb_control_request;
 
-int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc_index, unsigned char * buffer, int size);
+static int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc_index, unsigned char * buffer, int size);
 
 irecv_error_t mobiledevice_openpipes(irecv_client_t client);
 void mobiledevice_closepipes(irecv_client_t client);
@@ -369,7 +369,7 @@ void mobiledevice_closepipes(irecv_client_t client) {
 }
 #endif
 
-int check_context(irecv_client_t client) {
+static int check_context(irecv_client_t client) {
 	if (client == NULL || client->handle == NULL) {
 		return IRECV_E_NO_DEVICE;
 	}
@@ -396,7 +396,7 @@ void irecv_exit() {
 	void dummy_callback() { }
 #endif
 
-int irecv_control_transfer( irecv_client_t client,
+static int irecv_control_transfer( irecv_client_t client,
 							uint8_t bmRequestType,
 							uint8_t bRequest,
 							uint16_t wValue,
@@ -448,7 +448,7 @@ int irecv_control_transfer( irecv_client_t client,
 #endif
 }
 
-int irecv_bulk_transfer(irecv_client_t client,
+static int irecv_bulk_transfer(irecv_client_t client,
 							unsigned char endpoint,
 							unsigned char *data,
 							int length,
@@ -473,7 +473,7 @@ int irecv_bulk_transfer(irecv_client_t client,
 	return ret;
 }
 
-int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc_index, unsigned char * buffer, int size) {
+static int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc_index, unsigned char * buffer, int size) {
 #ifndef WIN32
 	return libusb_get_string_descriptor_ascii(client->handle, desc_index, buffer, size);
 #else
@@ -822,7 +822,7 @@ void irecv_set_debug_level(int level) {
 #endif
 }
 
-static irecv_error_t irecv_send_command_raw(irecv_client_t client, char* command) {
+static irecv_error_t irecv_send_command_raw(irecv_client_t client, const char* command) {
 	unsigned int length = strlen(command);
 	if (length >= 0x100) {
 		length = 0xFF;
@@ -899,12 +899,12 @@ irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, int d
 		return IRECV_E_UNKNOWN_ERROR;
 	}
 
-	irecv_error_t error = irecv_send_buffer(client, buffer, length, dfuNotifyFinished);
+	irecv_error_t error = irecv_send_buffer(client, (unsigned char*)buffer, length, dfuNotifyFinished);
 	free(buffer);
 	return error;
 }
 
-irecv_error_t irecv_get_status(irecv_client_t client, unsigned int* status) {
+static irecv_error_t irecv_get_status(irecv_client_t client, unsigned int* status) {
 	if (check_context(client) != IRECV_E_SUCCESS) {
 		*status = 0;
 		return IRECV_E_NO_DEVICE;
@@ -941,7 +941,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 	if (recovery_mode) {
 		error = irecv_control_transfer(client, 0x41, 0, 0, 0, NULL, 0, USB_TIMEOUT);
 	} else {
-		char dump[4];
+		unsigned char dump[4];
 		if (irecv_control_transfer(client, 0xa1, 5, 0, 0, dump, 1, USB_TIMEOUT) == 1) {
 			error = IRECV_E_SUCCESS;
 		} else {
@@ -953,7 +953,6 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 	}
 
 	int i = 0;
-	double progress = 0;
 	unsigned long count = 0;
 	unsigned int status = 0;
 	int bytes = 0;
@@ -986,7 +985,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 				newbuf[size+14] = (h1 >> 16) & 0xFF;
 				newbuf[size+15] = (h1 >> 24) & 0xFF;
 				size += 16;
-				bytes = irecv_control_transfer(client, 0x21, 1, i, 0, newbuf, size, USB_TIMEOUT);
+				bytes = irecv_control_transfer(client, 0x21, 1, i, 0, (unsigned char*)newbuf, size, USB_TIMEOUT);
 				free(newbuf);
 			} else {
 				bytes = irecv_control_transfer(client, 0x21, 1, i, 0, &buffer[i * packet_size], size, USB_TIMEOUT);
@@ -1024,7 +1023,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 			irecv_event_t event;
 			event.progress = ((double) count/ (double) length) * 100.0;
 			event.type = IRECV_PROGRESS;
-			event.data = "Uploading";
+			event.data = (char*)"Uploading";
 			event.size = count;
 			client->progress_callback(client, &event);
 		} else {
@@ -1174,13 +1173,13 @@ irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* ecid) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_get_srnm(irecv_client_t client, unsigned char* srnm) {
+irecv_error_t irecv_get_srnm(irecv_client_t client, char* srnm) {
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
 
 	char* srnmp;
 	char* srnm_string = strstr(client->serial, "SRNM:[");
 	if(srnm_string == NULL) {
-		srnm = NULL;
+		*srnm = 0;
 		return IRECV_E_UNKNOWN_ERROR;
 	}
 
@@ -1193,7 +1192,7 @@ irecv_error_t irecv_get_srnm(irecv_client_t client, unsigned char* srnm) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_get_imei(irecv_client_t client, unsigned char* imei) {
+irecv_error_t irecv_get_imei(irecv_client_t client, char* imei) {
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
 
 	char* imeip;
@@ -1231,7 +1230,7 @@ irecv_error_t irecv_get_nonce(irecv_client_t client, unsigned char** nonce, int*
 	buf[len] = 0;
 	debug("%s: buf='%s'\n", __func__, buf);
 
-	char* nonce_string = strstr(buf, "NONC:");
+	char* nonce_string = strstr((char*)buf, "NONC:");
 	if (nonce_string == NULL) {
 		return IRECV_E_UNKNOWN_ERROR;
 	}
@@ -1443,7 +1442,6 @@ irecv_error_t irecv_reset_counters(irecv_client_t client) {
 }
 
 irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned long length) {
-	irecv_error_t error = 0;
 	int recovery_mode = ((client->mode != kDfuMode) && (client->mode != kWTFMode));
 
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
@@ -1459,12 +1457,10 @@ irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned lo
 
 	int i = 0;
 	int bytes = 0;
-	double progress = 0;
 	unsigned long count = 0;
-	unsigned int status = 0;
 	for (i = 0; i < packets; i++) {
 		unsigned short size = (i+1) < packets ? packet_size : last;
-		bytes = irecv_control_transfer(client, 0xA1, 2, 0, 0, &buffer[i * packet_size], size, USB_TIMEOUT);
+		bytes = irecv_control_transfer(client, 0xA1, 2, 0, 0, (unsigned char*)&buffer[i * packet_size], size, USB_TIMEOUT);
 		
 		if (bytes != size) {
 			return IRECV_E_USB_UPLOAD;
@@ -1475,7 +1471,7 @@ irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned lo
 			irecv_event_t event;
 			event.progress = ((double) count/ (double) length) * 100.0;
 			event.type = IRECV_PROGRESS;
-			event.data = "Downloading";
+			event.data = (char*)"Downloading";
 			event.size = count;
 			client->progress_callback(client, &event);
 		} else {
@@ -1650,7 +1646,7 @@ irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause) {
 void irecv_hexdump(unsigned char* buf, unsigned int len, unsigned int addr) {
 	int i, j;
 	printf("0x%08x: ", addr);
-	for (i = 0; i < len; i++) {
+	for (i = 0; i < (int)len; i++) {
 		if (i % 16 == 0 && i != 0) {
 			for (j=i-16; j < i; j++) {
 	unsigned char car = buf[j];

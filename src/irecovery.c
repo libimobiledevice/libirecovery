@@ -42,7 +42,7 @@ int progress_cb(irecv_client_t client, const irecv_event_t* event);
 int precommand_cb(irecv_client_t client, const irecv_event_t* event);
 int postcommand_cb(irecv_client_t client, const irecv_event_t* event);
 
-void shell_usage() {
+static void shell_usage() {
 	printf("Usage:\n");
 	printf("\t/upload <file>\tSend file to client.\n");
 	printf("\t/exploit [file]\tSend usb exploit with optional payload\n");
@@ -51,8 +51,8 @@ void shell_usage() {
 	printf("\t/exit\t\tExit interactive shell.\n");
 }
 
-void parse_command(irecv_client_t client, unsigned char* command, unsigned int size) {
-	char* cmd = strdup(command);
+static void parse_command(irecv_client_t client, unsigned char* command, unsigned int size) {
+	char* cmd = strdup((char*)command);
 	char* action = strtok(cmd, " ");
 	debug("Executing %s\n", action);
 	if (!strcmp(cmd, "/exit")) {
@@ -75,7 +75,7 @@ void parse_command(irecv_client_t client, unsigned char* command, unsigned int s
 		int ret;
 		unsigned int cpid, bdid;
 		unsigned long long ecid;
-		unsigned char srnm[12], imei[15], bt[15];
+		char srnm[12], imei[15];
 
 		ret = irecv_get_cpid(client, &cpid);
 		if(ret == IRECV_E_SUCCESS) {
@@ -124,16 +124,16 @@ void parse_command(irecv_client_t client, unsigned char* command, unsigned int s
 	free(action);
 }
 
-void load_command_history() {
+static void load_command_history() {
 	read_history(FILE_HISTORY_PATH);
 }
 
-void append_command_to_history(char* cmd) {
+static void append_command_to_history(char* cmd) {
 	add_history(cmd);
 	write_history(FILE_HISTORY_PATH);
 }
 
-void init_shell(irecv_client_t client) {
+static void init_shell(irecv_client_t client) {
 	irecv_error_t error = 0;
 	load_command_history();
 	irecv_event_subscribe(client, IRECV_PROGRESS, &progress_cb, NULL);
@@ -175,9 +175,8 @@ int received_cb(irecv_client_t client, const irecv_event_t* event) {
 
 int precommand_cb(irecv_client_t client, const irecv_event_t* event) {
 	if (event->type == IRECV_PRECOMMAND) {
-		irecv_error_t error = 0;
 		if (event->data[0] == '/') {
-			parse_command(client, event->data, event->size);
+			parse_command(client, (unsigned char*)event->data, event->size);
 			return -1;
 		}
 	}
@@ -248,7 +247,7 @@ void print_progress_bar(double progress) {
 	}
 }
 
-void print_usage() {
+static void print_usage() {
 	printf("iRecovery - iDevice Recovery Utility\n");
 	printf("Usage: irecovery [args]\n");
 	printf("\t-i <ecid>\tTarget specific device by its hexadecimal ECID\n");
