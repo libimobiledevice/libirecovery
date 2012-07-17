@@ -396,7 +396,7 @@ void irecv_exit() {
 	void dummy_callback() { }
 #endif
 
-static int irecv_control_transfer( irecv_client_t client,
+int irecv_control_transfer( irecv_client_t client,
 							uint8_t bmRequestType,
 							uint8_t bRequest,
 							uint16_t wValue,
@@ -448,7 +448,7 @@ static int irecv_control_transfer( irecv_client_t client,
 #endif
 }
 
-static int irecv_bulk_transfer(irecv_client_t client,
+int irecv_bulk_transfer(irecv_client_t client,
 							unsigned char endpoint,
 							unsigned char *data,
 							int length,
