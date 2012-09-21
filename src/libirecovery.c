@@ -1607,6 +1607,28 @@ irecv_error_t irecv_get_device(irecv_client_t client, irecv_device_t* device) {
 			break;
 		}
 		break;
+
+	case CPID_APPLETV31:
+		// AppleTV 3rd gen. iPad2,4 and iPod5,1 share the same ChipID, so we need to check the BoardID
+		if (irecv_get_bdid(client, &bdid) < 0) {
+			break;
+		}
+		switch (bdid) {
+		case BDID_APPLETV31:
+			device_id = DEVICE_APPLETV31;
+			break;
+		case BDID_IPAD24:
+			device_id = DEVICE_IPAD24;
+			break;
+		case BDID_IPOD5G:
+			device_id = DEVICE_IPOD5G;
+			break;
+		default:
+			device_id = DEVICE_UNKNOWN;
+			break;
+		}
+		break;
+
 	case CPID_IPHONE5:
 		if (irecv_get_bdid(client, &bdid) < 0) {
 			break;
