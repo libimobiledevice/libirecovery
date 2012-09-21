@@ -58,6 +58,7 @@ extern "C" {
 #define CPID_IPAD31       0x8945
 #define CPID_IPAD32       0x8945
 #define CPID_IPAD33       0x8945
+#define CPID_IPHONE5      0x8950
 
 #define BDID_UNKNOWN          -1
 #define BDID_IPHONE2G       0x00
@@ -80,6 +81,8 @@ extern "C" {
 #define BDID_IPAD31         0x00
 #define BDID_IPAD32         0x02
 #define BDID_IPAD33         0x04
+#define BDID_IPHONE51       0x00
+#define BDID_IPHONE52       0x02
 
 #define DEVICE_UNKNOWN      -1
 #define DEVICE_IPHONE2G      0
@@ -102,6 +105,8 @@ extern "C" {
 #define DEVICE_IPAD31       17
 #define DEVICE_IPAD32       18
 #define DEVICE_IPAD33       19
+#define DEVICE_IPHONE51     20
+#define DEVICE_IPHONE52     21
 
 enum {
 	kRecoveryMode1 = 0x1280,
@@ -204,6 +209,8 @@ static struct irecv_device irecv_devices[] = {
 	{ 17, "iPad3,1",    "j1ap",  0x00, 0x8945 },
 	{ 18, "iPad3,2",    "j2ap",  0x02, 0x8945 },
 	{ 19, "iPad3,3",    "j2aap", 0x04, 0x8945 },
+	{ 20, "iPhone5,1",  "n41ap", 0x00, 0x8950 },
+	{ 21, "iPhone5,2",  "n42ap", 0x02, 0x8950 },
 	{ -1,  NULL,         NULL,  -1,   -1 }
 };
 

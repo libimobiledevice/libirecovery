@@ -1607,6 +1607,22 @@ irecv_error_t irecv_get_device(irecv_client_t client, irecv_device_t* device) {
 			break;
 		}
 		break;
+	case CPID_IPHONE5:
+		if (irecv_get_bdid(client, &bdid) < 0) {
+			break;
+		}
+		switch (bdid) {
+		case BDID_IPHONE51:
+			device_id = DEVICE_IPHONE51;
+			break;
+		case BDID_IPHONE52:
+			device_id = DEVICE_IPHONE52;
+			break;
+		default:
+			device_id = DEVICE_UNKNOWN;
+			break;
+		}
+		break;
 
 	default:
 		device_id = DEVICE_UNKNOWN;
