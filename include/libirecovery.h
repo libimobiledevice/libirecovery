@@ -24,6 +24,8 @@
 extern "C" {
 #endif
 
+#include <stdint.h>
+
 #ifndef WIN32
 #include <libusb-1.0/libusb.h>
 #else
