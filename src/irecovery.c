@@ -165,7 +165,7 @@ int received_cb(irecv_client_t client, const irecv_event_t* event) {
 	if (event->type == IRECV_RECEIVED) {
 		int i = 0;
 		int size = event->size;
-		char* data = event->data;
+		const char* data = event->data;
 		for (i = 0; i < size; i++) {
 			printf("%c", data[i]);
 		}

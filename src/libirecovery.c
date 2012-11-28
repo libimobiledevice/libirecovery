@@ -835,7 +835,7 @@ static irecv_error_t irecv_send_command_raw(irecv_client_t client, const char* c
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_send_command(irecv_client_t client, char* command) {
+irecv_error_t irecv_send_command(irecv_client_t client, const char* command) {
 	irecv_error_t error = 0;
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
 
