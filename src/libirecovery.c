@@ -1501,171 +1501,20 @@ irecv_error_t irecv_get_device(irecv_client_t client, irecv_device_t* device) {
 	int device_id = DEVICE_UNKNOWN;
 	uint32_t bdid = 0;
 	uint32_t cpid = 0;
+	int i = 0;
 
 	if (irecv_get_cpid(client, &cpid) < 0) {
 		return IRECV_E_UNKNOWN_ERROR;
 	}
 
-	switch (cpid) {
-	case CPID_IPHONE2G:
-		// iPhone1,1 iPhone1,2 and iPod1,1 all share the same ChipID
-		//   so we need to check the BoardID
-		if (irecv_get_bdid(client, &bdid) < 0) {
-			break;
+	if (irecv_get_bdid(client, &bdid) < 0) {
+		return IRECV_E_UNKNOWN_ERROR;
+	}
+
+	for (i = 0; irecv_devices[i].model != NULL; i++) {
+		if (irecv_devices[i].chip_id == cpid && irecv_devices[i].board_id == bdid) {
+			device_id = irecv_devices[i].index;
 		}
-
-		switch (bdid) {
-		case BDID_IPHONE2G:
-			device_id = DEVICE_IPHONE2G;
-			break;
-
-		case BDID_IPHONE3G:
-			device_id = DEVICE_IPHONE3G;
-			break;
-
-		case BDID_IPOD1G:
-			device_id = DEVICE_IPOD1G;
-			break;
-
-		default:
-			device_id = DEVICE_UNKNOWN;
-			break;
-		}
-		break;
-
-	case CPID_IPHONE3GS:
-		device_id = DEVICE_IPHONE3GS;
-		break;
-
-	case CPID_IPOD2G:
-		device_id = DEVICE_IPOD2G;
-		break;
-
-	case CPID_IPOD3G:
-		device_id = DEVICE_IPOD3G;
-		break;
-
-	case CPID_IPAD1G:
-		// iPhone3,1 iPhone3,3 iPad4,1 and iPad1,1 all share the same ChipID
-		//   so we need to check the BoardID
-		if (irecv_get_bdid(client, &bdid) < 0) {
-			break;
-		}
-
-		switch (bdid) {
-		case BDID_IPAD1G:
-			device_id = DEVICE_IPAD1G;
-			break;
-
-		case BDID_IPHONE4:
-			device_id = DEVICE_IPHONE4;
-			break;
-
-		case BDID_IPOD4G:
-			device_id = DEVICE_IPOD4G;
-			break;
-
-		case BDID_APPLETV2:
-			device_id = DEVICE_APPLETV2;
-			break;
-
-		case BDID_IPHONE42:
-			device_id = DEVICE_IPHONE42;
-			break;
-
-		default:
-			device_id = DEVICE_UNKNOWN;
-			break;
-		}
-		break;
-
-	case CPID_IPAD21:
-		// iPad2,1 iPad2,2 iPad2,3 and iPhone4,1 share the same ChipID, so we need to check the BoardID
-		if (irecv_get_bdid(client, &bdid) < 0) {
-			break;
-		}
-
-		switch (bdid) {
-		case BDID_IPAD21:
-			device_id = DEVICE_IPAD21;
-			break;
-
-		case BDID_IPAD22:
-			device_id = DEVICE_IPAD22;
-			break;
-
-		case BDID_IPAD23:
-			device_id = DEVICE_IPAD23;
-			break;
-
-		case BDID_IPHONE4S:
-			device_id = DEVICE_IPHONE4S;
-			break;
-
-		default:
-			device_id = DEVICE_UNKNOWN;
-			break;
-		}
-		break;
-
-	case CPID_APPLETV31:
-		// AppleTV 3rd gen. iPad2,4, iPad 2,5 and iPod5,1 share the same ChipID, so we need to check the BoardID
-		if (irecv_get_bdid(client, &bdid) < 0) {
-			break;
-		}
-		switch (bdid) {
-		case BDID_APPLETV31:
-			device_id = DEVICE_APPLETV31;
-			break;
-		case BDID_IPAD24:
-			device_id = DEVICE_IPAD24;
-			break;
-		case BDID_IPAD25:
-			device_id = DEVICE_IPAD25;
-			break;
-		case BDID_IPOD5G:
-			device_id = DEVICE_IPOD5G;
-			break;
-		default:
-			device_id = DEVICE_UNKNOWN;
-			break;
-		}
-		break;
-
-	case CPID_IPHONE5:
-		if (irecv_get_bdid(client, &bdid) < 0) {
-			break;
-		}
-		switch (bdid) {
-		case BDID_IPHONE51:
-			device_id = DEVICE_IPHONE51;
-			break;
-		case BDID_IPHONE52:
-			device_id = DEVICE_IPHONE52;
-			break;
-		default:
-			device_id = DEVICE_UNKNOWN;
-			break;
-		}
-		break;
-
-	case CPID_IPAD34:
-		if (irecv_get_bdid(client, &bdid) < 0) {
-			break;
-		}
-		switch (bdid) {
-		case BDID_IPAD34:
-			device_id = DEVICE_IPAD34;
-			break;
-		default:
-			device_id = DEVICE_UNKNOWN;
-			break;
-		}
-		break;
-
-	default:
-		device_id = DEVICE_UNKNOWN;
-		break;
 	}
 
 	*device = &irecv_devices[device_id];
