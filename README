@@ -2,8 +2,8 @@
 
 iRecovery is a libusb-based commandline utility for Mac OS X, Windows, and Linux. It is able to talk to iBoot/iBSS in Apple's iPhone/iPod touch via USB.
 
-It's completely open-source, the source code is released under the terms of the GNU General Public License v3.
-The full license text can be found in the LICENSE file.
+The software is completely open-source, the source code is released under the
+terms of the LGPL 2.1. The full license text can be found in the LICENSE file.
 
 Here's its usage:
 
