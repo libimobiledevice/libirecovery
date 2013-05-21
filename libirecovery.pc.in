@@ -4,7 +4,7 @@ libdir=@libdir@
 includedir=@includedir@
 
 Name: libirecovery
-Description: A library to talk to iBoot/iBSS in iDevices via USB
+Description: A library to communicate with iBoot/iBSS on iOS devices via USB
 Version: @VERSION@
 Libs: -L${libdir} -lirecovery
 Cflags: -I${includedir}
