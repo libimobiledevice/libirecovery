@@ -822,16 +822,18 @@ void irecv_set_debug_level(int level) {
 }
 
 static irecv_error_t irecv_send_command_raw(irecv_client_t client, const char* command) {
+	int ret = 0;
+
 	unsigned int length = strlen(command);
 	if (length >= 0x100) {
 		length = 0xFF;
 	}
 
 	if (length > 0) {
-		int ret = irecv_control_transfer(client, 0x40, 0, 0, 0, (unsigned char*) command, length + 1, USB_TIMEOUT);
+		ret = irecv_control_transfer(client, 0x40, 0, 0, 0, (unsigned char*) command, length + 1, USB_TIMEOUT);
 	}
 
-	return IRECV_E_SUCCESS;
+	return ((unsigned)ret == (length + 1) ? IRECV_E_SUCCESS: IRECV_E_UNKNOWN_ERROR);
 }
 
 irecv_error_t irecv_send_command(irecv_client_t client, const char* command) {
@@ -1103,7 +1105,8 @@ irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** v
 	ret = irecv_control_transfer(client, 0xC0, 0, 0, 0, (unsigned char*) response, 255, USB_TIMEOUT);
 
 	*value = response;
-	return IRECV_E_SUCCESS;
+
+	return (ret > 0 ? IRECV_E_SUCCESS: IRECV_E_UNKNOWN_ERROR);
 }
 
 irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value) {
@@ -1120,7 +1123,8 @@ irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value) {
 	ret = irecv_control_transfer(client, 0xC0, 0, 0, 0, (unsigned char*) response, 255, USB_TIMEOUT);
 
 	*value = (unsigned int) *response;
-	return IRECV_E_SUCCESS;
+
+	return (ret > 0 ? IRECV_E_SUCCESS: IRECV_E_UNKNOWN_ERROR);
 }
 
 irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid) {
