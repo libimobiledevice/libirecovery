@@ -36,7 +36,12 @@
 #define debug(...) if(verbose) fprintf(stderr, __VA_ARGS__)
 
 enum {
-	kResetDevice, kStartShell, kSendCommand, kSendFile, kSendExploit, kSendScript
+	kResetDevice,
+	kStartShell,
+	kSendCommand,
+	kSendFile,
+	kSendExploit,
+	kSendScript
 };
 
 static unsigned int quit = 0;
