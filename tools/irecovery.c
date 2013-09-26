@@ -112,7 +112,7 @@ static void parse_command(irecv_client_t client, unsigned char* command, unsigne
 		if (filename != NULL) {
 			irecv_send_file(client, filename, 0);
 		}
-		irecv_send_exploit(client);
+		irecv_trigger_limera1n_exploit(client);
 	} else if (!strcmp(cmd, "/execute")) {
 		char* filename = strtok(NULL, " ");
 		debug("Executing script %s\n", filename);
@@ -374,7 +374,7 @@ int main(int argc, char* argv[]) {
 				break;
 			}
 		}
-		error = irecv_send_exploit(client);
+		error = irecv_trigger_limera1n_exploit(client);
 		debug("%s\n", irecv_strerror(error));
 		break;
 
