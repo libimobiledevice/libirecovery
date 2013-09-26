@@ -176,16 +176,16 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 				continue;
 			}
 
-			if (ecid == kWTFMode) {
-				if (_client->mode != kWTFMode) {
-					// special ecid case, ignore !kWTFMode
+			if (ecid == IRECV_K_WTF_MODE) {
+				if (_client->mode != IRECV_K_WTF_MODE) {
+					// special ecid case, ignore !IRECV_K_WTF_MODE
 					continue;
 				} else {
 					ecid = 0;
 				}
 			}
 
-			if ((ecid != 0) && (_client->mode == kWTFMode)) {
+			if ((ecid != 0) && (_client->mode == IRECV_K_WTF_MODE)) {
 				// we can't get ecid in WTF mode
 				mobiledevice_closepipes(_client);
 				continue;
@@ -267,7 +267,7 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 				continue;
 			}
 
-			if ((ecid != 0) && (_client->mode == kWTFMode)) {
+			if ((ecid != 0) && (_client->mode == IRECV_K_WTF_MODE)) {
 				// we can't get ecid in WTF mode
 				mobiledevice_closepipes(_client);
 				continue;
@@ -522,23 +522,23 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long e
 		libusb_get_device_descriptor(usb_device, &usb_descriptor);
 		if (usb_descriptor.idVendor == APPLE_VENDOR_ID) {
 			/* verify this device is in a mode we understand */
-			if (usb_descriptor.idProduct == kRecoveryMode1 ||
-				usb_descriptor.idProduct == kRecoveryMode2 ||
-				usb_descriptor.idProduct == kRecoveryMode3 ||
-				usb_descriptor.idProduct == kRecoveryMode4 ||
-				usb_descriptor.idProduct == kWTFMode ||
-				usb_descriptor.idProduct == kDfuMode) {
+			if (usb_descriptor.idProduct == IRECV_K_RECOVERY_MODE_1 ||
+				usb_descriptor.idProduct == IRECV_K_RECOVERY_MODE_2 ||
+				usb_descriptor.idProduct == IRECV_K_RECOVERY_MODE_3 ||
+				usb_descriptor.idProduct == IRECV_K_RECOVERY_MODE_4 ||
+				usb_descriptor.idProduct == IRECV_K_WTF_MODE ||
+				usb_descriptor.idProduct == IRECV_K_DFU_MODE) {
 
-				if (ecid == kWTFMode) {
-					if (usb_descriptor.idProduct != kWTFMode) {
-						// special ecid case, ignore !kWTFMode
+				if (ecid == IRECV_K_WTF_MODE) {
+					if (usb_descriptor.idProduct != IRECV_K_WTF_MODE) {
+						// special ecid case, ignore !IRECV_K_WTF_MODE
 						continue;
 					} else {
 						ecid = 0;
 					}
 				}
 
-				if ((ecid != 0) && (usb_descriptor.idProduct == kWTFMode)) {
+				if ((ecid != 0) && (usb_descriptor.idProduct == IRECV_K_WTF_MODE)) {
 					// we can't get ecid in WTF mode
 					continue;
 				}
@@ -595,9 +595,9 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long e
 					return error;
 				}
 
-				if ((client->mode != kDfuMode) && (client->mode != kWTFMode)) {
+				if ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE)) {
 					error = irecv_usb_set_interface(client, 0, 0);
-					if (client->mode > kRecoveryMode2) {
+					if (client->mode > IRECV_K_RECOVERY_MODE_2) {
 						error = irecv_usb_set_interface(client, 1, 1);
 					}
 				} else {
@@ -620,8 +620,9 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long e
 	if (ret == IRECV_E_SUCCESS) {
 		irecv_client_t client = *pclient;
 		int error = IRECV_E_SUCCESS;
+		if ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE)) {
 			error = irecv_usb_set_interface(client, 0, 0);
-			if (client->mode > kRecoveryMode2) {
+			if (client->mode > IRECV_K_RECOVERY_MODE_2) {
 				error = irecv_usb_set_interface(client, 1, 1);
 			}
 		} else {
@@ -786,7 +787,7 @@ irecv_error_t irecv_close(irecv_client_t client) {
 		}
 #ifndef WIN32
 		if (client->handle != NULL) {
-			if ((client->mode != kDfuMode) && (client->mode != kWTFMode)) {
+			if ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE)) {
 				libusb_release_interface(client->handle, client->interface);
 			}
 			libusb_close(client->handle);
@@ -920,7 +921,7 @@ static irecv_error_t irecv_get_status(irecv_client_t client, unsigned int* statu
 
 irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfuNotifyFinished) {
 	irecv_error_t error = 0;
-	int recovery_mode = ((client->mode != kDfuMode) && (client->mode != kWTFMode));
+	int recovery_mode = ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE));
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
 
 	unsigned int h1 = 0xFFFFFFFF;
@@ -1124,7 +1125,7 @@ irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value) {
 irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid) {
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
 
-	if (client->mode == kWTFMode) {
+	if (client->mode == IRECV_K_WTF_MODE) {
 		char s_cpid[8] = {0,};
 		strncpy(s_cpid, client->serial, 4);
 		if (sscanf(s_cpid, "%x", cpid) != 1) {
@@ -1376,14 +1377,14 @@ const char* irecv_strerror(irecv_error_t error) {
 
 irecv_error_t irecv_reset_counters(irecv_client_t client) {
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
-	if ((client->mode == kDfuMode) || (client->mode == kWTFMode)) {
+	if ((client->mode == IRECV_K_DFU_MODE) || (client->mode == IRECV_K_WTF_MODE)) {
 		irecv_usb_control_transfer(client, 0x21, 4, 0, 0, 0, 0, USB_TIMEOUT);
 	}
 	return IRECV_E_SUCCESS;
 }
 
 irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned long length) {
-	int recovery_mode = ((client->mode != kDfuMode) && (client->mode != kWTFMode));
+	int recovery_mode = ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE));
 
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
 

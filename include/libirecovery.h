@@ -42,12 +42,12 @@ extern "C" {
 #define BDID_UNKNOWN -1
 
 enum {
-	kRecoveryMode1 = 0x1280,
-	kRecoveryMode2 = 0x1281,
-	kRecoveryMode3 = 0x1282,
-	kRecoveryMode4 = 0x1283,
-	kWTFMode = 0x1222,
-	kDfuMode = 0x1227
+	IRECV_K_RECOVERY_MODE_1   = 0x1280,
+	IRECV_K_RECOVERY_MODE_2   = 0x1281,
+	IRECV_K_RECOVERY_MODE_3   = 0x1282,
+	IRECV_K_RECOVERY_MODE_4   = 0x1283,
+	IRECV_K_WTF_MODE          = 0x1222,
+	IRECV_K_DFU_MODE          = 0x1227
 };
 
 typedef enum {
