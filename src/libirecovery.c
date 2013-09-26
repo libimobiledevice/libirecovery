@@ -495,8 +495,8 @@ static int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc
 		if (data[si + 1]) {
 			/* high byte */
 			buffer[di++] = '?';
-        } else {
-            buffer[di++] = data[si];
+		} else {
+			buffer[di++] = data[si];
 		}
 	}
 	buffer[di] = 0;
@@ -686,7 +686,7 @@ irecv_error_t irecv_set_interface(irecv_client_t client, int interface, int alt_
 
 irecv_error_t irecv_reset(irecv_client_t client) {
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
-	
+
 #ifndef WIN32
 	libusb_reset_device(client->handle);
 #else
@@ -714,7 +714,7 @@ irecv_error_t irecv_open_attempts(irecv_client_t* pclient, unsigned long long ec
 		}		
 	}
 
-	return IRECV_E_UNABLE_TO_CONNECT;       
+	return IRECV_E_UNABLE_TO_CONNECT;
 }
 
 irecv_error_t irecv_event_subscribe(irecv_client_t client, irecv_event_type type, irecv_event_cb_t callback, void* user_data) {

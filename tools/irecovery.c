@@ -142,7 +142,6 @@ static void init_shell(irecv_client_t client) {
 	irecv_event_subscribe(client, IRECV_POSTCOMMAND, &postcommand_cb, NULL);
 	while (!quit) {
 		error = irecv_receive(client);
-
 		if (error != IRECV_E_SUCCESS) {
 			debug("%s\n", irecv_strerror(error));
 			break;
@@ -275,14 +274,14 @@ int main(int argc, char* argv[]) {
 		case 'i':
 			if (optarg) {
 				char* tail = NULL;
-                                ecid = strtoull(optarg, &tail, 16);
-                                if (tail && (tail[0] != '\0')) {
-                                        ecid = 0;
-                                }
-                                if (ecid == 0) {
-                                        fprintf(stderr, "ERROR: Could not parse ECID from argument '%s'\n", optarg);
-                                        return -1;
-                                }
+				ecid = strtoull(optarg, &tail, 16);
+				if (tail && (tail[0] != '\0')) {
+					ecid = 0;
+				}
+				if (ecid == 0) {
+					fprintf(stderr, "ERROR: Could not parse ECID from argument '%s'\n", optarg);
+					return -1;
+				}
 			}
 			break;
 
@@ -398,4 +397,3 @@ int main(int argc, char* argv[]) {
 	irecv_close(client);
 	return 0;
 }
-
