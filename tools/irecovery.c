@@ -68,21 +68,15 @@ static void parse_command(irecv_client_t client, unsigned char* command, unsigne
 	debug("Executing %s\n", action);
 	if (!strcmp(cmd, "/exit")) {
 		quit = 1;
-	} else
-
-	if (!strcmp(cmd, "/help")) {
+	} else if (!strcmp(cmd, "/help")) {
 		shell_usage();
-	} else
-
-	if (!strcmp(cmd, "/upload")) {
+	} else if (!strcmp(cmd, "/upload")) {
 		char* filename = strtok(NULL, " ");
 		debug("Uploading files %s\n", filename);
 		if (filename != NULL) {
 			irecv_send_file(client, filename, 0);
 		}
-	} else
-
-	if (!strcmp(cmd, "/deviceinfo")) {
+	} else if (!strcmp(cmd, "/deviceinfo")) {
 		int ret;
 		unsigned int cpid, bdid;
 		unsigned long long ecid;
@@ -112,25 +106,20 @@ static void parse_command(irecv_client_t client, unsigned char* command, unsigne
 		if(ret == IRECV_E_SUCCESS) {
 			printf("IMEI: %s\n", imei);
 		}
-	} else
-
-	if (!strcmp(cmd, "/exploit")) {
+	} else if (!strcmp(cmd, "/exploit")) {
 		char* filename = strtok(NULL, " ");
 		debug("Sending exploit %s\n", filename);
 		if (filename != NULL) {
 			irecv_send_file(client, filename, 0);
 		}
 		irecv_send_exploit(client);
-	} else
-
-		if (!strcmp(cmd, "/execute")) {
-			char* filename = strtok(NULL, " ");
-			debug("Executing script %s\n", filename);
-			if (filename != NULL) {
-				irecv_execute_script(client, filename);
-			}
+	} else if (!strcmp(cmd, "/execute")) {
+		char* filename = strtok(NULL, " ");
+		debug("Executing script %s\n", filename);
+		if (filename != NULL) {
+			irecv_execute_script(client, filename);
 		}
-
+	}
 
 	free(action);
 }
