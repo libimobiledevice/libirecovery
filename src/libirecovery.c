@@ -817,7 +817,7 @@ void irecv_set_debug_level(int level) {
 	libirecovery_debug = level;
 #ifndef WIN32
 	if(libirecovery_context) {
-		libusb_set_debug(libirecovery_context, libirecovery_debug);
+		libusb_set_debug(libirecovery_context, libirecovery_debug > 2 ? 1: 0);
 	}
 #endif
 }
