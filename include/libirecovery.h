@@ -1,5 +1,6 @@
 /*
- * libirecovery.h - communication to iBoot/iBSS on Apple iOS devices via USB
+ * libirecovery.h
+ * Communication to iBoot/iBSS on Apple iOS devices via USB
  *
  * Copyright (c) 2012-2013 Martin Szulecki <m.szulecki@libimobiledevice.org>
  * Copyright (c) 2010 Chronic-Dev Team
