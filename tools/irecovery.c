@@ -26,6 +26,12 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
+#ifdef WIN32
+#ifndef sleep
+#define sleep(n) Sleep(1000 * n)
+#endif
+#endif
+
 #define FILE_HISTORY_PATH ".irecovery"
 #define debug(...) if(verbose) fprintf(stderr, __VA_ARGS__)
 
