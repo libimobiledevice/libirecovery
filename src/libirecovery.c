@@ -386,8 +386,9 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 		irecv_close(_client);
 		return IRECV_E_UNABLE_TO_CONNECT;
 	}
-	
+
 	*client = _client;
+
 	return IRECV_E_SUCCESS;
 }
 
@@ -396,6 +397,7 @@ irecv_error_t mobiledevice_openpipes(irecv_client_t client) {
 		irecv_close(client);
 		return IRECV_E_UNABLE_TO_CONNECT;
 	}
+
 	if (client->DfuPath && !(client->hDFU = CreateFile(client->DfuPath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL))) {
 		irecv_close(client);
 		return IRECV_E_UNABLE_TO_CONNECT;
@@ -413,12 +415,12 @@ irecv_error_t mobiledevice_openpipes(irecv_client_t client) {
 		}
 		client->handle = client->hIB;
 	}
-	
+
 	if (client->mode == 0) {
 		irecv_close(client);
 		return IRECV_E_UNABLE_TO_CONNECT;
 	}
-	
+
 	return IRECV_E_SUCCESS;
 }
 
@@ -476,9 +478,10 @@ int irecv_usb_control_transfer( irecv_client_t client,
 	DWORD ret;
 	BOOL bRet;
 	OVERLAPPED overlapped;
-	
-	if (data == NULL) wLength = 0;
-	
+
+	if (data == NULL)
+		wLength = 0;
+
 	usb_control_request* packet = (usb_control_request*) malloc(sizeof(usb_control_request) + wLength);
 	packet->bmRequestType = bmRequestType;
 	packet->bRequest = bRequest;
@@ -489,7 +492,7 @@ int irecv_usb_control_transfer( irecv_client_t client,
 	if (bmRequestType < 0x80 && wLength > 0) {
 		memcpy(packet->data, data, wLength);
 	}
-	
+
 	memset(&overlapped, 0, sizeof(overlapped));
 	overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 	DeviceIoControl(client->handle, 0x2200A0, packet, sizeof(usb_control_request) + wLength, packet, sizeof(usb_control_request) + wLength, NULL, &overlapped);
@@ -501,7 +504,7 @@ int irecv_usb_control_transfer( irecv_client_t client,
 		free(packet);
 		return -1;
 	}
-	
+
 	count -= sizeof(usb_control_request);
 	if (count > 0) {
 		if (bmRequestType >= 0x80) {
@@ -509,6 +512,7 @@ int irecv_usb_control_transfer( irecv_client_t client,
 		}
 	}
 	free(packet);
+
 	return count;
 #endif
 }
@@ -550,7 +554,7 @@ static int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc
 	memset(buffer, 0, size);
 
 	ret = irecv_usb_control_transfer(client, 0x80, 0x06, (0x03 << 8) | desc_index, langid, data, sizeof(data), USB_TIMEOUT);
-	
+
 	if (ret < 0) return ret;
 	if (data[1] != 0x03) return IRECV_E_UNKNOWN_ERROR;
 	if (data[0] > ret) return IRECV_E_UNKNOWN_ERROR; 
@@ -565,7 +569,7 @@ static int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc
 		}
 	}
 	buffer[di] = 0;
-	
+
 	return di;
 #endif
 }
@@ -674,6 +678,7 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long e
 				}
 
 				*pclient = client;
+
 				return IRECV_E_SUCCESS;
 			}
 		}
@@ -697,13 +702,15 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long e
 			debug("WARNING: set interface failed, error %d\n", error);
 		}
 	}
+
 	return ret;
 #endif
 }
 
 irecv_error_t irecv_usb_set_configuration(irecv_client_t client, int configuration) {
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
-	
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
+
 #ifndef WIN32
 	debug("Setting to configuration %d\n", configuration);
 
@@ -722,7 +729,8 @@ irecv_error_t irecv_usb_set_configuration(irecv_client_t client, int configurati
 }
 
 irecv_error_t irecv_usb_set_interface(irecv_client_t client, int interface, int alt_interface) {
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
 
 	debug("Setting to interface %d:%d\n", interface, alt_interface);
 #ifndef WIN32
@@ -748,7 +756,8 @@ irecv_error_t irecv_usb_set_interface(irecv_client_t client, int interface, int 
 }
 
 irecv_error_t irecv_reset(irecv_client_t client) {
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
 
 #ifndef WIN32
 	libusb_reset_device(client->handle);
@@ -774,7 +783,7 @@ irecv_error_t irecv_open_with_ecid_and_attempts(irecv_client_t* pclient, unsigne
 			sleep(1);
 		} else {
 			return IRECV_E_SUCCESS;
-		}		
+		}
 	}
 
 	return IRECV_E_UNABLE_TO_CONNECT;
@@ -900,7 +909,9 @@ static irecv_error_t irecv_send_command_raw(irecv_client_t client, const char* c
 
 irecv_error_t irecv_send_command(irecv_client_t client, const char* command) {
 	irecv_error_t error = 0;
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
 
 	unsigned int length = strlen(command);
 	if (length >= 0x100) {
@@ -937,7 +948,8 @@ irecv_error_t irecv_send_command(irecv_client_t client, const char* command) {
 }
 
 irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, int dfuNotifyFinished) {
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
 
 	FILE* file = fopen(filename, "rb");
 	if (file == NULL) {
@@ -964,6 +976,7 @@ irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, int d
 
 	irecv_error_t error = irecv_send_buffer(client, (unsigned char*)buffer, length, dfuNotifyFinished);
 	free(buffer);
+
 	return error;
 }
 
@@ -981,19 +994,23 @@ static irecv_error_t irecv_get_status(irecv_client_t client, unsigned int* statu
 	}
 
 	*status = (unsigned int) buffer[4];
+
 	return IRECV_E_SUCCESS;
 }
 
 irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfuNotifyFinished) {
 	irecv_error_t error = 0;
 	int recovery_mode = ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE));
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
 
 	unsigned int h1 = 0xFFFFFFFF;
 	unsigned char dfu_xbuf[12] = {0xff, 0xff, 0xff, 0xff, 0xac, 0x05, 0x00, 0x01, 0x55, 0x46, 0x44, 0x10};
 	int packet_size = recovery_mode ? 0x8000 : 0x800;
 	int last = length % packet_size;
 	int packets = length / packet_size;
+
 	if (last != 0) {
 		packets++;
 	} else {
@@ -1011,6 +1028,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 			error = IRECV_E_USB_UPLOAD;
 		}
 	}
+
 	if (error != IRECV_E_SUCCESS) {
 		return error;
 	}
@@ -1069,6 +1087,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 
 		if (!recovery_mode && status != 5) {
 			int retry = 0;
+
 			while (retry < 20) {
 				irecv_get_status(client, &status);
 				if (status == 5) {
@@ -1076,6 +1095,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 				}
 				sleep(1);
 			}
+
 			if (status != 5) {
 				return IRECV_E_USB_UPLOAD;
 			}
@@ -1118,7 +1138,9 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 irecv_error_t irecv_receive(irecv_client_t client) {
 	char buffer[BUFFER_SIZE];
 	memset(buffer, '\0', BUFFER_SIZE);
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
 
 	int bytes = 0;
 	while (irecv_usb_bulk_transfer(client, 0x81, (unsigned char*) buffer, BUFFER_SIZE, &bytes, 500) == 0) {
@@ -1140,7 +1162,10 @@ irecv_error_t irecv_receive(irecv_client_t client) {
 
 irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** value) {
 	char command[256];
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
+
 	*value = NULL;
 
 	if(variable == NULL) {
@@ -1153,6 +1178,7 @@ irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** v
 	if(error == IRECV_E_PIPE) {
 		return IRECV_E_SUCCESS;
 	}
+
 	if(error != IRECV_E_SUCCESS) {
 		return error;
 	}
@@ -1171,7 +1197,9 @@ irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** v
 }
 
 irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value) {
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
+
 	*value = 0;
 
 	char* response = (char*) malloc(256);
@@ -1188,7 +1216,8 @@ irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value) {
 }
 
 irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid) {
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
 
 	if (client->mode == IRECV_K_WTF_MODE) {
 		char s_cpid[8] = {0,};
@@ -1197,6 +1226,7 @@ irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid) {
 			*cpid = 0;
 			return IRECV_E_UNKNOWN_ERROR;
 		}
+
 		return IRECV_E_SUCCESS;
 	}
 
@@ -1211,7 +1241,8 @@ irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid) {
 }
 
 irecv_error_t irecv_get_bdid(irecv_client_t client, unsigned int* bdid) {
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
 
 	char* bdid_string = strstr(client->serial, "BDID:");
 	if (bdid_string == NULL) {
@@ -1224,7 +1255,8 @@ irecv_error_t irecv_get_bdid(irecv_client_t client, unsigned int* bdid) {
 }
 
 irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* ecid) {
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
 
 	char* ecid_string = strstr(client->serial, "ECID:");
 	if (ecid_string == NULL) {
@@ -1237,7 +1269,8 @@ irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* ecid) {
 }
 
 irecv_error_t irecv_get_srnm(irecv_client_t client, char* srnm) {
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
 
 	char* srnmp;
 	char* srnm_string = strstr(client->serial, "SRNM:[");
@@ -1256,7 +1289,8 @@ irecv_error_t irecv_get_srnm(irecv_client_t client, char* srnm) {
 }
 
 irecv_error_t irecv_get_imei(irecv_client_t client, char* imei) {
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
 
 	char* imeip;
 	char* imei_string = strstr(client->serial, "IMEI:[");
@@ -1276,7 +1310,8 @@ irecv_error_t irecv_get_imei(irecv_client_t client, char* imei) {
 }
 
 irecv_error_t irecv_get_nonce(irecv_client_t client, unsigned char** nonce, int* nonce_size) {
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
 
 	unsigned char buf[255];
 	int len;
@@ -1329,17 +1364,22 @@ irecv_error_t irecv_get_nonce(irecv_client_t client, unsigned char** nonce, int*
 }
 
 irecv_error_t irecv_trigger_limera1n_exploit(irecv_client_t client) {
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
+
 	irecv_usb_control_transfer(client, 0x21, 2, 0, 0, NULL, 0, USB_TIMEOUT);
+
 	return IRECV_E_SUCCESS;
 }
 
 irecv_error_t irecv_execute_script(irecv_client_t client, const char* script) {
 	irecv_error_t error = IRECV_E_SUCCESS;
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
 
 	char* body = strdup(script);
 	char* line = strtok(body, "\n");
+
 	while(line != NULL) {
 		if(line[0] != '#') {
 			error = irecv_send_command(client, line);
@@ -1366,12 +1406,15 @@ irecv_error_t irecv_saveenv(irecv_client_t client) {
 	if(error != IRECV_E_SUCCESS) {
 		return error;
 	}
+
 	return IRECV_E_SUCCESS;
 }
 
 irecv_error_t irecv_setenv(irecv_client_t client, const char* variable, const char* value) {
 	char command[256];
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
 
 	if(variable == NULL || value == NULL) {
 		return IRECV_E_UNKNOWN_ERROR;
@@ -1392,6 +1435,7 @@ irecv_error_t irecv_reboot(irecv_client_t client) {
 	if(error != IRECV_E_SUCCESS) {
 		return error;
 	}
+
 	return IRECV_E_SUCCESS;
 }
 
@@ -1441,17 +1485,21 @@ const char* irecv_strerror(irecv_error_t error) {
 }
 
 irecv_error_t irecv_reset_counters(irecv_client_t client) {
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
+
 	if ((client->mode == IRECV_K_DFU_MODE) || (client->mode == IRECV_K_WTF_MODE)) {
 		irecv_usb_control_transfer(client, 0x21, 4, 0, 0, 0, 0, USB_TIMEOUT);
 	}
+
 	return IRECV_E_SUCCESS;
 }
 
 irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned long length) {
 	int recovery_mode = ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE));
 
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
 
 	int packet_size = recovery_mode ? 0x2000: 0x800;
 	int last = length % packet_size;
@@ -1468,7 +1516,7 @@ irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned lo
 	for (i = 0; i < packets; i++) {
 		unsigned short size = (i+1) < packets ? packet_size : last;
 		bytes = irecv_usb_control_transfer(client, 0xA1, 2, 0, 0, (unsigned char*)&buffer[i * packet_size], size, USB_TIMEOUT);
-		
+
 		if (bytes != size) {
 			return IRECV_E_USB_UPLOAD;
 		}
@@ -1493,14 +1541,17 @@ irecv_error_t irecv_finish_transfer(irecv_client_t client) {
 	int i = 0;
 	unsigned int status = 0;
 
-	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
 
 	irecv_usb_control_transfer(client, 0x21, 1, 0, 0, 0, 0, USB_TIMEOUT);
 
 	for(i = 0; i < 3; i++){
 		irecv_get_status(client, &status);
 	}
+
 	irecv_reset(client);
+
 	return IRECV_E_SUCCESS;
 }
 
@@ -1582,5 +1633,6 @@ irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause) {
 	}
 
 	new_client->progress_callback = progress_callback;
+
 	return new_client;
 }

@@ -169,6 +169,7 @@ int received_cb(irecv_client_t client, const irecv_event_t* event) {
 			printf("%c", data[i]);
 		}
 	}
+
 	return 0;
 }
 
@@ -179,6 +180,7 @@ int precommand_cb(irecv_client_t client, const irecv_event_t* event) {
 			return -1;
 		}
 	}
+
 	return 0;
 }
 
@@ -209,7 +211,9 @@ int postcommand_cb(irecv_client_t client, const irecv_event_t* event) {
 		}
 	}
 
-	if (command) free(command);
+	if (command)
+		free(command);
+
 	return 0;
 }
 
@@ -217,11 +221,13 @@ int progress_cb(irecv_client_t client, const irecv_event_t* event) {
 	if (event->type == IRECV_PROGRESS) {
 		print_progress_bar(event->progress);
 	}
+
 	return 0;
 }
 
 void print_progress_bar(double progress) {
 	int i = 0;
+
 	if(progress < 0) {
 		return;
 	}
@@ -231,6 +237,7 @@ void print_progress_bar(double progress) {
 	}
 
 	printf("\r[");
+
 	for(i = 0; i < 50; i++) {
 		if(i < progress / 2) {
 			printf("=");
@@ -240,7 +247,9 @@ void print_progress_bar(double progress) {
 	}
 
 	printf("] %3.1f%%", progress);
+
 	fflush(stdout);
+
 	if(progress == 100) {
 		printf("\n");
 	}
@@ -268,7 +277,10 @@ int main(int argc, char* argv[]) {
 	unsigned long long ecid = 0;
 	char* argument = NULL;
 	irecv_error_t error = 0;
-	if (argc == 1) print_usage();
+
+	if (argc == 1)
+		print_usage();
+
 	while ((opt = getopt(argc, argv, "i:vhrsc:f:e:k::")) > 0) {
 		switch (opt) {
 		case 'i':
@@ -327,7 +339,8 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	if (verbose) irecv_set_debug_level(verbose);
+	if (verbose)
+		irecv_set_debug_level(verbose);
 
 	irecv_init();
 	irecv_client_t client = NULL;
@@ -395,5 +408,6 @@ int main(int argc, char* argv[]) {
 	}
 
 	irecv_close(client);
+
 	return 0;
 }
