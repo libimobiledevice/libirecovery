@@ -68,8 +68,8 @@ typedef struct {
 } irecv_event_t;
 
 struct irecv_device {
-	const char* product;
-	const char* model;
+	const char* product_type;
+	const char* hardware_model;
 	unsigned int board_id;
 	unsigned int chip_id;
 };
@@ -132,6 +132,8 @@ irecv_error_t irecv_get_imei(irecv_client_t client, char* imei);
 
 /* device database queries */
 irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client, irecv_device_t* device);
+irecv_error_t irecv_devices_get_device_by_product_type(const char* product_type, irecv_device_t* device);
+irecv_error_t irecv_devices_get_device_by_hardware_model(const char* hardware_model, irecv_device_t* device);
 
 #ifdef __cplusplus
 }

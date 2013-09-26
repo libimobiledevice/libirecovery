@@ -1519,14 +1519,44 @@ irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client, irecv_de
 		return IRECV_E_UNKNOWN_ERROR;
 	}
 
-	for (i = 0; irecv_devices[i].model != NULL; i++) {
+	for (i = 0; irecv_devices[i].hardware_model != NULL; i++) {
 		if (irecv_devices[i].chip_id == cpid && irecv_devices[i].board_id == bdid) {
-			device_id = irecv_devices[i].index;
+			*device = &irecv_devices[i];
+			return IRECV_E_SUCCESS;
 		}
 	}
 
-	*device = &irecv_devices[device_id];
-	return IRECV_E_SUCCESS;
+	return IRECV_E_NO_DEVICE;
+}
+
+irecv_error_t irecv_devices_get_device_by_product_type(const char* product_type, irecv_device_t* device) {
+	int i = 0;
+
+	*device = NULL;
+
+	for (i = 0; irecv_devices[i].product_type != NULL; i++) {
+		if (!strcmp(product_type, irecv_devices[i].product_type)) {
+			*device = &irecv_devices[i];
+			return IRECV_E_SUCCESS;
+		}
+	}
+
+	return IRECV_E_NO_DEVICE;
+}
+
+irecv_error_t irecv_devices_get_device_by_hardware_model(const char* hardware_model, irecv_device_t* device) {
+	int i = 0;
+
+	*device = NULL;
+
+	for (i = 0; irecv_devices[i].hardware_model != NULL; i++) {
+		if (!strcmp(hardware_model, irecv_devices[i].hardware_model)) {
+			*device = &irecv_devices[i];
+			return IRECV_E_SUCCESS;
+		}
+	}
+
+	return IRECV_E_NO_DEVICE;
 }
 
 irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause) {
