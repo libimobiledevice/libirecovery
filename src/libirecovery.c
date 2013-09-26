@@ -31,9 +31,13 @@
 #else
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#undef interface
 #include <setupapi.h>
 #define _FMT_qX "%I64X"
 #define _FMT_016llx "%016I64x"
+#ifndef sleep
+#define sleep(n) Sleep(1000 * n)
+#endif
 #endif
 
 #include "libirecovery.h"
