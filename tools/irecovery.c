@@ -65,7 +65,7 @@ static void shell_usage() {
 static void parse_command(irecv_client_t client, unsigned char* command, unsigned int size) {
 	char* cmd = strdup((char*)command);
 	char* action = strtok(cmd, " ");
-	debug("Executing %s\n", action);
+
 	if (!strcmp(cmd, "/exit")) {
 		quit = 1;
 	} else if (!strcmp(cmd, "/help")) {
