@@ -334,7 +334,7 @@ int main(int argc, char* argv[]) {
 	for (i = 0; i <= 5; i++) {
 		debug("Attempting to connect... \n");
 
-		if (irecv_open(&client, ecid) != IRECV_E_SUCCESS)
+		if (irecv_open_with_ecid(&client, ecid) != IRECV_E_SUCCESS)
 			sleep(1);
 		else
 			break;

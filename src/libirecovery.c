@@ -503,7 +503,7 @@ static int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc
 #endif
 }
 
-irecv_error_t irecv_open(irecv_client_t* pclient, unsigned long long ecid) {
+irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long ecid) {
 	if(libirecovery_debug) {
 		irecv_set_debug_level(libirecovery_debug);
 	}
@@ -696,7 +696,7 @@ irecv_error_t irecv_reset(irecv_client_t client) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_open_attempts(irecv_client_t* pclient, unsigned long long ecid, int attempts) {
+irecv_error_t irecv_open_with_ecid_and_attempts(irecv_client_t* pclient, unsigned long long ecid, int attempts) {
 	int i;
 
 	for (i = 0; i < attempts; i++) {
@@ -704,7 +704,7 @@ irecv_error_t irecv_open_attempts(irecv_client_t* pclient, unsigned long long ec
 			irecv_close(*pclient);
 			*pclient = NULL;
 		}
-		if (irecv_open(pclient, ecid) != IRECV_E_SUCCESS) {
+		if (irecv_open_with_ecid(pclient, ecid) != IRECV_E_SUCCESS) {
 			debug("Connection failed. Waiting 1 sec before retry.\n");
 			sleep(1);
 		} else {
@@ -1480,7 +1480,7 @@ irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause) {
 		sleep(initial_pause);
 	}
 	
-	error = irecv_open_attempts(&new_client, ecid, 10);
+	error = irecv_open_with_ecid_and_attempts(&new_client, ecid, 10);
 	if(error != IRECV_E_SUCCESS) {
 		return NULL;
 	}
