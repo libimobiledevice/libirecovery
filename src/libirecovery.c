@@ -214,7 +214,7 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 	irecv_client_t _client = (irecv_client_t) malloc(sizeof(struct irecv_client_private));
 	memset(_client, 0, sizeof(struct irecv_client_private));
 
-	// Get DFU paths
+	/* get DFU paths */
 	usbDevices = SetupDiGetClassDevs(&GUID_DEVINTERFACE_DFU, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
 	memset(&currentInterface, '\0', sizeof(SP_DEVICE_INTERFACE_DATA));
 	currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
@@ -245,7 +245,7 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 
 			if (ecid == IRECV_K_WTF_MODE) {
 				if (_client->mode != IRECV_K_WTF_MODE) {
-					// special ecid case, ignore !IRECV_K_WTF_MODE
+					/* special ecid case, ignore !IRECV_K_WTF_MODE */
 					continue;
 				} else {
 					ecid = 0;
@@ -253,7 +253,7 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 			}
 
 			if ((ecid != 0) && (_client->mode == IRECV_K_WTF_MODE)) {
-				// we can't get ecid in WTF mode
+				/* we can't get ecid in WTF mode */
 				mobiledevice_closepipes(_client);
 				continue;
 			}
@@ -305,7 +305,7 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 		return IRECV_E_SUCCESS;
 	}
 
-	// Get iBoot path
+	/* get iBoot path */
 	usbDevices = SetupDiGetClassDevs(&GUID_DEVINTERFACE_IBOOT, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
 	memset(&currentInterface, '\0', sizeof(SP_DEVICE_INTERFACE_DATA));
 	currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
@@ -335,7 +335,7 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 			}
 
 			if ((ecid != 0) && (_client->mode == IRECV_K_WTF_MODE)) {
-				// we can't get ecid in WTF mode
+				/* we can't get ecid in WTF mode */
 				mobiledevice_closepipes(_client);
 				continue;
 			}
@@ -602,7 +602,7 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long e
 
 				if (ecid == IRECV_K_WTF_MODE) {
 					if (usb_descriptor.idProduct != IRECV_K_WTF_MODE) {
-						// special ecid case, ignore !IRECV_K_WTF_MODE
+						/* special ecid case, ignore !IRECV_K_WTF_MODE */
 						continue;
 					} else {
 						ecid = 0;
@@ -610,7 +610,7 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long e
 				}
 
 				if ((ecid != 0) && (usb_descriptor.idProduct == IRECV_K_WTF_MODE)) {
-					// we can't get ecid in WTF mode
+					/* we can't get ecid in WTF mode */
 					continue;
 				}
 
@@ -734,9 +734,6 @@ irecv_error_t irecv_usb_set_interface(irecv_client_t client, int interface, int 
 
 	debug("Setting to interface %d:%d\n", interface, alt_interface);
 #ifndef WIN32
-	// pod2g 2011-01-07: we may want to claim multiple interfaces
-	//libusb_release_interface(client->handle, client->interface);
-
 	if (libusb_claim_interface(client->handle, interface) < 0) {
 		return IRECV_E_USB_INTERFACE;
 	}
@@ -1125,7 +1122,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 		}
 
 		if (dfuNotifyFinished == 2) {
-			// we send a pseudo ZLP here just in case
+			/* we send a pseudo ZLP here just in case */
 			irecv_usb_control_transfer(client, 0x21, 1, 0, 0, 0, 0, USB_TIMEOUT);
 		}
 
