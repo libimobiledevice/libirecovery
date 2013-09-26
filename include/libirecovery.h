@@ -205,7 +205,7 @@ irecv_error_t irecv_reset(irecv_client_t client);
 irecv_error_t irecv_close(irecv_client_t client);
 irecv_error_t irecv_receive(irecv_client_t client);
 irecv_error_t irecv_send_exploit(irecv_client_t client);
-irecv_error_t irecv_execute_script(irecv_client_t client, const char* filename);
+irecv_error_t irecv_execute_script(irecv_client_t client, const char* script);
 irecv_error_t irecv_set_configuration(irecv_client_t client, int configuration);
 
 irecv_error_t irecv_event_subscribe(irecv_client_t client, irecv_event_type type, irecv_event_cb_t callback, void *user_data);

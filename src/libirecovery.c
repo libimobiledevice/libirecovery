@@ -1271,33 +1271,31 @@ irecv_error_t irecv_send_exploit(irecv_client_t client) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_execute_script(irecv_client_t client, const char* filename) {
+irecv_error_t irecv_execute_script(irecv_client_t client, const char* script) {
 	irecv_error_t error = IRECV_E_SUCCESS;
 	if (check_context(client) != IRECV_E_SUCCESS) return IRECV_E_NO_DEVICE;
 
-	char* file_data = NULL;
-	unsigned int file_size = 0;
-	if(irecv_read_file(filename, &file_data, &file_size) < 0) {
-		return IRECV_E_FILE_NOT_FOUND;
-	}
-
-	char* line = strtok(file_data, "\n");
+	char* body = strdup(script);
+	char* line = strtok(body, "\n");
 	while(line != NULL) {
 		if(line[0] != '#') {
 			error = irecv_send_command(client, line);
 			if(error != IRECV_E_SUCCESS) {
-				return error;
+				break;
 			}
 
 			error = irecv_receive(client);
 			if(error != IRECV_E_SUCCESS) {
-				return error;
+				break;
 			}
 		}
 		line = strtok(NULL, "\n");
 	}
 
-	return IRECV_E_SUCCESS;
+	if (body)
+		free(body);
+
+	return error;
 }
 
 irecv_error_t irecv_saveenv(irecv_client_t client) {
