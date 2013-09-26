@@ -1439,8 +1439,7 @@ irecv_error_t irecv_finish_transfer(irecv_client_t client) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_get_device(irecv_client_t client, irecv_device_t* device) {
-	int device_id = DEVICE_UNKNOWN;
+irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client, irecv_device_t* device) {
 	uint32_t bdid = 0;
 	uint32_t cpid = 0;
 	int i = 0;

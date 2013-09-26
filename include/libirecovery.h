@@ -85,7 +85,6 @@ typedef struct {
 struct irecv_client;
 typedef struct irecv_client* irecv_client_t;
 typedef struct irecv_device* irecv_device_t;
-typedef int(*irecv_event_cb_t)(irecv_client_t client, const irecv_event_t* event);
 
 struct irecv_client {
 	int debug;
@@ -197,14 +196,24 @@ static struct irecv_device irecv_devices[] = {
 	{ -1,         NULL,    NULL,   -1,     -1 }
 };
 
+/* library */
 void irecv_set_debug_level(int level);
 const char* irecv_strerror(irecv_error_t error);
+void irecv_init();
+void irecv_exit();
+
+/* device connectivity */
 irecv_error_t irecv_open_with_ecid(irecv_client_t* client, unsigned long long ecid);
 irecv_error_t irecv_open_with_ecid_and_attempts(irecv_client_t* pclient, unsigned long long ecid, int attempts);
 irecv_error_t irecv_reset(irecv_client_t client);
 irecv_error_t irecv_close(irecv_client_t client);
+irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause);
+
+/* misc */
 irecv_error_t irecv_receive(irecv_client_t client);
 irecv_error_t irecv_execute_script(irecv_client_t client, const char* script);
+irecv_error_t irecv_reset_counters(irecv_client_t client);
+irecv_error_t irecv_finish_transfer(irecv_client_t client);
 irecv_error_t irecv_trigger_limera1n_exploit(irecv_client_t client);
 
 /* usb helpers */
@@ -213,18 +222,25 @@ irecv_error_t irecv_usb_set_interface(irecv_client_t client, int interface, int 
 int irecv_usb_control_transfer(irecv_client_t client, uint8_t bmRequestType, uint8_t bRequest, uint16_t wValue, uint16_t wIndex, unsigned char *data, uint16_t wLength, unsigned int timeout);
 int irecv_usb_bulk_transfer(irecv_client_t client, unsigned char endpoint, unsigned char *data, int length, int *transferred, unsigned int timeout);
 
+/* events */
+typedef int(*irecv_event_cb_t)(irecv_client_t client, const irecv_event_t* event);
 irecv_error_t irecv_event_subscribe(irecv_client_t client, irecv_event_type type, irecv_event_cb_t callback, void *user_data);
 irecv_error_t irecv_event_unsubscribe(irecv_client_t client, irecv_event_type type);
 
+/* I/O */
 irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, int dfuNotifyFinished);
 irecv_error_t irecv_send_command(irecv_client_t client, const char* command);
 irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfuNotifyFinished);
+irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned long length);
 
+/* commands */
 irecv_error_t irecv_saveenv(irecv_client_t client);
-irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value);
 irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** value);
 irecv_error_t irecv_setenv(irecv_client_t client, const char* variable, const char* value);
 irecv_error_t irecv_reboot(irecv_client_t client);
+irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value);
+
+/* device information */
 irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid);
 irecv_error_t irecv_get_bdid(irecv_client_t client, unsigned int* bdid);
 irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* ecid);
@@ -232,13 +248,8 @@ irecv_error_t irecv_get_nonce(irecv_client_t client, unsigned char** nonce, int*
 irecv_error_t irecv_get_srnm(irecv_client_t client, char* srnm);
 irecv_error_t irecv_get_imei(irecv_client_t client, char* imei);
 
-void irecv_init();
-void irecv_exit();
-irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause);
-irecv_error_t irecv_reset_counters(irecv_client_t client);
-irecv_error_t irecv_finish_transfer(irecv_client_t client);
-irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned long length);
-irecv_error_t irecv_get_device(irecv_client_t client, irecv_device_t* device);
+/* device database queries */
+irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client, irecv_device_t* device);
 
 #ifdef __cplusplus
 }

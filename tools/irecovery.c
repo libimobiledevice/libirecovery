@@ -345,7 +345,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	irecv_device_t device = NULL;
-	irecv_get_device(client, &device);
+	irecv_devices_get_device_by_client(client, &device);
 	if (device)
 		debug("Connected to %s, model %s, cpid 0x%04x, bdid 0x%02x\n", device->product, device->model, device->chip_id, device->board_id);
 
