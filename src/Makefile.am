@@ -9,9 +9,3 @@ libirecovery_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(LIBIRECOVERY_SO_VERSION)
 libirecovery_la_SOURCES = \
 		libirecovery.c
 
-bin_PROGRAMS = irecovery
-
-irecovery_SOURCES = irecovery.c
-irecovery_CFLAGS = $(AM_CFLAGS)
-irecovery_LDFLAGS = $(AM_LDFLAGS) $(IRECOVERY_LIBS)
-irecovery_LDADD = ./libirecovery.la

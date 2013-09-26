@@ -96,6 +96,7 @@ AC_OUTPUT([
 Makefile
 src/Makefile
 include/Makefile
+tools/Makefile
 libirecovery.pc
 ])
 
