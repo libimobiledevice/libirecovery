@@ -42,7 +42,32 @@
 
 #include "libirecovery.h"
 
+struct irecv_client_private {
+	int debug;
+	int config;
+	int interface;
+	int alt_interface;
+	unsigned short mode;
+	char serial[256];
+#ifndef WIN32
+	libusb_device_handle* handle;
+#else
+	HANDLE handle;
+	HANDLE hDFU;
+	HANDLE hIB;
+	LPSTR iBootPath;
+	LPSTR DfuPath;
+#endif
+	irecv_event_cb_t progress_callback;
+	irecv_event_cb_t received_callback;
+	irecv_event_cb_t connected_callback;
+	irecv_event_cb_t precommand_callback;
+	irecv_event_cb_t postcommand_callback;
+	irecv_event_cb_t disconnected_callback;
+};
+
 #define USB_TIMEOUT 10000
+#define APPLE_VENDOR_ID 0x05AC
 
 #define BUFFER_SIZE 0x1000
 #define debug(...) if(libirecovery_debug) fprintf(stderr, __VA_ARGS__)
@@ -52,6 +77,44 @@ static int libirecovery_debug = 0;
 static libusb_context* libirecovery_context = NULL;
 #endif
 
+static struct irecv_device irecv_devices[] = {
+	{"iPhone1,1",  "m68ap", 0x00, 0x8900 },
+	{"iPhone1,2",  "n82ap", 0x04, 0x8900 },
+	{"iPhone2,1",  "n88ap", 0x00, 0x8920 },
+	{"iPhone3,1",  "n90ap", 0x00, 0x8930 },
+	{"iPhone3,2", "n90bap", 0x04, 0x8930 },
+	{"iPhone3,3",  "n92ap", 0x06, 0x8930 },
+	{"iPhone4,1",  "n94ap", 0x08, 0x8940 },
+	{"iPhone5,1",  "n41ap", 0x00, 0x8950 },
+	{"iPhone5,2",  "n42ap", 0x02, 0x8950 },
+	{"iPhone5,3",  "n48ap", 0x0a, 0x8950 },
+	{"iPhone5,4",  "n49ap", 0x0e, 0x8950 },
+	{"iPhone6,1",  "n51ap", 0x00, 0x8960 },
+	{"iPhone6,2",  "n53ap", 0x02, 0x8960 },
+	{"iPod1,1",    "n45ap", 0x02, 0x8900 },
+	{"iPod2,1",    "n72ap", 0x00, 0x8720 },
+	{"iPod3,1",    "n18ap", 0x02, 0x8922 },
+	{"iPod4,1",    "n81ap", 0x08, 0x8930 },
+	{"iPod5,1",    "n78ap", 0x00, 0x8942 },
+	{"iPad1,1",    "k48ap", 0x02, 0x8930 },
+	{"iPad2,1",    "k93ap", 0x04, 0x8940 },
+	{"iPad2,2",    "k94ap", 0x06, 0x8940 },
+	{"iPad2,3",    "k95ap", 0x02, 0x8940 },
+	{"iPad2,4",   "k93aap", 0x06, 0x8942 },
+	{"iPad2,5",   "p105ap", 0x0a, 0x8942 },
+	{"iPad2,6",   "p106ap", 0x0c, 0x8942 },
+	{"iPad2,7",   "p107ap", 0x0e, 0x8942 },
+	{"iPad3,1",     "j1ap", 0x00, 0x8945 },
+	{"iPad3,2",     "j2ap", 0x02, 0x8945 },
+	{"iPad3,3",    "j2aap", 0x04, 0x8945 },
+	{"iPad3,4",   "p101ap", 0x00, 0x8955 },
+	{"iPad3,5",   "p102ap", 0x02, 0x8955 },
+	{"iPad3,6",   "p103ap", 0x04, 0x8955 },
+	{"AppleTV2,1", "k66ap", 0x10, 0x8930 },
+	{"AppleTV3,1", "j33ap", 0x08, 0x8942 },
+	{"AppleTV3,2","j33iap", 0x00, 0x8947 },
+	{        NULL,    NULL,   -1,     -1 }
+};
 
 static unsigned int dfu_hash_t1[256] = {
 	0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA,
@@ -148,8 +211,8 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 	SP_DEVICE_INTERFACE_DATA currentInterface;
 	HDEVINFO usbDevices;
 	DWORD i;
-	irecv_client_t _client = (irecv_client_t) malloc(sizeof(struct irecv_client));
-	memset(_client, 0, sizeof(struct irecv_client));
+	irecv_client_t _client = (irecv_client_t) malloc(sizeof(struct irecv_client_private));
+	memset(_client, 0, sizeof(struct irecv_client_private));
 
 	// Get DFU paths
 	usbDevices = SetupDiGetClassDevs(&GUID_DEVINTERFACE_DFU, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
@@ -561,7 +624,7 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long e
 					return IRECV_E_UNABLE_TO_CONNECT;
 				}
 
-				irecv_client_t client = (irecv_client_t) malloc(sizeof(struct irecv_client));
+				irecv_client_t client = (irecv_client_t) malloc(sizeof(struct irecv_client_private));
 				if (client == NULL) {
 					libusb_free_device_list(usb_device_list, 1);
 					libusb_close(usb_handle);
@@ -569,7 +632,7 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long e
 					return IRECV_E_OUT_OF_MEMORY;
 				}
 
-				memset(client, '\0', sizeof(struct irecv_client));
+				memset(client, '\0', sizeof(struct irecv_client_private));
 				client->interface = 0;
 				client->handle = usb_handle;
 				client->mode = usb_descriptor.idProduct;
@@ -1445,6 +1508,8 @@ irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client, irecv_de
 	uint32_t bdid = 0;
 	uint32_t cpid = 0;
 	int i = 0;
+
+	*device = NULL;
 
 	if (irecv_get_cpid(client, &cpid) < 0) {
 		return IRECV_E_UNKNOWN_ERROR;
