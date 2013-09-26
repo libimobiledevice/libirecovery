@@ -48,8 +48,6 @@ static int libirecovery_debug = 0;
 static libusb_context* libirecovery_context = NULL;
 #endif
 
-int irecv_write_file(const char* filename, const void* data, size_t size);
-int irecv_read_file(const char* filename, char** data, uint32_t* size);
 
 static unsigned int dfu_hash_t1[256] = {
 	0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA,
@@ -1367,68 +1365,6 @@ const char* irecv_strerror(irecv_error_t error) {
 	}
 
 	return NULL;
-}
-
-int irecv_write_file(const char* filename, const void* data, size_t size) {
-	size_t bytes = 0;
-	FILE* file = NULL;
-
-	debug("Writing data to %s\n", filename);
-	file = fopen(filename, "wb");
-	if (file == NULL) {
-		//error("read_file: Unable to open file %s\n", filename);
-		return -1;
-	}
-
-	bytes = fwrite(data, 1, size, file);
-	fclose(file);
-
-	if (bytes != size) {
-		//error("ERROR: Unable to write entire file: %s: %d of %d\n", filename, bytes, size);
-		return -1;
-	}
-
-	return size;
-}
-
-int irecv_read_file(const char* filename, char** data, uint32_t* size) {
-	size_t bytes = 0;
-	size_t length = 0;
-	FILE* file = NULL;
-	char* buffer = NULL;
-	debug("Reading data from %s\n", filename);
-
-	*size = 0;
-	*data = NULL;
-
-	file = fopen(filename, "rb");
-	if (file == NULL) {
-		//error("read_file: File %s not found\n", filename);
-		return -1;
-	}
-
-	fseek(file, 0, SEEK_END);
-	length = ftell(file);
-	rewind(file);
-
-	buffer = (char*) malloc(length);
-	if(buffer == NULL) {
-		//error("ERROR: Out of memory\n");
-		fclose(file);
-		return -1;
-	}
-	bytes = fread(buffer, 1, length, file);
-	fclose(file);
-
-	if(bytes != length) {
-		//error("ERROR: Unable to read entire file\n");
-		free(buffer);
-		return -1;
-	}
-
-	*size = length;
-	*data = buffer;
-	return 0;
 }
 
 irecv_error_t irecv_reset_counters(irecv_client_t client) {
