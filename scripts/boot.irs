@@ -1,5 +1,0 @@
-# Simple script to kick you out of recovery mode
-setenv auto-boot true
-saveenv
-reboot
-
