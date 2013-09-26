@@ -1,1 +1,1 @@
-nobase_include_HEADERS = libirecovery.h
+nobase_dist_include_HEADERS = libirecovery.h

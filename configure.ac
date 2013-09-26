@@ -26,40 +26,33 @@ AM_PROG_CC_C_O
 AC_PROG_LIBTOOL
 
 # Checks for libraries.
-ACCFLAGS=
-ACLDFLAGS=
-ACLIBS=
+PKG_CHECK_MODULES(libusb, libusb-1.0 >= 1.0.3)
 
-#echo $host_os
+# Check additional platform flags
 case "$host_os" in
 	darwin*)
-		ACCFLAGS+="-I\$(top_srcdir)/include -I/usr/local/include -I/opt/local/include"
-		ACLDFLAGS+="-L/usr/lib -L/usr/local/lib -L/opt/local/lib"
-		ACLIBS+="-lusb-1.0 -framework CoreFoundation -framework IOKit"
-	;;
-	linux*)
-		ACCFLAGS+="-fPIC -O3 -I\$(top_srcdir)/include -I/usr/include -I/usr/local/include"
-		ACLDFLAGS+="-L/usr/lib -L/usr/local/lib"
-		ACLIBS+="-lusb-1.0"
+		AC_CHECK_HEADER(CoreFoundation/CoreFoundation.h, [
+			AC_CHECK_HEADER(IOKit/IOKitLib.h, [
+				AC_DEFINE(HAVE_IOKIT, 1, [Define if we have IOKit])
+				LIBIRECOVERYLDFLAGS="-framework IOKit -framework CoreFoundation"
+			], [])
+		], [])
 	;;
 	mingw32*)
-		ACCFLAGS+="-O3 -DWIN32 -I$(top_srcdir)/include -Ic:/mingw/include"
-		ACLDFLAGS+="-static-libgcc -Lc:/mingw/lib -Lc:/mingw/bin"
-		ACLIBS+="-lkernel32 -lmsvcrt -lsetupapi"
+		LDFLAGS+=" -static-libgcc"
+		LIBIRECOVERYLDFLAGS=" -lkernel32 -lmsvcrt -lsetupapi"
 	;;
 	cygwin*)
 		CC=gcc-3
-		ACCFLAGS+="-O3 -DWIN32 -mno-cygwin -I$(top_srcdir)/include -I/usr/include"
-		ACLDFLAGS+="-static-libgcc -L/lib -L/usr/lib -L/bin"
-		ACLIBS+="-lkernel32 -lmsvcrt -lsetupapi"
+		CFLAGS+=" -mno-cygwin"
+		LDFLAGS+=" -static-libgcc"
+		LIBIRECOVERYLDFLAGS=" -lkernel32 -lmsvcrt -lsetupapi"
 	;;
 	*)
-		
+		LIBIRECOVERYLDFLAGS=
 	;;
 esac
-
-IRECOVERY_LIBS=-lreadline
-AC_SUBST(IRECOVERY_LIBS)
+AC_SUBST(LIBIRECOVERYLDFLAGS)
 
 # Checks for header files.
 AC_HEADER_STDC
@@ -78,17 +71,24 @@ AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_CHECK_FUNCS([strcasecmp strdup strerror strndup])
 
-AS_COMPILER_FLAGS(GLOBAL_CFLAGS, "-Wall -Wextra -Wmissing-declarations -Wredundant-decls -Wshadow -Wpointer-arith  -Wwrite-strings -Wswitch-default -Wno-unused-parameter")
+# Check for operating system
+AC_MSG_CHECKING([whether to enable WIN32 build settings])
+case ${host_os} in
+	*mingw32*|*cygwin*)
+		win32=true
+		AC_MSG_RESULT([yes])
+		AC_CHECK_TOOL([WINDRES], [windres], AC_MSG_ERROR([windres not found]))
+		AC_SUBST(WINDRES)
+	;;
+	*)
+		win32=false
+		AC_MSG_RESULT([no])
+	;;
+esac
+AM_CONDITIONAL(WIN32, test x$win32 = xtrue)
+
+AS_COMPILER_FLAGS(GLOBAL_CFLAGS, "-Wall -Wextra -Wmissing-declarations -Wredundant-decls -Wshadow -Wpointer-arith -Wwrite-strings -Wswitch-default -Wno-unused-parameter")
 AC_SUBST(GLOBAL_CFLAGS)
-
-LIBIRECOVERY_CFLAGS=$ACCFLAGS
-LIBIRECOVERY_CFLAGS+=$GLOBAL_CFLAGS
-LIBIRECOVERY_LDFLAGS=$ACLDFLAGS
-LIBIRECOVERY_LIBS=$ACLIBS
-
-AC_SUBST(LIBIRECOVERY_CFLAGS)
-AC_SUBST(LIBIRECOVERY_LDFLAGS)
-AC_SUBST(LIBIRECOVERY_LIBS)
 
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 
