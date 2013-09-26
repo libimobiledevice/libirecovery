@@ -223,6 +223,7 @@ irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value);
 irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** value);
 irecv_error_t irecv_setenv(irecv_client_t client, const char* variable, const char* value);
 irecv_error_t irecv_set_interface(irecv_client_t client, int interface, int alt_interface);
+irecv_error_t irecv_reboot(irecv_client_t client);
 irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid);
 irecv_error_t irecv_get_bdid(irecv_client_t client, unsigned int* bdid);
 irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* ecid);

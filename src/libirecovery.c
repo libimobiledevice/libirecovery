@@ -1322,6 +1322,14 @@ irecv_error_t irecv_setenv(irecv_client_t client, const char* variable, const ch
 	return IRECV_E_SUCCESS;
 }
 
+irecv_error_t irecv_reboot(irecv_client_t client) {
+	irecv_error_t error = irecv_send_command_raw(client, "reboot");
+	if(error != IRECV_E_SUCCESS) {
+		return error;
+	}
+	return IRECV_E_SUCCESS;
+}
+
 const char* irecv_strerror(irecv_error_t error) {
 	switch (error) {
 	case IRECV_E_SUCCESS:
