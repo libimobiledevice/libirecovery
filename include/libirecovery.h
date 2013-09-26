@@ -229,8 +229,6 @@ irecv_error_t irecv_get_nonce(irecv_client_t client, unsigned char** nonce, int*
 irecv_error_t irecv_get_srnm(irecv_client_t client, char* srnm);
 irecv_error_t irecv_get_imei(irecv_client_t client, char* imei);
 
-void irecv_hexdump(unsigned char* buf, unsigned int len, unsigned int addr);
-
 void irecv_init();
 void irecv_exit();
 irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause);
