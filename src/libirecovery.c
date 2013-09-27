@@ -463,16 +463,9 @@ void irecv_exit() {
 	void dummy_callback() { }
 #endif
 
-int irecv_usb_control_transfer( irecv_client_t client,
-							uint8_t bmRequestType,
-							uint8_t bRequest,
-							uint16_t wValue,
-							uint16_t wIndex,
-							unsigned char *data,
-							uint16_t wLength,
-							unsigned int timeout) {
+int irecv_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, unsigned int timeout) {
 #ifndef WIN32
-	return libusb_control_transfer(client->handle, bmRequestType, bRequest, wValue, wIndex, data, wLength, timeout);
+	return libusb_control_transfer(client->handle, bm_request_type, b_request, w_value, w_index, data, w_length, timeout);
 #else
 	DWORD count = 0;
 	DWORD ret;
@@ -482,20 +475,20 @@ int irecv_usb_control_transfer( irecv_client_t client,
 	if (data == NULL)
 		wLength = 0;
 
-	usb_control_request* packet = (usb_control_request*) malloc(sizeof(usb_control_request) + wLength);
-	packet->bmRequestType = bmRequestType;
-	packet->bRequest = bRequest;
-	packet->wValue = wValue;
-	packet->wIndex = wIndex;
-	packet->wLength = wLength;
+	usb_control_request* packet = (usb_control_request*) malloc(sizeof(usb_control_request) + w_length);
+	packet->bmRequestType = bm_request_type;
+	packet->bRequest = b_request;
+	packet->wValue = w_value;
+	packet->wIndex = w_index;
+	packet->wLength = w_length;
 	
-	if (bmRequestType < 0x80 && wLength > 0) {
-		memcpy(packet->data, data, wLength);
+	if (bm_request_type < 0x80 && w_length > 0) {
+		memcpy(packet->data, data, w_length);
 	}
 
 	memset(&overlapped, 0, sizeof(overlapped));
 	overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-	DeviceIoControl(client->handle, 0x2200A0, packet, sizeof(usb_control_request) + wLength, packet, sizeof(usb_control_request) + wLength, NULL, &overlapped);
+	DeviceIoControl(client->handle, 0x2200A0, packet, sizeof(usb_control_request) + w_length, packet, sizeof(usb_control_request) + w_length, NULL, &overlapped);
 	ret = WaitForSingleObject(overlapped.hEvent, timeout);
 	bRet = GetOverlappedResult(client->handle, &overlapped, &count, FALSE);
 	CloseHandle(overlapped.hEvent);
@@ -507,7 +500,7 @@ int irecv_usb_control_transfer( irecv_client_t client,
 
 	count -= sizeof(usb_control_request);
 	if (count > 0) {
-		if (bmRequestType >= 0x80) {
+		if (bm_request_type >= 0x80) {
 			memcpy(data, packet->data, count);
 		}
 	}
@@ -944,7 +937,7 @@ irecv_error_t irecv_send_command(irecv_client_t client, const char* command) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, int dfuNotifyFinished) {
+irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, int dfu_notify_finished) {
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;
 
@@ -971,7 +964,7 @@ irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, int d
 		return IRECV_E_UNKNOWN_ERROR;
 	}
 
-	irecv_error_t error = irecv_send_buffer(client, (unsigned char*)buffer, length, dfuNotifyFinished);
+	irecv_error_t error = irecv_send_buffer(client, (unsigned char*)buffer, length, dfu_notify_finished);
 	free(buffer);
 
 	return error;
@@ -995,7 +988,7 @@ static irecv_error_t irecv_get_status(irecv_client_t client, unsigned int* statu
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfuNotifyFinished) {
+irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfu_notify_finished) {
 	irecv_error_t error = 0;
 	int recovery_mode = ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE));
 
@@ -1111,7 +1104,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 		}
 	}
 
-	if (dfuNotifyFinished && !recovery_mode) {
+	if (dfu_notify_finished && !recovery_mode) {
 		irecv_usb_control_transfer(client, 0x21, 1, packets, 0, (unsigned char*) buffer, 0, USB_TIMEOUT);
 
 		for (i = 0; i < 2; i++) {
@@ -1121,7 +1114,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 			}
 		}
 
-		if (dfuNotifyFinished == 2) {
+		if (dfu_notify_finished == 2) {
 			/* we send a pseudo ZLP here just in case */
 			irecv_usb_control_transfer(client, 0x21, 1, 0, 0, 0, 0, USB_TIMEOUT);
 		}
