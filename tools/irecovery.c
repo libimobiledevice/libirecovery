@@ -57,11 +57,11 @@ int postcommand_cb(irecv_client_t client, const irecv_event_t* event);
 
 static void shell_usage() {
 	printf("Usage:\n");
-	printf("\t/upload <file>\tSend file to client.\n");
-	printf("\t/exploit [file]\tSend usb exploit with optional payload\n");
-	printf("\t/deviceinfo\tShow device information (ECID, IMEI, etc.)\n");
-	printf("\t/help\t\tShow this help.\n");
-	printf("\t/exit\t\tExit interactive shell.\n");
+	printf("  /upload FILE\t\tsend FILE to device\n");
+	printf("  /exploit [FILE]\trun limera1in exploit and send optional payload from FILE\n");
+	printf("  /deviceinfo\t\tprint device information (ECID, IMEI, etc.)\n");
+	printf("  /help\t\t\tshow this help\n");
+	printf("  /exit\t\t\texit interactive shell\n");
 }
 
 static const char* mode_to_str(int mode) {
@@ -177,7 +177,6 @@ static void parse_command(irecv_client_t client, unsigned char* command, unsigne
 			buffer_read_from_filename(filename, &buffer, &buffer_length);
 			if (buffer) {
 				buffer[buffer_length] = '\0';
-	
 				irecv_execute_script(client, buffer);
 				free(buffer);
 			} else {
@@ -324,7 +323,7 @@ static void print_usage(int argc, char **argv) {
 	char *name = NULL;
 	name = strrchr(argv[0], '/');
 	printf("Usage: %s [OPTIONS]\n", (name ? name + 1: argv[0]));
-	printf("Interact with a iBSS/iBoot iOS device in DFU or recovery mode.\n\n");
+	printf("Interact with an iOS device in DFU or recovery mode.\n\n");
 	printf("options:\n");
 	printf("  -i ECID\tconnect to specific device by its hexadecimal ECID\n");
 	printf("  -c CMD\trun CMD on device\n");
