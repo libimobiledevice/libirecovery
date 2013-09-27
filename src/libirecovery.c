@@ -1159,7 +1159,7 @@ irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** v
 	*value = NULL;
 
 	if(variable == NULL) {
-		return IRECV_E_UNKNOWN_ERROR;
+		return IRECV_E_INVALID_INPUT;
 	}
 
 	memset(command, '\0', sizeof(command));
