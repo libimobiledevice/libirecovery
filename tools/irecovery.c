@@ -41,7 +41,9 @@ enum {
 	kSendCommand,
 	kSendFile,
 	kSendExploit,
-	kSendScript
+	kSendScript,
+	kShowMode,
+	kRebootToNormalMode
 };
 
 static unsigned int quit = 0;
@@ -255,19 +257,51 @@ void print_progress_bar(double progress) {
 	}
 }
 
-static void print_usage() {
-	printf("iRecovery - iDevice Recovery Utility\n");
-	printf("Usage: irecovery [args]\n");
-	printf("\t-i <ecid>\tTarget specific device by its hexadecimal ECID\n");
-	printf("\t-v\t\tStart irecovery in verbose mode.\n");
-	printf("\t-c <cmd>\tSend command to client.\n");
-	printf("\t-f <file>\tSend file to client.\n");
-	printf("\t-k [payload]\tSend usb exploit to client.\n");
-	printf("\t-h\t\tShow this help.\n");
-	printf("\t-r\t\tReset client.\n");
-	printf("\t-s\t\tStart interactive shell.\n");
-	printf("\t-e <script>\tExecutes recovery shell script.\n");
-	exit(1);
+static void buffer_read_from_filename(const char *filename, char **buffer, uint64_t *length) {
+	FILE *f;
+	uint64_t size;
+
+	*length = 0;
+
+	f = fopen(filename, "rb");
+	if (!f) {
+		return;
+	}
+
+	fseek(f, 0, SEEK_END);
+	size = ftell(f);
+	rewind(f);
+
+	if (size == 0) {
+		fclose(f);
+		return;
+	}
+
+	*buffer = (char*)malloc(sizeof(char)*(size+1));
+	fread(*buffer, sizeof(char), size, f);
+	fclose(f);
+
+	*length = size;
+}
+
+static void print_usage(int argc, char **argv) {
+	char *name = NULL;
+	name = strrchr(argv[0], '/');
+	printf("Usage: %s [OPTIONS]\n", (name ? name + 1: argv[0]));
+	printf("Interact with a iBSS/iBoot iOS device in DFU or recovery mode.\n\n");
+	printf("options:\n");
+	printf("  -i ECID\tconnect to specific device by its hexadecimal ECID\n");
+	printf("  -c CMD\trun CMD on device\n");
+	printf("  -m\t\tprint current device mode\n");
+	printf("  -f FILE\tsend file to device\n");
+	printf("  -k FILE\tsend limera1in usb exploit payload from FILE\n");
+	printf("  -r\t\treset client\n");
+	printf("  -n\t\treboot device into normal mode (exit recovery loop)\n");
+	printf("  -e FILE\texecutes recovery script from FILE\n");
+	printf("  -s\t\tstart an interactive shell\n");
+	printf("  -v\t\tenable verbose output, repeat for higher verbosity\n");
+	printf("  -h\t\tprints this usage information\n");
+	printf("\n");
 }
 
 int main(int argc, char* argv[]) {
@@ -275,67 +309,81 @@ int main(int argc, char* argv[]) {
 	int opt = 0;
 	int action = 0;
 	unsigned long long ecid = 0;
+	int mode = -1;
 	char* argument = NULL;
 	irecv_error_t error = 0;
 
-	if (argc == 1)
-		print_usage();
+	char* buffer = NULL;
+	uint64_t buffer_length = 0;
 
-	while ((opt = getopt(argc, argv, "i:vhrsc:f:e:k::")) > 0) {
+	if (argc == 1) {
+		print_usage(argc, argv);
+		return 0;
+	}
+
+	while ((opt = getopt(argc, argv, "i:vhrsmnc:f:e:k::")) > 0) {
 		switch (opt) {
-		case 'i':
-			if (optarg) {
-				char* tail = NULL;
-				ecid = strtoull(optarg, &tail, 16);
-				if (tail && (tail[0] != '\0')) {
-					ecid = 0;
+			case 'i':
+				if (optarg) {
+					char* tail = NULL;
+					ecid = strtoull(optarg, &tail, 16);
+					if (tail && (tail[0] != '\0')) {
+						ecid = 0;
+					}
+					if (ecid == 0) {
+						fprintf(stderr, "ERROR: Could not parse ECID from argument '%s'\n", optarg);
+						return -1;
+					}
 				}
-				if (ecid == 0) {
-					fprintf(stderr, "ERROR: Could not parse ECID from argument '%s'\n", optarg);
-					return -1;
-				}
-			}
-			break;
+				break;
 
-		case 'v':
-			verbose += 1;
-			break;
+			case 'v':
+				verbose += 1;
+				break;
 
-		case 'h':
-			print_usage();
-			break;
+			case 'h':
+				print_usage(argc, argv);
+				return 0;
 
-		case 'r':
-			action = kResetDevice;
-			break;
+			case 'm':
+				action = kShowMode;
+				break;
 
-		case 's':
-			action = kStartShell;
-			break;
+			case 'n':
+				action = kRebootToNormalMode;
+				break;
 
-		case 'f':
-			action = kSendFile;
-			argument = optarg;
-			break;
+			case 'r':
+				action = kResetDevice;
+				break;
 
-		case 'c':
-			action = kSendCommand;
-			argument = optarg;
-			break;
+			case 's':
+				action = kStartShell;
+				break;
 
-		case 'k':
-			action = kSendExploit;
-			argument = optarg;
-			break;
+			case 'f':
+				action = kSendFile;
+				argument = optarg;
+				break;
 
-		case 'e':
-			action = kSendScript;
-			argument = optarg;
-			break;
+			case 'c':
+				action = kSendCommand;
+				argument = optarg;
+				break;
 
-		default:
-			fprintf(stderr, "Unknown argument\n");
-			return -1;
+			case 'k':
+				action = kSendExploit;
+				argument = optarg;
+				break;
+
+			case 'e':
+				action = kSendScript;
+				argument = optarg;
+				break;
+
+			default:
+				fprintf(stderr, "Unknown argument\n");
+				return -1;
 		}
 	}
 
@@ -363,48 +411,96 @@ int main(int argc, char* argv[]) {
 		debug("Connected to %s, model %s, cpid 0x%04x, bdid 0x%02x\n", device->product_type, device->hardware_model, device->chip_id, device->board_id);
 
 	switch (action) {
-	case kResetDevice:
-		irecv_reset(client);
-		break;
+		case kResetDevice:
+			irecv_reset(client);
+			break;
 
-	case kSendFile:
-		irecv_event_subscribe(client, IRECV_PROGRESS, &progress_cb, NULL);
-		error = irecv_send_file(client, argument, 1);
-		debug("%s\n", irecv_strerror(error));
-		break;
-
-	case kSendCommand:
-		error = irecv_send_command(client, argument);
-		debug("%s\n", irecv_strerror(error));
-		break;
-
-	case kSendExploit:
-		if (argument != NULL) {
+		case kSendFile:
 			irecv_event_subscribe(client, IRECV_PROGRESS, &progress_cb, NULL);
-			error = irecv_send_file(client, argument, 0);
+			error = irecv_send_file(client, argument, 1);
+			debug("%s\n", irecv_strerror(error));
+			break;
+
+		case kSendCommand:
+			error = irecv_send_command(client, argument);
+			debug("%s\n", irecv_strerror(error));
+			break;
+
+		case kSendExploit:
+			if (argument != NULL) {
+				irecv_event_subscribe(client, IRECV_PROGRESS, &progress_cb, NULL);
+				error = irecv_send_file(client, argument, 0);
+				if (error != IRECV_E_SUCCESS) {
+					debug("%s\n", irecv_strerror(error));
+					break;
+				}
+			}
+			error = irecv_trigger_limera1n_exploit(client);
+			debug("%s\n", irecv_strerror(error));
+			break;
+
+		case kStartShell:
+			init_shell(client);
+			break;
+
+		case kSendScript:
+			buffer_read_from_filename(argument, &buffer, &buffer_length);
+			buffer[buffer_length] = '\0';
+
+			error = irecv_execute_script(client, buffer);
+			if(error != IRECV_E_SUCCESS) {
+				debug("%s\n", irecv_strerror(error));
+			}
+
+			if (buffer)
+				free(buffer);
+
+			break;
+
+		case kShowMode:
+			irecv_get_mode(client, &mode);
+			switch (mode) {
+				case IRECV_K_RECOVERY_MODE_1:
+				case IRECV_K_RECOVERY_MODE_2:
+				case IRECV_K_RECOVERY_MODE_3:
+				case IRECV_K_RECOVERY_MODE_4:
+					printf("Recovery Mode\n");
+					break;
+				case IRECV_K_DFU_MODE:
+					printf("DFU Mode\n");
+					break;
+				case IRECV_K_WTF_MODE:
+					printf("WTF Mode\n");
+					break;
+				default:
+					printf("Unknown Mode\n");
+					break;
+			}
+			break;
+
+		case kRebootToNormalMode:
+			error = irecv_setenv(client, "auto-boot", "true");
 			if (error != IRECV_E_SUCCESS) {
 				debug("%s\n", irecv_strerror(error));
 				break;
 			}
-		}
-		error = irecv_trigger_limera1n_exploit(client);
-		debug("%s\n", irecv_strerror(error));
-		break;
 
-	case kStartShell:
-		init_shell(client);
-		break;
+			error = irecv_saveenv(client);
+			if (error != IRECV_E_SUCCESS) {
+				debug("%s\n", irecv_strerror(error));
+				break;
+			}
 
-	case kSendScript:
-		error = irecv_execute_script(client, argument);
-		if(error != IRECV_E_SUCCESS) {
-			debug("%s\n", irecv_strerror(error));
-		}
-		break;
-
-	default:
-		fprintf(stderr, "Unknown action\n");
-		break;
+			error = irecv_reboot(client);
+			if (error != IRECV_E_SUCCESS) {
+				debug("%s\n", irecv_strerror(error));
+			} else {
+				debug("%s\n", irecv_strerror(error));
+			}
+			break;
+		default:
+			fprintf(stderr, "Unknown action\n");
+			break;
 	}
 
 	irecv_close(client);
