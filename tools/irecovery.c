@@ -58,7 +58,7 @@ int postcommand_cb(irecv_client_t client, const irecv_event_t* event);
 static void shell_usage() {
 	printf("Usage:\n");
 	printf("  /upload FILE\t\tsend FILE to device\n");
-	printf("  /exploit [FILE]\trun limera1in exploit and send optional payload from FILE\n");
+	printf("  /limera1in [FILE]\trun limera1in exploit and send optional payload from FILE\n");
 	printf("  /deviceinfo\t\tprint device information (ECID, IMEI, etc.)\n");
 	printf("  /help\t\t\tshow this help\n");
 	printf("  /exit\t\t\texit interactive shell\n");
@@ -161,9 +161,9 @@ static void parse_command(irecv_client_t client, unsigned char* command, unsigne
 			printf("MODE: %s\n", mode_to_str(mode));
 		}
 
-	} else if (!strcmp(cmd, "/exploit")) {
+	} else if (!strcmp(cmd, "/limera1in")) {
 		char* filename = strtok(NULL, " ");
-		debug("Sending exploit %s\n", filename);
+		debug("Sending limera1in payload %s\n", filename);
 		if (filename != NULL) {
 			irecv_send_file(client, filename, 0);
 		}
