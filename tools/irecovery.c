@@ -64,6 +64,33 @@ static void shell_usage() {
 	printf("\t/exit\t\tExit interactive shell.\n");
 }
 
+static void buffer_read_from_filename(const char *filename, char **buffer, uint64_t *length) {
+	FILE *f;
+	uint64_t size;
+
+	*length = 0;
+
+	f = fopen(filename, "rb");
+	if (!f) {
+		return;
+	}
+
+	fseek(f, 0, SEEK_END);
+	size = ftell(f);
+	rewind(f);
+
+	if (size == 0) {
+		fclose(f);
+		return;
+	}
+
+	*buffer = (char*)malloc(sizeof(char)*(size+1));
+	fread(*buffer, sizeof(char), size, f);
+	fclose(f);
+
+	*length = size;
+}
+
 static void parse_command(irecv_client_t client, unsigned char* command, unsigned int size) {
 	char* cmd = strdup((char*)command);
 	char* action = strtok(cmd, " ");
@@ -119,7 +146,17 @@ static void parse_command(irecv_client_t client, unsigned char* command, unsigne
 		char* filename = strtok(NULL, " ");
 		debug("Executing script %s\n", filename);
 		if (filename != NULL) {
-			irecv_execute_script(client, filename);
+			char* buffer = NULL;
+			uint64_t buffer_length = 0;
+			buffer_read_from_filename(filename, &buffer, &buffer_length);
+			if (buffer) {
+				buffer[buffer_length] = '\0';
+	
+				irecv_execute_script(client, buffer);
+				free(buffer);
+			} else {
+				printf("Could not read file '%s'\n", filename);
+			}
 		}
 	}
 
@@ -255,33 +292,6 @@ void print_progress_bar(double progress) {
 	if(progress == 100) {
 		printf("\n");
 	}
-}
-
-static void buffer_read_from_filename(const char *filename, char **buffer, uint64_t *length) {
-	FILE *f;
-	uint64_t size;
-
-	*length = 0;
-
-	f = fopen(filename, "rb");
-	if (!f) {
-		return;
-	}
-
-	fseek(f, 0, SEEK_END);
-	size = ftell(f);
-	rewind(f);
-
-	if (size == 0) {
-		fclose(f);
-		return;
-	}
-
-	*buffer = (char*)malloc(sizeof(char)*(size+1));
-	fread(*buffer, sizeof(char), size, f);
-	fclose(f);
-
-	*length = size;
 }
 
 static void print_usage(int argc, char **argv) {
@@ -445,16 +455,18 @@ int main(int argc, char* argv[]) {
 
 		case kSendScript:
 			buffer_read_from_filename(argument, &buffer, &buffer_length);
-			buffer[buffer_length] = '\0';
+			if (buffer) {
+				buffer[buffer_length] = '\0';
 
-			error = irecv_execute_script(client, buffer);
-			if(error != IRECV_E_SUCCESS) {
-				debug("%s\n", irecv_strerror(error));
-			}
+				error = irecv_execute_script(client, buffer);
+				if(error != IRECV_E_SUCCESS) {
+					debug("%s\n", irecv_strerror(error));
+				}
 
-			if (buffer)
 				free(buffer);
-
+			} else {
+				fprintf(stderr, "Could not read file '%s'\n", argument);
+			}
 			break;
 
 		case kShowMode:
