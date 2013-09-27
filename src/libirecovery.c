@@ -1205,6 +1205,15 @@ irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value) {
 	return IRECV_E_SUCCESS;
 }
 
+irecv_error_t irecv_get_mode(irecv_client_t client, int* mode) {
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
+
+	*mode = client->mode;
+
+	return IRECV_E_SUCCESS;
+}
+
 irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid) {
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;

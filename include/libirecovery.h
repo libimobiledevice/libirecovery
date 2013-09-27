@@ -123,6 +123,7 @@ irecv_error_t irecv_reboot(irecv_client_t client);
 irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value);
 
 /* device information */
+irecv_error_t irecv_get_mode(irecv_client_t client, int* mode);
 irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid);
 irecv_error_t irecv_get_bdid(irecv_client_t client, unsigned int* bdid);
 irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* ecid);
