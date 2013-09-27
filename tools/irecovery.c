@@ -64,6 +64,26 @@ static void shell_usage() {
 	printf("\t/exit\t\tExit interactive shell.\n");
 }
 
+static const char* mode_to_str(int mode) {
+	switch (mode) {
+		case IRECV_K_RECOVERY_MODE_1:
+		case IRECV_K_RECOVERY_MODE_2:
+		case IRECV_K_RECOVERY_MODE_3:
+		case IRECV_K_RECOVERY_MODE_4:
+			return "Recovery";
+			break;
+		case IRECV_K_DFU_MODE:
+			return "DFU";
+			break;
+		case IRECV_K_WTF_MODE:
+			return "WTF";
+			break;
+		default:
+			return "Unknown";
+			break;
+	}
+}
+
 static void buffer_read_from_filename(const char *filename, char **buffer, uint64_t *length) {
 	FILE *f;
 	uint64_t size;
@@ -106,7 +126,7 @@ static void parse_command(irecv_client_t client, unsigned char* command, unsigne
 			irecv_send_file(client, filename, 0);
 		}
 	} else if (!strcmp(cmd, "/deviceinfo")) {
-		int ret;
+		int ret, mode;
 		unsigned int cpid, bdid;
 		unsigned long long ecid;
 		char srnm[12], imei[15];
@@ -135,6 +155,12 @@ static void parse_command(irecv_client_t client, unsigned char* command, unsigne
 		if(ret == IRECV_E_SUCCESS) {
 			printf("IMEI: %s\n", imei);
 		}
+
+		ret = irecv_get_mode(client, &mode);
+		if (ret == IRECV_E_SUCCESS) {
+			printf("MODE: %s\n", mode_to_str(mode));
+		}
+
 	} else if (!strcmp(cmd, "/exploit")) {
 		char* filename = strtok(NULL, " ");
 		debug("Sending exploit %s\n", filename);
@@ -471,23 +497,7 @@ int main(int argc, char* argv[]) {
 
 		case kShowMode:
 			irecv_get_mode(client, &mode);
-			switch (mode) {
-				case IRECV_K_RECOVERY_MODE_1:
-				case IRECV_K_RECOVERY_MODE_2:
-				case IRECV_K_RECOVERY_MODE_3:
-				case IRECV_K_RECOVERY_MODE_4:
-					printf("Recovery Mode\n");
-					break;
-				case IRECV_K_DFU_MODE:
-					printf("DFU Mode\n");
-					break;
-				case IRECV_K_WTF_MODE:
-					printf("WTF Mode\n");
-					break;
-				default:
-					printf("Unknown Mode\n");
-					break;
-			}
+			printf("%s Mode\n", mode_to_str(mode));
 			break;
 
 		case kRebootToNormalMode:
