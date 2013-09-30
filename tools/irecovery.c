@@ -58,7 +58,7 @@ int postcommand_cb(irecv_client_t client, const irecv_event_t* event);
 static void shell_usage() {
 	printf("Usage:\n");
 	printf("  /upload FILE\t\tsend FILE to device\n");
-	printf("  /limera1in [FILE]\trun limera1in exploit and send optional payload from FILE\n");
+	printf("  /limera1n [FILE]\trun limera1n exploit and send optional payload from FILE\n");
 	printf("  /deviceinfo\t\tprint device information (ECID, IMEI, etc.)\n");
 	printf("  /help\t\t\tshow this help\n");
 	printf("  /exit\t\t\texit interactive shell\n");
@@ -161,9 +161,9 @@ static void parse_command(irecv_client_t client, unsigned char* command, unsigne
 			printf("MODE: %s\n", mode_to_str(mode));
 		}
 
-	} else if (!strcmp(cmd, "/limera1in")) {
+	} else if (!strcmp(cmd, "/limera1n")) {
 		char* filename = strtok(NULL, " ");
-		debug("Sending limera1in payload %s\n", filename);
+		debug("Sending limera1n payload %s\n", filename);
 		if (filename != NULL) {
 			irecv_send_file(client, filename, 0);
 		}
@@ -329,7 +329,7 @@ static void print_usage(int argc, char **argv) {
 	printf("  -c CMD\trun CMD on device\n");
 	printf("  -m\t\tprint current device mode\n");
 	printf("  -f FILE\tsend file to device\n");
-	printf("  -k FILE\tsend limera1in usb exploit payload from FILE\n");
+	printf("  -k FILE\tsend limera1n usb exploit payload from FILE\n");
 	printf("  -r\t\treset client\n");
 	printf("  -n\t\treboot device into normal mode (exit recovery loop)\n");
 	printf("  -e FILE\texecutes recovery script from FILE\n");
