@@ -47,7 +47,7 @@ struct irecv_client_private {
 	int config;
 	int interface;
 	int alt_interface;
-	unsigned short mode;
+	unsigned int mode;
 	char serial[256];
 #ifndef WIN32
 	libusb_device_handle* handle;
@@ -206,7 +206,6 @@ irecv_error_t mobiledevice_openpipes(irecv_client_t client);
 void mobiledevice_closepipes(irecv_client_t client);
 
 irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ecid) {
-	irecv_error_t ret;
 	int found = 0;
 	SP_DEVICE_INTERFACE_DATA currentInterface;
 	HDEVINFO usbDevices;
@@ -468,12 +467,11 @@ int irecv_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, u
 	return libusb_control_transfer(client->handle, bm_request_type, b_request, w_value, w_index, data, w_length, timeout);
 #else
 	DWORD count = 0;
-	DWORD ret;
 	BOOL bRet;
 	OVERLAPPED overlapped;
 
 	if (data == NULL)
-		wLength = 0;
+		w_length = 0;
 
 	usb_control_request* packet = (usb_control_request*) malloc(sizeof(usb_control_request) + w_length);
 	packet->bmRequestType = bm_request_type;
@@ -489,7 +487,7 @@ int irecv_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, u
 	memset(&overlapped, 0, sizeof(overlapped));
 	overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 	DeviceIoControl(client->handle, 0x2200A0, packet, sizeof(usb_control_request) + w_length, packet, sizeof(usb_control_request) + w_length, NULL, &overlapped);
-	ret = WaitForSingleObject(overlapped.hEvent, timeout);
+	WaitForSingleObject(overlapped.hEvent, timeout);
 	bRet = GetOverlappedResult(client->handle, &overlapped, &count, FALSE);
 	CloseHandle(overlapped.hEvent);
 	if (!bRet) {
@@ -752,9 +750,8 @@ irecv_error_t irecv_reset(irecv_client_t client) {
 #ifndef WIN32
 	libusb_reset_device(client->handle);
 #else
-	int ret;
 	DWORD count;
-	ret = DeviceIoControl(client->handle, 0x22000C, NULL, 0, NULL, 0, &count, NULL);
+	DeviceIoControl(client->handle, 0x22000C, NULL, 0, NULL, 0, &count, NULL);
 #endif
 
 	return IRECV_E_SUCCESS;
