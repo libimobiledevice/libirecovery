@@ -721,26 +721,26 @@ irecv_error_t irecv_usb_set_configuration(irecv_client_t client, int configurati
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_usb_set_interface(irecv_client_t client, int interface, int alt_interface) {
+irecv_error_t irecv_usb_set_interface(irecv_client_t client, int usb_interface, int usb_alt_interface) {
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;
 
-	debug("Setting to interface %d:%d\n", interface, alt_interface);
+	debug("Setting to interface %d:%d\n", usb_interface, usb_alt_interface);
 #ifndef WIN32
-	if (libusb_claim_interface(client->handle, interface) < 0) {
+	if (libusb_claim_interface(client->handle, usb_interface) < 0) {
 		return IRECV_E_USB_INTERFACE;
 	}
 
-	if (libusb_set_interface_alt_setting(client->handle, interface, alt_interface) < 0) {
+	if (libusb_set_interface_alt_setting(client->handle, usb_interface, usb_alt_interface) < 0) {
 		return IRECV_E_USB_INTERFACE;
 	}
 #else
-	if (irecv_usb_control_transfer(client, 0, 0x0B, alt_interface, interface, NULL, 0, USB_TIMEOUT) < 0) {
+	if (irecv_usb_control_transfer(client, 0, 0x0B, usb_alt_interface, usb_interface, NULL, 0, USB_TIMEOUT) < 0) {
 		return IRECV_E_USB_INTERFACE;
 	}
 #endif
-	client->interface = interface;
-	client->alt_interface = alt_interface;
+	client->interface = usb_interface;
+	client->alt_interface = usb_alt_interface;
 
 	return IRECV_E_SUCCESS;
 }
