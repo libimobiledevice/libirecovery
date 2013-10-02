@@ -31,6 +31,9 @@
 #ifndef sleep
 #define sleep(n) Sleep(1000 * n)
 #endif
+#define _FMT_lld "%I64d"
+#else
+#define _FMT_lld "%lld"
 #endif
 
 #define FILE_HISTORY_PATH ".irecovery"
@@ -144,7 +147,7 @@ static void parse_command(irecv_client_t client, unsigned char* command, unsigne
 
 		ret = irecv_get_ecid(client, &ecid);
 		if(ret == IRECV_E_SUCCESS) {
-			printf("ECID: %lld\n", ecid);
+			printf("ECID: " _FMT_lld "\n", ecid);
 		}
 
 		ret = irecv_get_srnm(client, srnm);
