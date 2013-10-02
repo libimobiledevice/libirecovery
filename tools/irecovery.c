@@ -27,6 +27,7 @@
 #include <readline/history.h>
 
 #ifdef WIN32
+#include <windows.h>
 #ifndef sleep
 #define sleep(n) Sleep(1000 * n)
 #endif
