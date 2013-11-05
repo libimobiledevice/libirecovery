@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <unistd.h>
 
 #ifndef WIN32
@@ -1600,8 +1601,14 @@ irecv_error_t irecv_devices_get_device_by_hardware_model(const char* hardware_mo
 
 	*device = NULL;
 
+	/* lowercase hardware_model string for proper lookup */
+	char model[8];
+	strcpy(model, hardware_model);
+	char *p = model;
+	for (; *p; ++p) *p = tolower(*p);
+
 	for (i = 0; irecv_devices[i].hardware_model != NULL; i++) {
-		if (!strcmp(hardware_model, irecv_devices[i].hardware_model)) {
+		if (!strcmp(model, irecv_devices[i].hardware_model)) {
 			*device = &irecv_devices[i];
 			return IRECV_E_SUCCESS;
 		}
