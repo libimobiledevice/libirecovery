@@ -87,6 +87,9 @@ void irecv_exit();
 /* device connectivity */
 irecv_error_t irecv_open_with_ecid(irecv_client_t* client, unsigned long long ecid);
 irecv_error_t irecv_open_with_ecid_and_attempts(irecv_client_t* pclient, unsigned long long ecid, int attempts);
+#ifdef USE_IOKIT
+irecv_error_t irecv_open_location(irecv_client_t* client, UInt32 locationID);
+#endif
 irecv_error_t irecv_reset(irecv_client_t client);
 irecv_error_t irecv_close(irecv_client_t client);
 irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause);
