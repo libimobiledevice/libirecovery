@@ -1310,11 +1310,15 @@ irecv_error_t irecv_get_imei(irecv_client_t client, char* imei) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_get_nonce(irecv_client_t client, unsigned char** nonce, int* nonce_size) {
+irecv_error_t irecv_get_nonce_with_tag(irecv_client_t client, const char* tag, unsigned char** nonce, int* nonce_size) {
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;
 
-	unsigned char buf[255];
+	if (tag == NULL) {
+		return IRECV_E_INVALID_INPUT;
+	}
+
+	char buf[255];
 	int len;
 
 	*nonce = NULL;
@@ -1327,15 +1331,45 @@ irecv_error_t irecv_get_nonce(irecv_client_t client, unsigned char** nonce, int*
 	}
 
 	buf[len] = 0;
-	debug("%s: buf='%s'\n", __func__, buf);
+	debug("%s: buf='%s' tag='%s'\n", __func__, buf, tag);
 
-	char* nonce_string = strstr((char*)buf, "NONC:");
-	if (nonce_string == NULL) {
+	int taglen = strlen(tag);
+	int nlen = 0;
+	char* nonce_string = NULL;
+	char* p = buf;
+	char* colon = NULL;
+	do {
+		colon = strchr(p, ':');
+		if (!colon)
+			break;
+		if (colon-taglen < p) {
+			break;
+		}
+		char *space = strchr(colon, ' ');
+		if (strncmp(colon-taglen, tag, taglen) == 0) {
+			p = colon+1;
+			if (!space) {
+				nlen = strlen(p);
+			} else {
+				nlen = space-p;
+			}
+			nonce_string = p;
+			nlen/=2;
+			break;
+		} else {
+			if (!space) {
+				break;
+			} else {
+				p = space+1;
+			}
+		}
+	} while (colon);
+
+	if (nlen == 0) {
+		debug("%s: ERROR: couldn't find tag %s in string %s\n", __func__, tag, buf);
 		return IRECV_E_UNKNOWN_ERROR;
 	}
-	nonce_string+=5;
 
-	int nlen = (len - ((unsigned char*)nonce_string - &buf[0])) / 2;
 	unsigned char *nn = malloc(nlen);
 	if (!nn) {
 		return IRECV_E_OUT_OF_MEMORY;

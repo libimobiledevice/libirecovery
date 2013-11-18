@@ -127,7 +127,7 @@ irecv_error_t irecv_get_mode(irecv_client_t client, int* mode);
 irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid);
 irecv_error_t irecv_get_bdid(irecv_client_t client, unsigned int* bdid);
 irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* ecid);
-irecv_error_t irecv_get_nonce(irecv_client_t client, unsigned char** nonce, int* nonce_size);
+irecv_error_t irecv_get_nonce_with_tag(irecv_client_t client, const char* tag, unsigned char** nonce, int* nonce_size);
 irecv_error_t irecv_get_srnm(irecv_client_t client, char* srnm);
 irecv_error_t irecv_get_imei(irecv_client_t client, char* imei);
 
