@@ -15,7 +15,7 @@ dnl libtool versioning
 #                 changes to the signature and the semantic)
 #  ? :+1 : ?   == just internal changes
 # CURRENT : REVISION : AGE
-LIBIRECOVERY_SO_VERSION=1:0:0
+LIBIRECOVERY_SO_VERSION=2:0:0
 
 AC_SUBST(LIBIRECOVERY_SO_VERSION)
 
