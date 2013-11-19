@@ -1585,10 +1585,6 @@ irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client, irecv_de
 		return IRECV_E_UNKNOWN_ERROR;
 	}
 
-	if (client->device_info.bdid == 0) {
-		return IRECV_E_UNKNOWN_ERROR;
-	}
-
 	for (i = 0; irecv_devices[i].hardware_model != NULL; i++) {
 		if (irecv_devices[i].chip_id == client->device_info.cpid && irecv_devices[i].board_id == client->device_info.bdid) {
 			*device = &irecv_devices[i];
