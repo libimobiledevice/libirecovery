@@ -49,7 +49,7 @@ struct irecv_client_private {
 	int interface;
 	int alt_interface;
 	unsigned int mode;
-	char serial[256];
+	struct irecv_device_info device_info;
 #ifndef WIN32
 	libusb_device_handle* handle;
 #else
@@ -191,6 +191,191 @@ static unsigned int dfu_hash_t1[256] = {
 #define dfu_hash_step(a,b) \
 	a = (dfu_hash_t1[(a & 0xFF) ^ ((unsigned char)b)] ^ (a >> 8))
 
+static int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc_index, unsigned char * buffer, int size) {
+#ifndef WIN32
+	return libusb_get_string_descriptor_ascii(client->handle, desc_index, buffer, size);
+#else
+	irecv_error_t ret;
+	unsigned short langid = 0;
+	unsigned char data[255];
+	int di, si;
+	memset(data, 0, sizeof(data));
+	memset(buffer, 0, size);
+
+	ret = irecv_usb_control_transfer(client, 0x80, 0x06, (0x03 << 8) | desc_index, langid, data, sizeof(data), USB_TIMEOUT);
+
+	if (ret < 0) return ret;
+	if (data[1] != 0x03) return IRECV_E_UNKNOWN_ERROR;
+	if (data[0] > ret) return IRECV_E_UNKNOWN_ERROR; 
+
+	for (di = 0, si = 2; si < data[0]; si += 2) {
+		if (di >= (size - 1)) break;
+		if (data[si + 1]) {
+			/* high byte */
+			buffer[di++] = '?';
+		} else {
+			buffer[di++] = data[si];
+		}
+	}
+	buffer[di] = 0;
+
+	return di;
+#endif
+}
+
+static void irecv_load_device_info_from_iboot_string(irecv_client_t client, const char* iboot_string)
+{
+	if (!client || !iboot_string) {
+		return;
+	}
+
+	memset(&client->device_info, '\0', sizeof(struct irecv_device_info));
+
+	char* ptr;
+
+	ptr = strstr(iboot_string, "CPID:");
+	if (ptr != NULL) {
+		sscanf(ptr, "CPID:%x", &client->device_info.cpid);
+	}
+
+	ptr = strstr(iboot_string, "CPRV:");
+	if (ptr != NULL) {
+		sscanf(ptr, "CPRV:%x", &client->device_info.cprv);
+	}
+
+	ptr = strstr(iboot_string, "CPFM:");
+	if (ptr != NULL) {
+		sscanf(ptr, "CPFM:%x", &client->device_info.cpfm);
+	}
+
+	ptr = strstr(iboot_string, "SCEP:");
+	if (ptr != NULL) {
+		sscanf(ptr, "SCEP:%x", &client->device_info.scep);
+	}
+
+	ptr = strstr(iboot_string, "BDID:");
+	if (ptr != NULL) {
+		sscanf(ptr, "BDID:%x", &client->device_info.bdid);
+	}
+
+	ptr = strstr(iboot_string, "ECID:");
+	if (ptr != NULL) {
+		sscanf(ptr, "ECID:" _FMT_qX, &client->device_info.ecid);
+	}
+
+	ptr = strstr(iboot_string, "IBFL:");
+	if (ptr != NULL) {
+		sscanf(ptr, "IBFL:%x", &client->device_info.ibfl);
+	}
+
+	char tmp[256];
+	tmp[0] = '\0';
+	ptr = strstr(iboot_string, "SRNM:[");
+	if(ptr != NULL) {
+		sscanf(ptr, "SRNM:[%s]", tmp);
+		ptr = strrchr(tmp, ']');
+		if(ptr != NULL) {
+			*ptr = '\0';
+		}
+		client->device_info.srnm = strdup(tmp);
+	}
+
+	tmp[0] = '\0';
+	ptr = strstr(iboot_string, "IMEI:[");
+	if(ptr != NULL) {
+		sscanf(ptr, "IMEI:[%s]", tmp);
+		ptr = strrchr(tmp, ']');
+		if(ptr != NULL) {
+			*ptr = '\0';
+		}
+		client->device_info.imei = strdup(tmp);
+	}
+}	
+
+static void irecv_copy_nonce_with_tag(irecv_client_t client, const char* tag, unsigned char** nonce, unsigned int* nonce_size)
+{
+	if (!client || !tag) {
+		return;
+	}
+
+	char buf[255];
+	int len;
+
+	*nonce = NULL;
+	*nonce_size = 0;
+
+	len = irecv_get_string_descriptor_ascii(client, 1, (unsigned char*) buf, 255);
+	debug("%s: got length: %d\n", __func__, len);
+	if (len < 0) {
+		return;
+	}
+
+	buf[len] = 0;
+	debug("%s: buf='%s' tag='%s'\n", __func__, buf, tag);
+
+	int taglen = strlen(tag);
+	int nlen = 0;
+	char* nonce_string = NULL;
+	char* p = buf;
+	char* colon = NULL;
+	do {
+		colon = strchr(p, ':');
+		if (!colon)
+			break;
+		if (colon-taglen < p) {
+			break;
+		}
+		char *space = strchr(colon, ' ');
+		if (strncmp(colon-taglen, tag, taglen) == 0) {
+			p = colon+1;
+			if (!space) {
+				nlen = strlen(p);
+			} else {
+				nlen = space-p;
+			}
+			nonce_string = p;
+			nlen/=2;
+			break;
+		} else {
+			if (!space) {
+				break;
+			} else {
+				p = space+1;
+			}
+		}
+	} while (colon);
+
+	if (nlen == 0) {
+		debug("%s: ERROR: couldn't find tag %s in string %s\n", __func__, tag, buf);
+		return;
+	}
+
+	unsigned char *nn = malloc(nlen);
+	if (!nn) {
+		return;
+	}
+
+	int i = 0;
+	for (i = 0; i < nlen; i++) {
+		int val = 0;
+		if (sscanf(nonce_string+(i*2), "%02X", &val) == 1) {
+			nn[i] = (unsigned char)val;
+		} else {
+			debug("%s: ERROR: unexpected data in nonce result (%2s)\n", __func__, nonce_string+(i*2));
+			break;
+		}
+	}
+
+	if (i != nlen) {
+		debug("%s: ERROR: unable to parse nonce\n", __func__);
+		free(nn);
+		return;
+	}
+
+	*nonce = nn;
+	*nonce_size = nlen;
+}
+
 #ifdef WIN32
 static const GUID GUID_DEVINTERFACE_IBOOT = {0xED82A167L, 0xD61A, 0x4AF6, {0x9A, 0xB6, 0x11, 0xE5, 0x22, 0x36, 0xC5, 0x76}};
 static const GUID GUID_DEVINTERFACE_DFU = {0xB8085869L, 0xFEB9, 0x404B, {0x8C, 0xB1, 0x1E, 0x5C, 0x14, 0xFA, 0x8C, 0x54}};
@@ -262,37 +447,31 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 				continue;
 			}
 
-			_client->serial[0] = '\0';
-			if ((sscanf(result, "\\\\?\\usb#vid_%*04x&pid_%*04x#%s#", _client->serial) != 1) || (_client->serial[0] == '\0')) {
+			char* serial_str[256];
+			serial_str[0] = '\0';
+			if ((sscanf(result, "\\\\?\\usb#vid_%*04x&pid_%*04x#%s#", serial_str) != 1) || (serial_str[0] == '\0')) {
 				mobiledevice_closepipes(_client);
 				continue;
 			}
 
-			char* p = strchr(_client->serial, '#');
+			char* p = strchr(serial_str, '#');
 			if (p) {
 				*p = '\0';
 			}
 
 			int j;
-			for (j = 0; j < strlen(_client->serial); j++) {
-				if (_client->serial[j] == '_') {
-					_client->serial[j] = ' ';
+			for (j = 0; j < strlen(serial_str); j++) {
+				if (serial_str[j] == '_') {
+					serial_str[j] = ' ';
 				} else {
-					_client->serial[j] = toupper(_client->serial[j]);	
+					serial_str[j] = toupper(serial_str[j]);	
 				}
 			}
 
-			if (ecid != 0) {
-				char* ecid_string = strstr(_client->serial, "ECID:");
-				if (ecid_string == NULL) {
-					debug("%s: could not get ECID for device\n", __func__);
-					mobiledevice_closepipes(_client);
-					continue;
-				}
+			irecv_load_device_info_from_iboot_string(_client, serial_str);
 
-				unsigned long long this_ecid = 0;
-				sscanf(ecid_string, "ECID:" _FMT_qX, (unsigned long long*)&this_ecid);
-				if (this_ecid != ecid) {
+			if (ecid != 0) {	
+				if (_client->device_info.ecid != ecid) {
 					mobiledevice_closepipes(_client);
 					continue;
 				}
@@ -344,37 +523,29 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 				continue;
 			}
 
-			_client->serial[0] = '\0';
-			if ((sscanf(result, "\\\\?\\usb#vid_%*04x&pid_%*04x#%s#", _client->serial) != 1) || (_client->serial[0] == '\0')) {
+			char serial_str[256];
+			serial_str[0] = '\0';
+			if ((sscanf(result, "\\\\?\\usb#vid_%*04x&pid_%*04x#%s#", serial_str) != 1) || (serial_str[0] == '\0')) {
 				mobiledevice_closepipes(_client);
 				continue;
 			}
 
-			char* p = strchr(_client->serial, '#');
+			char* p = strchr(serial_str, '#');
 			if (p) {
 				*p = '\0';
 			}
 
 			int j;
-			for (j = 0; j < strlen(_client->serial); j++) {
-				if (_client->serial[j] == '_') {
-					_client->serial[j] = ' ';
+			for (j = 0; j < strlen(serial_str); j++) {
+				if (serial_str[j] == '_') {
+					serial_str[j] = ' ';
 				} else {
-					_client->serial[j] = toupper(_client->serial[j]);	
+					serial_str[j] = toupper(serial_str[j]);	
 				}
 			}
 
 			if (ecid != 0) {
-				char* ecid_string = strstr(_client->serial, "ECID:");
-				if (ecid_string == NULL) {
-					debug("%s: could not get ECID for device\n", __func__);
-					mobiledevice_closepipes(_client);
-					continue;
-				}
-
-				unsigned long long this_ecid = 0;
-				sscanf(ecid_string, "ECID:" _FMT_qX, (unsigned long long*)&this_ecid);
-				if (this_ecid != ecid) {
+				if (_client->device_info.ecid != ecid) {
 					mobiledevice_closepipes(_client);
 					continue;
 				}
@@ -538,38 +709,6 @@ int irecv_usb_bulk_transfer(irecv_client_t client,
 	return ret;
 }
 
-static int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc_index, unsigned char * buffer, int size) {
-#ifndef WIN32
-	return libusb_get_string_descriptor_ascii(client->handle, desc_index, buffer, size);
-#else
-	irecv_error_t ret;
-	unsigned short langid = 0;
-	unsigned char data[255];
-	int di, si;
-	memset(data, 0, sizeof(data));
-	memset(buffer, 0, size);
-
-	ret = irecv_usb_control_transfer(client, 0x80, 0x06, (0x03 << 8) | desc_index, langid, data, sizeof(data), USB_TIMEOUT);
-
-	if (ret < 0) return ret;
-	if (data[1] != 0x03) return IRECV_E_UNKNOWN_ERROR;
-	if (data[0] > ret) return IRECV_E_UNKNOWN_ERROR; 
-
-	for (di = 0, si = 2; si < data[0]; si += 2) {
-		if (di >= (size - 1)) break;
-		if (data[si + 1]) {
-			/* high byte */
-			buffer[di++] = '?';
-		} else {
-			buffer[di++] = data[si];
-		}
-	}
-	buffer[di] = 0;
-
-	return di;
-#endif
-}
-
 irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long ecid) {
 	if(libirecovery_debug) {
 		irecv_set_debug_level(libirecovery_debug);
@@ -637,11 +776,16 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long e
 				client->handle = usb_handle;
 				client->mode = usb_descriptor.idProduct;
 
-				/* cache usb serial */
-				irecv_get_string_descriptor_ascii(client, usb_descriptor.iSerialNumber, (unsigned char*) client->serial, 255);
+				char serial_str[256];
+				irecv_get_string_descriptor_ascii(client, usb_descriptor.iSerialNumber, (unsigned char*)serial_str, 255);
+
+				irecv_load_device_info_from_iboot_string(client, serial_str);
+
+				irecv_copy_nonce_with_tag(client, "NONC", &client->device_info.ap_nonce, &client->device_info.ap_nonce_size);
+				irecv_copy_nonce_with_tag(client, "SNON", &client->device_info.sep_nonce, &client->device_info.sep_nonce_size);
 
 				if (ecid != 0) {
-					char* ecid_string = strstr(client->serial, "ECID:");
+					char* ecid_string = strstr(serial_str, "ECID:");
 					if (ecid_string == NULL) {
 						debug("%s: could not get ECID for device\n", __func__);
 						irecv_close(client);
@@ -870,6 +1014,18 @@ irecv_error_t irecv_close(irecv_client_t client) {
 		}
 		mobiledevice_closepipes(client);
 #endif
+		if (client->device_info.srnm) {
+			free(client->device_info.srnm);
+		}
+		if (client->device_info.imei) {
+			free(client->device_info.imei);
+		}
+		if (client->device_info.ap_nonce) {
+			free(client->device_info.ap_nonce);
+		}
+		if (client->device_info.sep_nonce) {
+			free(client->device_info.sep_nonce);
+		}
 		free(client);
 		client = NULL;
 	}
@@ -1216,186 +1372,12 @@ irecv_error_t irecv_get_mode(irecv_client_t client, int* mode) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid) {
+const struct irecv_device_info* irecv_get_device_info(irecv_client_t client)
+{
 	if (check_context(client) != IRECV_E_SUCCESS)
-		return IRECV_E_NO_DEVICE;
+		return NULL;
 
-	if (client->mode == IRECV_K_WTF_MODE) {
-		char s_cpid[8] = {0,};
-		strncpy(s_cpid, client->serial, 4);
-		if (sscanf(s_cpid, "%x", cpid) != 1) {
-			*cpid = 0;
-			return IRECV_E_UNKNOWN_ERROR;
-		}
-
-		return IRECV_E_SUCCESS;
-	}
-
-	char* cpid_string = strstr(client->serial, "CPID:");
-	if (cpid_string == NULL) {
-		*cpid = 0;
-		return IRECV_E_UNKNOWN_ERROR;
-	}
-	sscanf(cpid_string, "CPID:%x", cpid);
-
-	return IRECV_E_SUCCESS;
-}
-
-irecv_error_t irecv_get_bdid(irecv_client_t client, unsigned int* bdid) {
-	if (check_context(client) != IRECV_E_SUCCESS)
-		return IRECV_E_NO_DEVICE;
-
-	char* bdid_string = strstr(client->serial, "BDID:");
-	if (bdid_string == NULL) {
-		*bdid = 0;
-		return IRECV_E_UNKNOWN_ERROR;
-	}
-	sscanf(bdid_string, "BDID:%x", bdid);
-
-	return IRECV_E_SUCCESS;
-}
-
-irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* ecid) {
-	if (check_context(client) != IRECV_E_SUCCESS)
-		return IRECV_E_NO_DEVICE;
-
-	char* ecid_string = strstr(client->serial, "ECID:");
-	if (ecid_string == NULL) {
-		*ecid = 0;
-		return IRECV_E_UNKNOWN_ERROR;
-	}
-	sscanf(ecid_string, "ECID:" _FMT_qX, ecid);
-
-	return IRECV_E_SUCCESS;
-}
-
-irecv_error_t irecv_get_srnm(irecv_client_t client, char* srnm) {
-	if (check_context(client) != IRECV_E_SUCCESS)
-		return IRECV_E_NO_DEVICE;
-
-	char* srnmp;
-	char* srnm_string = strstr(client->serial, "SRNM:[");
-	if(srnm_string == NULL) {
-		*srnm = 0;
-		return IRECV_E_UNKNOWN_ERROR;
-	}
-
-	sscanf(srnm_string, "SRNM:[%s]", srnm);
-	srnmp = strrchr(srnm, ']');
-	if(srnmp != NULL) {
-		*srnmp = '\0';
-	}
-
-	return IRECV_E_SUCCESS;
-}
-
-irecv_error_t irecv_get_imei(irecv_client_t client, char* imei) {
-	if (check_context(client) != IRECV_E_SUCCESS)
-		return IRECV_E_NO_DEVICE;
-
-	char* imeip;
-	char* imei_string = strstr(client->serial, "IMEI:[");
-	if (imei_string == NULL) {
-		*imei = 0;
-		return IRECV_E_UNKNOWN_ERROR;
-	}
-
-
-	sscanf(imei_string, "IMEI:[%s]", imei);
-	imeip = strrchr(imei, ']');
-	if(imeip != NULL) {
-		*imeip = '\0';
-	}
-
-	return IRECV_E_SUCCESS;
-}
-
-irecv_error_t irecv_get_nonce_with_tag(irecv_client_t client, const char* tag, unsigned char** nonce, int* nonce_size) {
-	if (check_context(client) != IRECV_E_SUCCESS)
-		return IRECV_E_NO_DEVICE;
-
-	if (tag == NULL) {
-		return IRECV_E_INVALID_INPUT;
-	}
-
-	char buf[255];
-	int len;
-
-	*nonce = NULL;
-	*nonce_size = 0;
-
-	len = irecv_get_string_descriptor_ascii(client, 1, (unsigned char*) buf, 255);
-	debug("%s: got length: %d\n", __func__, len);
-	if (len < 0) {
-		return len;
-	}
-
-	buf[len] = 0;
-	debug("%s: buf='%s' tag='%s'\n", __func__, buf, tag);
-
-	int taglen = strlen(tag);
-	int nlen = 0;
-	char* nonce_string = NULL;
-	char* p = buf;
-	char* colon = NULL;
-	do {
-		colon = strchr(p, ':');
-		if (!colon)
-			break;
-		if (colon-taglen < p) {
-			break;
-		}
-		char *space = strchr(colon, ' ');
-		if (strncmp(colon-taglen, tag, taglen) == 0) {
-			p = colon+1;
-			if (!space) {
-				nlen = strlen(p);
-			} else {
-				nlen = space-p;
-			}
-			nonce_string = p;
-			nlen/=2;
-			break;
-		} else {
-			if (!space) {
-				break;
-			} else {
-				p = space+1;
-			}
-		}
-	} while (colon);
-
-	if (nlen == 0) {
-		debug("%s: ERROR: couldn't find tag %s in string %s\n", __func__, tag, buf);
-		return IRECV_E_UNKNOWN_ERROR;
-	}
-
-	unsigned char *nn = malloc(nlen);
-	if (!nn) {
-		return IRECV_E_OUT_OF_MEMORY;
-	}
-
-	int i = 0;
-	for (i = 0; i < nlen; i++) {
-		int val = 0;
-		if (sscanf(nonce_string+(i*2), "%02X", &val) == 1) {
-			nn[i] = (unsigned char)val;
-		} else {
-			debug("%s: ERROR: unexpected data in nonce result (%2s)\n", __func__, nonce_string+(i*2));
-			break;
-		}
-	}
-
-	if (i != nlen) {
-		debug("%s: ERROR: unable to parse nonce\n", __func__);
-		free(nn);
-		return IRECV_E_UNKNOWN_ERROR;
-	}
-
-	*nonce = nn;
-	*nonce_size = nlen;
-
-	return IRECV_E_SUCCESS;
+	return &client->device_info;
 }
 
 irecv_error_t irecv_trigger_limera1n_exploit(irecv_client_t client) {
@@ -1601,11 +1583,11 @@ irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client, irecv_de
 
 	*device = NULL;
 
-	if (irecv_get_cpid(client, &cpid) < 0) {
+	if (client->device_info.cpid == 0) {
 		return IRECV_E_UNKNOWN_ERROR;
 	}
 
-	if (irecv_get_bdid(client, &bdid) < 0) {
+	if (client->device_info.bdid == 0) {
 		return IRECV_E_UNKNOWN_ERROR;
 	}
 
@@ -1660,8 +1642,7 @@ irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause) {
 	irecv_client_t new_client = NULL;
 	irecv_event_cb_t progress_callback = client->progress_callback;
 
-	unsigned long long ecid = 0;
-	irecv_get_ecid(client, &ecid);
+	unsigned long long ecid = client->device_info.ecid;
 
 	if (check_context(client) == IRECV_E_SUCCESS) {
 		irecv_close(client);

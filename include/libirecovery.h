@@ -75,6 +75,22 @@ struct irecv_device {
 };
 typedef struct irecv_device* irecv_device_t;
 
+struct irecv_device_info {
+	unsigned int cpid;
+	unsigned int cprv;
+	unsigned int cpfm;
+	unsigned int scep;
+	unsigned int bdid;
+	unsigned long long ecid;
+	unsigned int ibfl;
+	char* srnm;
+	char* imei;
+	unsigned char* ap_nonce;
+	unsigned int ap_nonce_size;
+	unsigned char* sep_nonce;
+	unsigned int sep_nonce_size;	
+};
+
 typedef struct irecv_client_private irecv_client_private;
 typedef irecv_client_private* irecv_client_t;
 
@@ -124,12 +140,7 @@ irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value);
 
 /* device information */
 irecv_error_t irecv_get_mode(irecv_client_t client, int* mode);
-irecv_error_t irecv_get_cpid(irecv_client_t client, unsigned int* cpid);
-irecv_error_t irecv_get_bdid(irecv_client_t client, unsigned int* bdid);
-irecv_error_t irecv_get_ecid(irecv_client_t client, unsigned long long* ecid);
-irecv_error_t irecv_get_nonce_with_tag(irecv_client_t client, const char* tag, unsigned char** nonce, int* nonce_size);
-irecv_error_t irecv_get_srnm(irecv_client_t client, char* srnm);
-irecv_error_t irecv_get_imei(irecv_client_t client, char* imei);
+const struct irecv_device_info* irecv_get_device_info(irecv_client_t client);
 
 /* device database queries */
 irecv_device_t irecv_devices_get_all();

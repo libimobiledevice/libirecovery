@@ -131,33 +131,20 @@ static void parse_command(irecv_client_t client, unsigned char* command, unsigne
 		}
 	} else if (!strcmp(cmd, "/deviceinfo")) {
 		int ret, mode;
-		unsigned int cpid, bdid;
-		unsigned long long ecid;
-		char srnm[12], imei[15];
+		const struct irecv_device_info *devinfo = irecv_get_device_info(client);
 
-		ret = irecv_get_cpid(client, &cpid);
-		if(ret == IRECV_E_SUCCESS) {
-			printf("CPID: %d\n", cpid);
-		}
-
-		ret = irecv_get_bdid(client, &bdid);
-		if(ret == IRECV_E_SUCCESS) {
-			printf("BDID: %d\n", bdid);
-		}
-
-		ret = irecv_get_ecid(client, &ecid);
-		if(ret == IRECV_E_SUCCESS) {
-			printf("ECID: " _FMT_lld "\n", ecid);
-		}
-
-		ret = irecv_get_srnm(client, srnm);
-		if(ret == IRECV_E_SUCCESS) {
-			printf("SRNM: %s\n", srnm);
-		}
-
-		ret = irecv_get_imei(client, imei);
-		if(ret == IRECV_E_SUCCESS) {
-			printf("IMEI: %s\n", imei);
+		if (devinfo) {
+			printf("CPID: %x\n", devinfo->cpid);
+			printf("CPRV: %x\n", devinfo->cprv);
+			printf("BDID: %x\n", devinfo->bdid);
+			printf("ECID: " _FMT_lld "\n", devinfo->ecid);
+			printf("CPFM: %x\n", devinfo->cpfm);
+			printf("SCEP: %x\n", devinfo->scep);
+			printf("IBFL: %x\n", devinfo->ibfl);
+			printf("SRNM: %s\n", (devinfo->srnm) ? devinfo->srnm : "N/A");
+			printf("IMEI: %s\n", (devinfo->imei) ? devinfo->imei : "N/A");
+		} else {
+			printf("Could not get device info?!\n");
 		}
 
 		ret = irecv_get_mode(client, &mode);
