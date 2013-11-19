@@ -1577,8 +1577,6 @@ irecv_device_t irecv_devices_get_all() {
 }
 
 irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client, irecv_device_t* device) {
-	uint32_t bdid = 0;
-	uint32_t cpid = 0;
 	int i = 0;
 
 	*device = NULL;
@@ -1592,7 +1590,7 @@ irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client, irecv_de
 	}
 
 	for (i = 0; irecv_devices[i].hardware_model != NULL; i++) {
-		if (irecv_devices[i].chip_id == cpid && irecv_devices[i].board_id == bdid) {
+		if (irecv_devices[i].chip_id == client->device_info.cpid && irecv_devices[i].board_id == client->device_info.bdid) {
 			*device = &irecv_devices[i];
 			return IRECV_E_SUCCESS;
 		}
