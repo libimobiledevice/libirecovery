@@ -803,6 +803,8 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long e
 
 				error = irecv_usb_set_configuration(client, 1);
 				if (error != IRECV_E_SUCCESS) {
+					libusb_free_device_list(usb_device_list, 1);
+					irecv_close(client);
 					return error;
 				}
 
@@ -814,10 +816,14 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long e
 				}
 
 				if (error != IRECV_E_SUCCESS) {
+					libusb_free_device_list(usb_device_list, 1);
+					irecv_close(client);
 					return error;
 				}
 
 				*pclient = client;
+
+				libusb_free_device_list(usb_device_list, 1);
 
 				return IRECV_E_SUCCESS;
 			}
