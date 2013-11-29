@@ -785,16 +785,7 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long e
 				irecv_copy_nonce_with_tag(client, "SNON", &client->device_info.sep_nonce, &client->device_info.sep_nonce_size);
 
 				if (ecid != 0) {
-					char* ecid_string = strstr(serial_str, "ECID:");
-					if (ecid_string == NULL) {
-						debug("%s: could not get ECID for device\n", __func__);
-						irecv_close(client);
-						continue;
-					}
-
-					unsigned long long this_ecid = 0;
-					sscanf(ecid_string, "ECID:" _FMT_qX, (unsigned long long*)&this_ecid);
-					if (this_ecid != ecid) {
+					if (client->device_info.ecid != ecid) {
 						irecv_close(client);
 						continue;
 					}
