@@ -125,7 +125,7 @@ static void parse_command(irecv_client_t client, unsigned char* command, unsigne
 		shell_usage();
 	} else if (!strcmp(cmd, "/upload")) {
 		char* filename = strtok(NULL, " ");
-		debug("Uploading files %s\n", filename);
+		debug("Uploading file %s\n", filename);
 		if (filename != NULL) {
 			irecv_send_file(client, filename, 0);
 		}
@@ -174,6 +174,8 @@ static void parse_command(irecv_client_t client, unsigned char* command, unsigne
 				printf("Could not read file '%s'\n", filename);
 			}
 		}
+	} else {
+		printf("Unsupported command %s. Use /help to get a list of available commands.\n", cmd);
 	}
 
 	free(action);
