@@ -25,8 +25,10 @@ AC_PROG_CXX
 AM_PROG_CC_C_O
 AC_PROG_LIBTOOL
 
-# Checks for libraries.
-PKG_CHECK_MODULES(libusb, libusb-1.0 >= 1.0.3)
+AC_ARG_WITH([iokit],
+	[AS_HELP_STRING([--with-iokit], [Use I/O Kit instead of libusb on OS X])],
+	[],
+	[with_iokit=no])
 
 # Check additional platform flags
 case "$host_os" in
@@ -53,6 +55,14 @@ case "$host_os" in
 	;;
 esac
 AC_SUBST(LIBIRECOVERYLDFLAGS)
+
+# Checks for libraries.
+AS_IF([test "x$with_iokit" = "xyes"], [
+		CFLAGS+=" -DUSE_IOKIT"
+		AC_DEFINE(USE_IOKIT, 1, [Define to use I/O Kit instead of libusb])
+	],
+	[PKG_CHECK_MODULES(libusb, libusb-1.0 >= 1.0.3)])
+
 
 # Checks for header files.
 AC_HEADER_STDC
