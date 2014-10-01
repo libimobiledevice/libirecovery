@@ -306,13 +306,12 @@ static void irecv_copy_nonce_with_tag(irecv_client_t client, const char* tag, un
 	*nonce_size = 0;
 
 	len = irecv_get_string_descriptor_ascii(client, 1, (unsigned char*) buf, 255);
-	debug("%s: got length: %d\n", __func__, len);
 	if (len < 0) {
+		debug("%s: got length: %d\n", __func__, len);
 		return;
 	}
 
 	buf[len] = 0;
-	debug("%s: buf='%s' tag='%s'\n", __func__, buf, tag);
 
 	int taglen = strlen(tag);
 	int nlen = 0;
