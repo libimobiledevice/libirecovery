@@ -758,9 +758,10 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long e
 
 				debug("opening device %04x:%04x...\n", usb_descriptor.idVendor, usb_descriptor.idProduct);
 
-				libusb_open(usb_device, &usb_handle);
-				if (usb_handle == NULL) {
-					debug("%s: can't connect to device...\n", __func__);
+				int libusb_error = libusb_open(usb_device, &usb_handle);
+				if (usb_handle == NULL || libusb_error != 0) {
+					debug("%s: can't connect to device: %s\n", __func__, libusb_error_name(libusb_error));
+
 					libusb_close(usb_handle);
 					if (ecid != 0) {
 						continue;
