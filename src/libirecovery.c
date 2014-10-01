@@ -347,7 +347,7 @@ static void irecv_copy_nonce_with_tag(irecv_client_t client, const char* tag, un
 	} while (colon);
 
 	if (nlen == 0) {
-		debug("%s: ERROR: couldn't find tag %s in string %s\n", __func__, tag, buf);
+		debug("%s: WARNING: couldn't find tag %s in string %s\n", __func__, tag, buf);
 		return;
 	}
 
