@@ -767,7 +767,6 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long e
 						continue;
 					}
 					libusb_free_device_list(usb_device_list, 1);
-					libusb_exit(libirecovery_context);
 					return IRECV_E_UNABLE_TO_CONNECT;
 				}
 
@@ -775,7 +774,6 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long e
 				if (client == NULL) {
 					libusb_free_device_list(usb_device_list, 1);
 					libusb_close(usb_handle);
-					libusb_exit(libirecovery_context);
 					return IRECV_E_OUT_OF_MEMORY;
 				}
 

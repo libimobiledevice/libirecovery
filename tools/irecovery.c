@@ -518,6 +518,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	irecv_close(client);
+	irecv_exit();
 
 	return 0;
 }
