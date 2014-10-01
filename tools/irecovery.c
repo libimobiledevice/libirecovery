@@ -134,13 +134,13 @@ static void parse_command(irecv_client_t client, unsigned char* command, unsigne
 		const struct irecv_device_info *devinfo = irecv_get_device_info(client);
 
 		if (devinfo) {
-			printf("CPID: %x\n", devinfo->cpid);
-			printf("CPRV: %x\n", devinfo->cprv);
-			printf("BDID: %x\n", devinfo->bdid);
+			printf("CPID: %04x\n", devinfo->cpid);
+			printf("CPRV: %02x\n", devinfo->cprv);
+			printf("BDID: %02x\n", devinfo->bdid);
 			printf("ECID: " _FMT_lld "\n", devinfo->ecid);
-			printf("CPFM: %x\n", devinfo->cpfm);
-			printf("SCEP: %x\n", devinfo->scep);
-			printf("IBFL: %x\n", devinfo->ibfl);
+			printf("CPFM: %02x\n", devinfo->cpfm);
+			printf("SCEP: %02x\n", devinfo->scep);
+			printf("IBFL: %02x\n", devinfo->ibfl);
 			printf("SRNM: %s\n", (devinfo->srnm) ? devinfo->srnm : "N/A");
 			printf("IMEI: %s\n", (devinfo->imei) ? devinfo->imei : "N/A");
 		} else {
