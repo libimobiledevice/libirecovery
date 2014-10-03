@@ -18,6 +18,10 @@
  * Lesser General Public License for more details.
  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -38,6 +42,16 @@
 #define _FMT_016llx "%016I64x"
 #ifndef sleep
 #define sleep(n) Sleep(1000 * n)
+#endif
+#endif
+
+#ifdef WIN32
+#define IRECV_API __declspec( dllexport )
+#else
+#ifdef HAVE_FVISIBILITY
+#define IRECV_API __attribute__((visibility("default")))
+#else
+#define IRECV_API
 #endif
 #endif
 
@@ -625,13 +639,13 @@ static int check_context(irecv_client_t client) {
 	return IRECV_E_SUCCESS;
 }
 
-void irecv_init() {
+IRECV_API void irecv_init() {
 #ifndef WIN32
 	libusb_init(&libirecovery_context);
 #endif
 }
 
-void irecv_exit() {
+IRECV_API void irecv_exit() {
 #ifndef WIN32
 	if (libirecovery_context != NULL) {
 		libusb_exit(libirecovery_context);
@@ -715,7 +729,7 @@ int irecv_usb_bulk_transfer(irecv_client_t client,
 	return ret;
 }
 
-irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long ecid) {
+IRECV_API irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long ecid) {
 	if(libirecovery_debug) {
 		irecv_set_debug_level(libirecovery_debug);
 	}
@@ -851,7 +865,7 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long e
 #endif
 }
 
-irecv_error_t irecv_usb_set_configuration(irecv_client_t client, int configuration) {
+IRECV_API irecv_error_t irecv_usb_set_configuration(irecv_client_t client, int configuration) {
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;
 
@@ -872,7 +886,7 @@ irecv_error_t irecv_usb_set_configuration(irecv_client_t client, int configurati
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_usb_set_interface(irecv_client_t client, int usb_interface, int usb_alt_interface) {
+IRECV_API irecv_error_t irecv_usb_set_interface(irecv_client_t client, int usb_interface, int usb_alt_interface) {
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;
 
@@ -896,7 +910,7 @@ irecv_error_t irecv_usb_set_interface(irecv_client_t client, int usb_interface, 
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_reset(irecv_client_t client) {
+IRECV_API irecv_error_t irecv_reset(irecv_client_t client) {
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;
 
@@ -910,7 +924,7 @@ irecv_error_t irecv_reset(irecv_client_t client) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_open_with_ecid_and_attempts(irecv_client_t* pclient, unsigned long long ecid, int attempts) {
+IRECV_API irecv_error_t irecv_open_with_ecid_and_attempts(irecv_client_t* pclient, unsigned long long ecid, int attempts) {
 	int i;
 
 	for (i = 0; i < attempts; i++) {
@@ -929,7 +943,7 @@ irecv_error_t irecv_open_with_ecid_and_attempts(irecv_client_t* pclient, unsigne
 	return IRECV_E_UNABLE_TO_CONNECT;
 }
 
-irecv_error_t irecv_event_subscribe(irecv_client_t client, irecv_event_type type, irecv_event_cb_t callback, void* user_data) {
+IRECV_API irecv_error_t irecv_event_subscribe(irecv_client_t client, irecv_event_type type, irecv_event_cb_t callback, void* user_data) {
 	switch(type) {
 	case IRECV_RECEIVED:
 		client->received_callback = callback;
@@ -959,7 +973,7 @@ irecv_error_t irecv_event_subscribe(irecv_client_t client, irecv_event_type type
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_event_unsubscribe(irecv_client_t client, irecv_event_type type) {
+IRECV_API irecv_error_t irecv_event_unsubscribe(irecv_client_t client, irecv_event_type type) {
 	switch(type) {
 	case IRECV_RECEIVED:
 		client->received_callback = NULL;
@@ -989,7 +1003,7 @@ irecv_error_t irecv_event_unsubscribe(irecv_client_t client, irecv_event_type ty
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_close(irecv_client_t client) {
+IRECV_API irecv_error_t irecv_close(irecv_client_t client) {
 	if (client != NULL) {
 		if(client->disconnected_callback != NULL) {
 			irecv_event_t event;
@@ -1037,7 +1051,7 @@ irecv_error_t irecv_close(irecv_client_t client) {
 	return IRECV_E_SUCCESS;
 }
 
-void irecv_set_debug_level(int level) {
+IRECV_API void irecv_set_debug_level(int level) {
 	libirecovery_debug = level;
 #ifndef WIN32
 	if(libirecovery_context) {
@@ -1059,7 +1073,7 @@ static irecv_error_t irecv_send_command_raw(irecv_client_t client, const char* c
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_send_command(irecv_client_t client, const char* command) {
+IRECV_API irecv_error_t irecv_send_command(irecv_client_t client, const char* command) {
 	irecv_error_t error = 0;
 
 	if (check_context(client) != IRECV_E_SUCCESS)
@@ -1099,7 +1113,7 @@ irecv_error_t irecv_send_command(irecv_client_t client, const char* command) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, int dfu_notify_finished) {
+IRECV_API irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, int dfu_notify_finished) {
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;
 
@@ -1150,7 +1164,7 @@ static irecv_error_t irecv_get_status(irecv_client_t client, unsigned int* statu
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfu_notify_finished) {
+IRECV_API irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfu_notify_finished) {
 	irecv_error_t error = 0;
 	int recovery_mode = ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE));
 
@@ -1287,7 +1301,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_receive(irecv_client_t client) {
+IRECV_API irecv_error_t irecv_receive(irecv_client_t client) {
 	char buffer[BUFFER_SIZE];
 	memset(buffer, '\0', BUFFER_SIZE);
 
@@ -1312,7 +1326,7 @@ irecv_error_t irecv_receive(irecv_client_t client) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** value) {
+IRECV_API irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** value) {
 	char command[256];
 
 	if (check_context(client) != IRECV_E_SUCCESS)
@@ -1348,7 +1362,7 @@ irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** v
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value) {
+IRECV_API irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value) {
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;
 
@@ -1367,7 +1381,7 @@ irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_get_mode(irecv_client_t client, int* mode) {
+IRECV_API irecv_error_t irecv_get_mode(irecv_client_t client, int* mode) {
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;
 
@@ -1376,7 +1390,7 @@ irecv_error_t irecv_get_mode(irecv_client_t client, int* mode) {
 	return IRECV_E_SUCCESS;
 }
 
-const struct irecv_device_info* irecv_get_device_info(irecv_client_t client)
+IRECV_API const struct irecv_device_info* irecv_get_device_info(irecv_client_t client)
 {
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return NULL;
@@ -1384,7 +1398,7 @@ const struct irecv_device_info* irecv_get_device_info(irecv_client_t client)
 	return &client->device_info;
 }
 
-irecv_error_t irecv_trigger_limera1n_exploit(irecv_client_t client) {
+IRECV_API irecv_error_t irecv_trigger_limera1n_exploit(irecv_client_t client) {
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;
 
@@ -1393,7 +1407,7 @@ irecv_error_t irecv_trigger_limera1n_exploit(irecv_client_t client) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_execute_script(irecv_client_t client, const char* script) {
+IRECV_API irecv_error_t irecv_execute_script(irecv_client_t client, const char* script) {
 	irecv_error_t error = IRECV_E_SUCCESS;
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;
@@ -1422,7 +1436,7 @@ irecv_error_t irecv_execute_script(irecv_client_t client, const char* script) {
 	return error;
 }
 
-irecv_error_t irecv_saveenv(irecv_client_t client) {
+IRECV_API irecv_error_t irecv_saveenv(irecv_client_t client) {
 	irecv_error_t error = irecv_send_command_raw(client, "saveenv");
 	if(error != IRECV_E_SUCCESS) {
 		return error;
@@ -1431,7 +1445,7 @@ irecv_error_t irecv_saveenv(irecv_client_t client) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_setenv(irecv_client_t client, const char* variable, const char* value) {
+IRECV_API irecv_error_t irecv_setenv(irecv_client_t client, const char* variable, const char* value) {
 	char command[256];
 
 	if (check_context(client) != IRECV_E_SUCCESS)
@@ -1451,7 +1465,7 @@ irecv_error_t irecv_setenv(irecv_client_t client, const char* variable, const ch
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_reboot(irecv_client_t client) {
+IRECV_API irecv_error_t irecv_reboot(irecv_client_t client) {
 	irecv_error_t error = irecv_send_command_raw(client, "reboot");
 	if(error != IRECV_E_SUCCESS) {
 		return error;
@@ -1460,7 +1474,7 @@ irecv_error_t irecv_reboot(irecv_client_t client) {
 	return IRECV_E_SUCCESS;
 }
 
-const char* irecv_strerror(irecv_error_t error) {
+IRECV_API const char* irecv_strerror(irecv_error_t error) {
 	switch (error) {
 	case IRECV_E_SUCCESS:
 		return "Command completed successfully";
@@ -1505,7 +1519,7 @@ const char* irecv_strerror(irecv_error_t error) {
 	return NULL;
 }
 
-irecv_error_t irecv_reset_counters(irecv_client_t client) {
+IRECV_API irecv_error_t irecv_reset_counters(irecv_client_t client) {
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;
 
@@ -1516,7 +1530,7 @@ irecv_error_t irecv_reset_counters(irecv_client_t client) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned long length) {
+IRECV_API irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned long length) {
 	int recovery_mode = ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE));
 
 	if (check_context(client) != IRECV_E_SUCCESS)
@@ -1558,7 +1572,7 @@ irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned lo
 	return IRECV_E_SUCCESS;
 }
 
-irecv_error_t irecv_finish_transfer(irecv_client_t client) {
+IRECV_API irecv_error_t irecv_finish_transfer(irecv_client_t client) {
 	int i = 0;
 	unsigned int status = 0;
 
@@ -1576,11 +1590,11 @@ irecv_error_t irecv_finish_transfer(irecv_client_t client) {
 	return IRECV_E_SUCCESS;
 }
 
-irecv_device_t irecv_devices_get_all() {
+IRECV_API irecv_device_t irecv_devices_get_all() {
 	return irecv_devices;
 }
 
-irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client, irecv_device_t* device) {
+IRECV_API irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client, irecv_device_t* device) {
 	int i = 0;
 
 	*device = NULL;
@@ -1599,7 +1613,7 @@ irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client, irecv_de
 	return IRECV_E_NO_DEVICE;
 }
 
-irecv_error_t irecv_devices_get_device_by_product_type(const char* product_type, irecv_device_t* device) {
+IRECV_API irecv_error_t irecv_devices_get_device_by_product_type(const char* product_type, irecv_device_t* device) {
 	int i = 0;
 
 	*device = NULL;
@@ -1614,7 +1628,7 @@ irecv_error_t irecv_devices_get_device_by_product_type(const char* product_type,
 	return IRECV_E_NO_DEVICE;
 }
 
-irecv_error_t irecv_devices_get_device_by_hardware_model(const char* hardware_model, irecv_device_t* device) {
+IRECV_API irecv_error_t irecv_devices_get_device_by_hardware_model(const char* hardware_model, irecv_device_t* device) {
 	int i = 0;
 
 	*device = NULL;
@@ -1635,7 +1649,7 @@ irecv_error_t irecv_devices_get_device_by_hardware_model(const char* hardware_mo
 	return IRECV_E_NO_DEVICE;
 }
 
-irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause) {
+IRECV_API irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause) {
 	irecv_error_t error = 0;
 	irecv_client_t new_client = NULL;
 	irecv_event_cb_t progress_callback = client->progress_callback;
