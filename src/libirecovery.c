@@ -660,7 +660,7 @@ IRECV_API void irecv_exit() {
 	void dummy_callback() { }
 #endif
 
-int irecv_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, unsigned int timeout) {
+IRECV_API int irecv_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, unsigned int timeout) {
 #ifndef WIN32
 	return libusb_control_transfer(client->handle, bm_request_type, b_request, w_value, w_index, data, w_length, timeout);
 #else
@@ -706,7 +706,7 @@ int irecv_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, u
 #endif
 }
 
-int irecv_usb_bulk_transfer(irecv_client_t client,
+IRECV_API int irecv_usb_bulk_transfer(irecv_client_t client,
 							unsigned char endpoint,
 							unsigned char *data,
 							int length,
