@@ -135,6 +135,8 @@ static struct irecv_device irecv_devices[] = {
 	{"iPad4,7",   "j85map", 0x32, 0x8960 },
 	{"iPad4,8",   "j86map", 0x34, 0x8960 },
 	{"iPad4,9",   "j87map", 0x36, 0x8960 },
+	{"iPad5,3",    "j81ap", 0x06, 0x7001 },
+	{"iPad5,4",    "j82ap", 0x02, 0x7001 },
 	{"AppleTV2,1", "k66ap", 0x10, 0x8930 },
 	{"AppleTV3,1", "j33ap", 0x08, 0x8942 },
 	{"AppleTV3,2","j33iap", 0x00, 0x8947 },
