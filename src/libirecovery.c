@@ -1129,9 +1129,9 @@ IRECV_API irecv_error_t irecv_send_file(irecv_client_t client, const char* filen
 		return IRECV_E_FILE_NOT_FOUND;
 	}
 
-	fseek(file, 0, SEEK_END);
-	long length = ftell(file);
-	fseek(file, 0, SEEK_SET);
+	fseeko(file, 0, SEEK_END);
+	long length = ftello(file);
+	fseeko(file, 0, SEEK_SET);
 
 	char* buffer = (char*) malloc(length);
 	if (buffer == NULL) {
