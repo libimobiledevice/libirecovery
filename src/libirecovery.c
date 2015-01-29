@@ -410,10 +410,9 @@ typedef struct usb_control_request {
 	char data[];
 } usb_control_request;
 
-static int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc_index, unsigned char * buffer, int size);
-
 irecv_error_t mobiledevice_openpipes(irecv_client_t client);
 void mobiledevice_closepipes(irecv_client_t client);
+irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ecid);
 
 irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ecid) {
 	int found = 0;
@@ -479,12 +478,12 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 				*p = '\0';
 			}
 
-			int j;
+			unsigned int j;
 			for (j = 0; j < strlen(serial_str); j++) {
 				if (serial_str[j] == '_') {
 					serial_str[j] = ' ';
 				} else {
-					serial_str[j] = toupper(serial_str[j]);	
+					serial_str[j] = toupper(serial_str[j]);
 				}
 			}
 
@@ -492,7 +491,7 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 			irecv_copy_nonce_with_tag(_client, "NONC", &_client->device_info.ap_nonce, &_client->device_info.ap_nonce_size);
 			irecv_copy_nonce_with_tag(_client, "SNON", &_client->device_info.sep_nonce, &_client->device_info.sep_nonce_size);
 
-			if (ecid != 0) {	
+			if (ecid != 0) {
 				if (_client->device_info.ecid != ecid) {
 					mobiledevice_closepipes(_client);
 					continue;
@@ -557,7 +556,7 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 				*p = '\0';
 			}
 
-			int j;
+			unsigned int j;
 			for (j = 0; j < strlen(serial_str); j++) {
 				if (serial_str[j] == '_') {
 					serial_str[j] = ' ';
