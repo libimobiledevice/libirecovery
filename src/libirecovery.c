@@ -30,7 +30,7 @@
 #include <unistd.h>
 
 #ifndef WIN32
-#include <libusb-1.0/libusb.h>
+#include <libusb.h>
 #define _FMT_qX "%qX"
 #define _FMT_016llx "%016llx"
 #else
