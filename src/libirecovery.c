@@ -36,7 +36,6 @@
 #else
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#undef interface
 #include <setupapi.h>
 #define _FMT_qX "%I64X"
 #define _FMT_016llx "%016I64x"
@@ -59,9 +58,9 @@
 
 struct irecv_client_private {
 	int debug;
-	int config;
-	int interface;
-	int alt_interface;
+	int usb_config;
+	int usb_interface;
+	int usb_alt_interface;
 	unsigned int mode;
 	struct irecv_device_info device_info;
 #ifndef WIN32
@@ -798,7 +797,7 @@ IRECV_API irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned l
 				}
 
 				memset(client, '\0', sizeof(struct irecv_client_private));
-				client->interface = 0;
+				client->usb_interface = 0;
 				client->handle = usb_handle;
 				client->mode = usb_descriptor.idProduct;
 
@@ -887,7 +886,7 @@ IRECV_API irecv_error_t irecv_usb_set_configuration(irecv_client_t client, int c
 		}
 	}
 
-	client->config = configuration;
+	client->usb_config = configuration;
 #endif
 
 	return IRECV_E_SUCCESS;
@@ -911,8 +910,8 @@ IRECV_API irecv_error_t irecv_usb_set_interface(irecv_client_t client, int usb_i
 		return IRECV_E_USB_INTERFACE;
 	}
 #endif
-	client->interface = usb_interface;
-	client->alt_interface = usb_alt_interface;
+	client->usb_interface = usb_interface;
+	client->usb_alt_interface = usb_alt_interface;
 
 	return IRECV_E_SUCCESS;
 }
@@ -1023,7 +1022,7 @@ IRECV_API irecv_error_t irecv_close(irecv_client_t client) {
 #ifndef WIN32
 		if (client->handle != NULL) {
 			if ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE)) {
-				libusb_release_interface(client->handle, client->interface);
+				libusb_release_interface(client->handle, client->usb_interface);
 			}
 			libusb_close(client->handle);
 			client->handle = NULL;
