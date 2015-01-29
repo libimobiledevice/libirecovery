@@ -17,7 +17,11 @@ dnl libtool versioning
 # CURRENT : REVISION : AGE
 LIBIRECOVERY_SO_VERSION=2:1:0
 
+dnl Minimum package versions
+LIBUSB_VERSION=1.0.3
+
 AC_SUBST(LIBIRECOVERY_SO_VERSION)
+AC_SUBST(LIBUSB_VERSION)
 
 # Checks for programs.
 AC_PROG_CC
@@ -26,7 +30,7 @@ AM_PROG_CC_C_O
 AC_PROG_LIBTOOL
 
 # Checks for libraries.
-PKG_CHECK_MODULES(libusb, libusb-1.0 >= 1.0.3)
+PKG_CHECK_MODULES(libusb, libusb-1.0 >= $LIBUSB_VERSION)
 
 # Check additional platform flags
 case "$host_os" in
