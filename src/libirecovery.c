@@ -825,9 +825,7 @@ IRECV_API irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned l
 
 				if ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE)) {
 					error = irecv_usb_set_interface(client, 0, 0);
-					if (client->mode > IRECV_K_RECOVERY_MODE_2) {
 						error = irecv_usb_set_interface(client, 1, 1);
-					}
 				} else {
 					error = irecv_usb_set_interface(client, 0, 0);
 				}
