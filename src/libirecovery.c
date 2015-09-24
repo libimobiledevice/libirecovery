@@ -644,13 +644,13 @@ static int check_context(irecv_client_t client) {
 	return IRECV_E_SUCCESS;
 }
 
-IRECV_API void irecv_init() {
+IRECV_API void irecv_init(void) {
 #ifndef WIN32
 	libusb_init(&libirecovery_context);
 #endif
 }
 
-IRECV_API void irecv_exit() {
+IRECV_API void irecv_exit(void) {
 #ifndef WIN32
 	if (libirecovery_context != NULL) {
 		libusb_exit(libirecovery_context);
@@ -660,7 +660,7 @@ IRECV_API void irecv_exit() {
 }
 
 #ifdef __APPLE__
-	void dummy_callback() { }
+	void dummy_callback(void) { }
 #endif
 
 IRECV_API int irecv_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, unsigned int timeout) {
@@ -1595,7 +1595,7 @@ IRECV_API irecv_error_t irecv_finish_transfer(irecv_client_t client) {
 	return IRECV_E_SUCCESS;
 }
 
-IRECV_API irecv_device_t irecv_devices_get_all() {
+IRECV_API irecv_device_t irecv_devices_get_all(void) {
 	return irecv_devices;
 }
 
