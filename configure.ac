@@ -30,6 +30,9 @@ AM_PROG_CC_C_O
 AC_PROG_LIBTOOL
 
 # Checks for libraries.
+AC_CHECK_HEADERS([readline/readline.h], [],
+	[AC_MSG_ERROR([Please install readline development headers])]
+)
 PKG_CHECK_MODULES(libusb, libusb-1.0 >= $LIBUSB_VERSION)
 
 # Check additional platform flags
