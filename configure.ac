@@ -33,15 +33,14 @@ AC_PROG_LIBTOOL
 AC_CHECK_HEADERS([readline/readline.h], [],
 	[AC_MSG_ERROR([Please install readline development headers])]
 )
-PKG_CHECK_MODULES(libusb, libusb-1.0 >= $LIBUSB_VERSION)
 
 # Check additional platform flags
 case "$host_os" in
 	darwin*)
 		AC_CHECK_HEADER(CoreFoundation/CoreFoundation.h, [
-			AC_CHECK_HEADER(IOKit/IOKitLib.h, [
-				AC_DEFINE(HAVE_IOKIT, 1, [Define if we have IOKit])
+			AC_CHECK_HEADER(IOKit/usb/IOUSBLib.h, [
 				LIBIRECOVERYLDFLAGS="-framework IOKit -framework CoreFoundation"
+				have_iokit=yes
 			], [])
 		], [])
 	;;
@@ -60,6 +59,24 @@ case "$host_os" in
 	;;
 esac
 AC_SUBST(LIBIRECOVERYLDFLAGS)
+
+AS_IF([test "x$have_iokit" = "xyes"], [
+	AC_ARG_WITH([iokit],
+		[AS_HELP_STRING([--with-iokit], [Use IOKit instead of libusb on OS X [default=yes]])],
+		[],
+		[with_iokit=yes])
+	], []
+)
+
+AS_IF([test "x$with_iokit" = "xyes" && test "x$have_iokit" = "xyes"] , [
+		AC_DEFINE(HAVE_IOKIT, 1, [Define if we have IOKit])
+		USB_BACKEND="IOKit"
+	],
+	[
+		PKG_CHECK_MODULES(libusb, libusb-1.0 >= $LIBUSB_VERSION)
+		USB_BACKEND="libusb `$PKG_CONFIG --modversion libusb-1.0`"
+	]
+)
 
 # Checks for header files.
 AC_HEADER_STDC
@@ -144,6 +161,7 @@ Configuration for $PACKAGE $VERSION:
 -------------------------------------------
 
   Install prefix: .........: $prefix
+  USB backend: ............: $USB_BACKEND
 
   Now type 'make' to build $PACKAGE $VERSION,
   and then 'make install' for installation.
