@@ -160,6 +160,7 @@ static struct irecv_device irecv_devices[] = {
 	{"AppleTV2,1", "k66ap", 0x10, 0x8930 },
 	{"AppleTV3,1", "j33ap", 0x08, 0x8942 },
 	{"AppleTV3,2","j33iap", 0x00, 0x8947 },
+	{"AppleTV5,3","j42dap", 0x34, 0x7000 },
 	{        NULL,    NULL,   -1,     -1 }
 };
 
