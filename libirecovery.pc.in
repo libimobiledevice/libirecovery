@@ -8,4 +8,4 @@ Description: A library to communicate with iBoot/iBSS on iOS devices via USB
 Version: @PACKAGE_VERSION@
 Libs: -L${libdir} -lirecovery
 Cflags: -I${includedir}
-Requires.private: libusb-1.0 >= @LIBUSB_VERSION@
+Requires.private: @LIBUSB_REQUIRED@
