@@ -249,6 +249,7 @@ static int iokit_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc
 	request.wIndex = 0; // All languages 0x409; // language
 	request.wLength = sizeof(descriptor) - 1;
 	request.pData = descriptor;
+	request.wLenDone = 0;
 
 	result = (*client->handle)->DeviceRequest(client->handle, &request);
 	if (result == kIOReturnNoDevice)
@@ -262,6 +263,7 @@ static int iokit_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc
 
 		request.wValue = (kUSBStringDesc << 8) | desc_index;
 		request.wIndex = descriptor[2] + (descriptor[3] << 8);
+		request.wLenDone = 0;
 		result = (*client->handle)->DeviceRequest(client->handle, &request);
 
 		if (result == kIOReturnNoDevice)
@@ -277,7 +279,7 @@ static int iokit_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc
 		}
 		buffer[j] = 0;
 
-		return IRECV_E_SUCCESS;
+		return request.wLenDone;
 	}
 	return IRECV_E_UNKNOWN_ERROR;
 }
