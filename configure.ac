@@ -74,7 +74,7 @@ AS_IF([test "x$with_iokit" = "xyes" && test "x$have_iokit" = "xyes"] , [
 	[
 		PKG_CHECK_MODULES(libusb, libusb-1.0 >= $LIBUSB_VERSION)
 		USB_BACKEND="libusb `$PKG_CONFIG --modversion libusb-1.0`"
-		LIBUSB_REQUIRED="libusb >= $LIBUSB_VERSION"
+		LIBUSB_REQUIRED="libusb-1.0 >= $LIBUSB_VERSION"
 		AC_SUBST(LIBUSB_REQUIRED)
 	]
 )
