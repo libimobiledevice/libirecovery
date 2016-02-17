@@ -1116,7 +1116,6 @@ IRECV_API irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned l
 	int i = 0;
 	struct libusb_device* usb_device = NULL;
 	struct libusb_device** usb_device_list = NULL;
-	struct libusb_device_handle* usb_handle = NULL;
 	struct libusb_device_descriptor usb_descriptor;
 
 	*pclient = NULL;
@@ -1150,6 +1149,7 @@ IRECV_API irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned l
 
 				debug("opening device %04x:%04x...\n", usb_descriptor.idVendor, usb_descriptor.idProduct);
 
+				struct libusb_device_handle* usb_handle = NULL;
 				int libusb_error = libusb_open(usb_device, &usb_handle);
 				if (usb_handle == NULL || libusb_error != 0) {
 					debug("%s: can't connect to device: %s\n", __func__, libusb_error_name(libusb_error));
