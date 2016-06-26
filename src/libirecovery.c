@@ -1404,6 +1404,11 @@ IRECV_API irecv_error_t irecv_reset(irecv_client_t client) {
 		debug("error sending device reset: %#x\n", result);
 		return IRECV_E_UNKNOWN_ERROR;
 	}
+
+	result = (*client->handle)->USBDeviceReEnumerate(client->handle, 0);
+	if (result != kIOReturnSuccess && result != kIOReturnNotResponding) {
+		debug("error re-enumerating device: %#x (ignored)\n", result);
+	}
 #else
 	libusb_reset_device(client->handle);
 #endif
