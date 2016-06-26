@@ -1693,11 +1693,26 @@ IRECV_API irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* 
 	if (recovery_mode) {
 		error = irecv_usb_control_transfer(client, 0x41, 0, 0, 0, NULL, 0, USB_TIMEOUT);
 	} else {
-		unsigned char dump[4];
-		if (irecv_usb_control_transfer(client, 0xa1, 5, 0, 0, dump, 1, USB_TIMEOUT) == 1) {
+		uint8_t state = 0;
+		if (irecv_usb_control_transfer(client, 0xa1, 5, 0, 0, (unsigned char*)&state, 1, USB_TIMEOUT) == 1) {
 			error = IRECV_E_SUCCESS;
 		} else {
+			return IRECV_E_USB_UPLOAD;
+		}
+		switch (state) {
+		case 2:
+			/* DFU IDLE */
+			break;
+		case 10:
+			debug("DFU ERROR, issuing CLRSTATUS\n");
+			irecv_usb_control_transfer(client, 0x21, 4, 0, 0, NULL, 0, USB_TIMEOUT);
 			error = IRECV_E_USB_UPLOAD;
+			break;
+		default:
+			debug("Unexpected state %d, issuing ABORT\n", state);
+			irecv_usb_control_transfer(client, 0x21, 6, 0, 0, NULL, 0, USB_TIMEOUT);
+			error = IRECV_E_USB_UPLOAD;
+			break;
 		}
 	}
 
