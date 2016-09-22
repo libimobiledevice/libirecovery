@@ -3,9 +3,9 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
-Name: libirecovery
+Name: @PACKAGE_NAME@
 Description: A library to communicate with iBoot/iBSS on iOS devices via USB
-Version: @VERSION@
+Version: @PACKAGE_VERSION@
 Libs: -L${libdir} -lirecovery
 Cflags: -I${includedir}
-
+Requires.private: @LIBUSB_REQUIRED@

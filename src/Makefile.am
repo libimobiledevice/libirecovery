@@ -1,7 +1,13 @@
 AM_CPPFLAGS = -I$(top_srcdir)/include
 
-AM_CFLAGS = $(GLOBAL_CFLAGS) $(libusb_CFLAGS)
-AM_LDFLAGS = $(libusb_LIBS) $(LIBIRECOVERYLDFLAGS)
+AM_CFLAGS =                \
+	$(GLOBAL_CFLAGS)       \
+	$(LFS_CFLAGS)          \
+	$(libusb_CFLAGS)
+
+AM_LDFLAGS =               \
+	$(libusb_LIBS)         \
+	$(LIBIRECOVERYLDFLAGS)
 
 lib_LTLIBRARIES = libirecovery.la
 libirecovery_la_CFLAGS = $(AM_CFLAGS)

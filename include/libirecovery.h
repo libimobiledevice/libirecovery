@@ -97,8 +97,8 @@ typedef irecv_client_private* irecv_client_t;
 /* library */
 void irecv_set_debug_level(int level);
 const char* irecv_strerror(irecv_error_t error);
-void irecv_init();
-void irecv_exit();
+void irecv_init(void);
+void irecv_exit(void);
 
 /* device connectivity */
 irecv_error_t irecv_open_with_ecid(irecv_client_t* client, unsigned long long ecid);
@@ -143,7 +143,7 @@ irecv_error_t irecv_get_mode(irecv_client_t client, int* mode);
 const struct irecv_device_info* irecv_get_device_info(irecv_client_t client);
 
 /* device database queries */
-irecv_device_t irecv_devices_get_all();
+irecv_device_t irecv_devices_get_all(void);
 irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client, irecv_device_t* device);
 irecv_error_t irecv_devices_get_device_by_product_type(const char* product_type, irecv_device_t* device);
 irecv_error_t irecv_devices_get_device_by_hardware_model(const char* hardware_model, irecv_device_t* device);

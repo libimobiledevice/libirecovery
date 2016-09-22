@@ -2,7 +2,7 @@
  * irecovery.c
  * Software frontend for iBoot/iBSS communication with iOS devices
  *
- * Copyright (c) 2012-2013 Martin Szulecki <m.szulecki@libimobiledevice.org>
+ * Copyright (c) 2012-2015 Martin Szulecki <martin.szulecki@libimobiledevice.org>
  * Copyright (c) 2010-2011 Chronic-Dev Team
  * Copyright (c) 2010-2011 Joshua Hill
  * Copyright (c) 2008-2011 Nicolas Haunold
@@ -17,6 +17,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
  */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -330,6 +334,7 @@ static void print_usage(int argc, char **argv) {
 	printf("  -v\t\tenable verbose output, repeat for higher verbosity\n");
 	printf("  -h\t\tprints this usage information\n");
 	printf("\n");
+	printf("Homepage: <" PACKAGE_URL ">\n");
 }
 
 int main(int argc, char* argv[]) {
