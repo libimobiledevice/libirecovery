@@ -28,6 +28,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #ifndef WIN32
 #ifndef HAVE_IOKIT
@@ -1637,17 +1638,19 @@ IRECV_API irecv_error_t irecv_send_file(irecv_client_t client, const char* filen
 		return IRECV_E_FILE_NOT_FOUND;
 	}
 
-	fseeko(file, 0, SEEK_END);
-	long length = ftello(file);
-	fseeko(file, 0, SEEK_SET);
+	struct stat fst;
+	if (fstat(fileno(file), &fst) < 0) {
+		return IRECV_E_UNKNOWN_ERROR;
+	}
+	size_t length = fst.st_size;
 
-	char* buffer = (char*) malloc(length);
+	char* buffer = (char*)malloc(length);
 	if (buffer == NULL) {
 		fclose(file);
 		return IRECV_E_OUT_OF_MEMORY;
 	}
 
-	long bytes = fread(buffer, 1, length, file);
+	size_t bytes = fread(buffer, 1, length, file);
 	fclose(file);
 
 	if (bytes != length) {
