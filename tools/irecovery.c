@@ -51,7 +51,8 @@ enum {
 	kSendExploit,
 	kSendScript,
 	kShowMode,
-	kRebootToNormalMode
+	kRebootToNormalMode,
+	kQueryInfo
 };
 
 static unsigned int quit = 0;
@@ -127,6 +128,44 @@ static void print_hex(unsigned char *buf, size_t len)
 	}
 }
 
+static void print_device_info(irecv_client_t client)
+{
+	int ret, mode;
+	const struct irecv_device_info *devinfo = irecv_get_device_info(client);
+	if (devinfo) {
+		printf("CPID: %04x\n", devinfo->cpid);
+		printf("CPRV: %02x\n", devinfo->cprv);
+		printf("BDID: %02x\n", devinfo->bdid);
+		printf("ECID: " _FMT_lld "\n", devinfo->ecid);
+		printf("CPFM: %02x\n", devinfo->cpfm);
+		printf("SCEP: %02x\n", devinfo->scep);
+		printf("IBFL: %02x\n", devinfo->ibfl);
+		printf("SRNM: %s\n", (devinfo->srnm) ? devinfo->srnm : "N/A");
+		printf("IMEI: %s\n", (devinfo->imei) ? devinfo->imei : "N/A");
+		printf("NONC: ");
+		if (devinfo->ap_nonce) {
+			print_hex(devinfo->ap_nonce, devinfo->ap_nonce_size);
+		} else {
+			printf("N/A");
+		}
+		printf("\n");
+		printf("SNON: ");
+		if (devinfo->sep_nonce) {
+			print_hex(devinfo->sep_nonce, devinfo->sep_nonce_size);
+		} else {
+			printf("N/A");
+		}
+		printf("\n");
+	} else {
+		printf("Could not get device info?!\n");
+	}
+
+	ret = irecv_get_mode(client, &mode);
+	if (ret == IRECV_E_SUCCESS) {
+		printf("MODE: %s\n", mode_to_str(mode));
+	}
+}
+
 static void parse_command(irecv_client_t client, unsigned char* command, unsigned int size) {
 	char* cmd = strdup((char*)command);
 	char* action = strtok(cmd, " ");
@@ -142,42 +181,7 @@ static void parse_command(irecv_client_t client, unsigned char* command, unsigne
 			irecv_send_file(client, filename, 0);
 		}
 	} else if (!strcmp(cmd, "/deviceinfo")) {
-		int ret, mode;
-		const struct irecv_device_info *devinfo = irecv_get_device_info(client);
-
-		if (devinfo) {
-			printf("CPID: %04x\n", devinfo->cpid);
-			printf("CPRV: %02x\n", devinfo->cprv);
-			printf("BDID: %02x\n", devinfo->bdid);
-			printf("ECID: " _FMT_lld "\n", devinfo->ecid);
-			printf("CPFM: %02x\n", devinfo->cpfm);
-			printf("SCEP: %02x\n", devinfo->scep);
-			printf("IBFL: %02x\n", devinfo->ibfl);
-			printf("SRNM: %s\n", (devinfo->srnm) ? devinfo->srnm : "N/A");
-			printf("IMEI: %s\n", (devinfo->imei) ? devinfo->imei : "N/A");
-			printf("NONC: ");
-			if (devinfo->ap_nonce) {
-				print_hex(devinfo->ap_nonce, devinfo->ap_nonce_size);
-			} else {
-				printf("N/A");
-			}
-			printf("\n");
-			printf("SNON: ");
-			if (devinfo->sep_nonce) {
-				print_hex(devinfo->sep_nonce, devinfo->sep_nonce_size);
-			} else {
-				printf("N/A");
-			}
-			printf("\n");
-		} else {
-			printf("Could not get device info?!\n");
-		}
-
-		ret = irecv_get_mode(client, &mode);
-		if (ret == IRECV_E_SUCCESS) {
-			printf("MODE: %s\n", mode_to_str(mode));
-		}
-
+		print_device_info(client);
 	} else if (!strcmp(cmd, "/limera1n")) {
 		char* filename = strtok(NULL, " ");
 		debug("Sending limera1n payload %s\n", filename);
@@ -353,6 +357,7 @@ static void print_usage(int argc, char **argv) {
 	printf("  -n\t\treboot device into normal mode (exit recovery loop)\n");
 	printf("  -e FILE\texecutes recovery script from FILE\n");
 	printf("  -s\t\tstart an interactive shell\n");
+	printf("  -q\t\tquery device info\n");
 	printf("  -v\t\tenable verbose output, repeat for higher verbosity\n");
 	printf("  -h\t\tprints this usage information\n");
 	printf("\n");
@@ -376,7 +381,7 @@ int main(int argc, char* argv[]) {
 		return 0;
 	}
 
-	while ((opt = getopt(argc, argv, "i:vhrsmnc:f:e:k::")) > 0) {
+	while ((opt = getopt(argc, argv, "i:vhrsmnc:f:e:k::q")) > 0) {
 		switch (opt) {
 			case 'i':
 				if (optarg) {
@@ -434,6 +439,10 @@ int main(int argc, char* argv[]) {
 			case 'e':
 				action = kSendScript;
 				argument = optarg;
+				break;
+
+			case 'q':
+				action = kQueryInfo;
 				break;
 
 			default:
@@ -539,6 +548,11 @@ int main(int argc, char* argv[]) {
 				debug("%s\n", irecv_strerror(error));
 			}
 			break;
+
+		case kQueryInfo:
+			print_device_info(client);
+			break;
+
 		default:
 			fprintf(stderr, "Unknown action\n");
 			break;
