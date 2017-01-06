@@ -119,6 +119,14 @@ static void buffer_read_from_filename(const char *filename, char **buffer, uint6
 	*length = size;
 }
 
+static void print_hex(unsigned char *buf, size_t len)
+{
+	size_t i;
+	for (i = 0; i < len; i++) {
+		printf("%02x", buf[i]);
+	}
+}
+
 static void parse_command(irecv_client_t client, unsigned char* command, unsigned int size) {
 	char* cmd = strdup((char*)command);
 	char* action = strtok(cmd, " ");
@@ -147,6 +155,20 @@ static void parse_command(irecv_client_t client, unsigned char* command, unsigne
 			printf("IBFL: %02x\n", devinfo->ibfl);
 			printf("SRNM: %s\n", (devinfo->srnm) ? devinfo->srnm : "N/A");
 			printf("IMEI: %s\n", (devinfo->imei) ? devinfo->imei : "N/A");
+			printf("NONC: ");
+			if (devinfo->ap_nonce) {
+				print_hex(devinfo->ap_nonce, devinfo->ap_nonce_size);
+			} else {
+				printf("N/A");
+			}
+			printf("\n");
+			printf("SNON: ");
+			if (devinfo->sep_nonce) {
+				print_hex(devinfo->sep_nonce, devinfo->sep_nonce_size);
+			} else {
+				printf("N/A");
+			}
+			printf("\n");
 		} else {
 			printf("Could not get device info?!\n");
 		}
