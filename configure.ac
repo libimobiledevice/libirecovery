@@ -147,6 +147,59 @@ if test "$enable_largefile" != no; then
 fi
 AC_SUBST(LFS_CFLAGS)
 
+AC_ARG_WITH([udev],
+	AS_HELP_STRING([--with-udev],
+	[Configure and install udev rules file for DFU/Recovery mode devices]),
+	[],
+	[if $($PKG_CONFIG --exists udev); then with_udev=yes; else with_udev=no; fi])
+
+AC_ARG_WITH([udevrulesdir],
+	AS_HELP_STRING([--with-udevrulesdir=DIR],
+	[Directory for udev rules (implies --with-udev)]),
+	[with_udev=yes],
+	[with_udevrulesdir=auto])
+
+AC_ARG_WITH([udevrule],
+	AS_HELP_STRING([--with-udevrule="RULE"],
+	[udev activation rule (implies --with-udev)]),
+	[with_udev=yes],
+	[with_udevrule=auto])
+
+if test "x$with_udev" = "xyes"; then
+	if test "x$with_udevrule" = "xauto"; then
+		for I in plugdev storage disk staff; do
+			if grep $I /etc/group >/dev/null; then
+				USEGROUP=$I
+				break
+			fi
+		done
+		if test "x$USEGROUP" != "x"; then
+			if ! groups |grep $USEGROUP >/dev/null; then
+				AC_MSG_WARN([The group '$USEGROUP' was determined to be used for the udev rule, but the current user is not member of this group.])
+			fi
+		else
+			AC_MSG_ERROR([Could not determine an appropriate user group for the udev activation rule.
+    Please manually specify a udev activation rule using --with-udevrule=<RULE>
+    Example: --with-udevrule="OWNER=\\"root\\", GROUP=\\"myusergroup\\", MODE=\\"0660\\""])
+		fi
+		with_udevrule="OWNER=\"root\", GROUP=\"$USEGROUP\", MODE=\"0660\""
+	fi
+
+	if test "x$with_udevrulesdir" = "xauto"; then
+		udevdir=$($PKG_CONFIG --silence-errors --variable=udevdir udev)
+		if test "x$udevdir" != "x"; then
+			with_udevrulesdir=$udevdir"/rules.d"
+		else
+			with_udevrulesdir="\${prefix}/lib/udev/rules.d"
+			AC_MSG_WARN([Could not determine default udev rules directory. Using $with_udevrulesdir.])
+		fi
+	fi
+
+	AC_SUBST([udev_activation_rule], [$with_udevrule])
+	AC_SUBST([udevrulesdir], [$with_udevrulesdir])
+fi
+AM_CONDITIONAL(WITH_UDEV, test "x$with_udev" = "xyes")
+
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 
 AC_OUTPUT([
@@ -155,6 +208,7 @@ src/Makefile
 include/Makefile
 tools/Makefile
 libirecovery.pc
+udev/Makefile
 ])
 
 echo "
