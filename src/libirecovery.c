@@ -2,6 +2,7 @@
  * libirecovery.c
  * Communication to iBoot/iBSS on Apple iOS devices via USB
  *
+ * Copyright (c) 2011-2017 Nikias Bassen
  * Copyright (c) 2012-2015 Martin Szulecki <martin.szulecki@libimobiledevice.org>
  * Copyright (c) 2010 Chronic-Dev Team
  * Copyright (c) 2010 Joshua Hill
