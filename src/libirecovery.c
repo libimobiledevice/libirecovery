@@ -1794,7 +1794,7 @@ IRECV_API irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* 
 		if (!recovery_mode && status != 5) {
 			int retry = 0;
 
-			while (retry < 20) {
+			while (retry++ < 20) {
 				irecv_get_status(client, &status);
 				if (status == 5) {
 					break;
