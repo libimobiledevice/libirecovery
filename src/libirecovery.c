@@ -1760,6 +1760,15 @@ IRECV_API irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* 
 				dfu_hash_step(h1, buffer[i*packet_size + j]);
 			}
 			if (i+1 == packets) {
+				if (size+16 > packet_size) {
+					bytes = irecv_usb_control_transfer(client, 0x21, 1, i, 0, &buffer[i * packet_size], size, USB_TIMEOUT);
+					if (bytes != size) {
+						return IRECV_E_USB_UPLOAD;
+					}
+					count += size;
+					size = 0;
+				}
+
 				for (j = 0; j < 2; j++) {
 					dfu_hash_step(h1, dfu_xbuf[j*6 + 0]);
 					dfu_hash_step(h1, dfu_xbuf[j*6 + 1]);
@@ -1770,7 +1779,9 @@ IRECV_API irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* 
 				}
 
 				char* newbuf = (char*)malloc(size + 16);
-				memcpy(newbuf, &buffer[i * packet_size], size);
+				if (size > 0) {
+					memcpy(newbuf, &buffer[i * packet_size], size);
+				}
 				memcpy(newbuf+size, dfu_xbuf, 12);
 				newbuf[size+12] = h1 & 0xFF;
 				newbuf[size+13] = (h1 >> 8) & 0xFF;
