@@ -299,8 +299,7 @@ int postcommand_cb(irecv_client_t client, const irecv_event_t* event) {
 		}
 	}
 
-	if (command)
-		free(command);
+	free(command);
 
 	return 0;
 }

@@ -527,10 +527,8 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 	memset(&currentInterface, '\0', sizeof(SP_DEVICE_INTERFACE_DATA));
 	currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
 	for(i = 0; usbDevices && SetupDiEnumDeviceInterfaces(usbDevices, NULL, &GUID_DEVINTERFACE_DFU, i, &currentInterface); i++) {
-		if (_client->DfuPath) {
-			free(_client->DfuPath);
-			_client->DfuPath = NULL;
-		}
+		free(_client->DfuPath);
+		_client->DfuPath = NULL;
 		_client->handle = NULL;
 		DWORD requiredSize = 0;
 		PSP_DEVICE_INTERFACE_DETAIL_DATA details;
@@ -614,10 +612,8 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 	memset(&currentInterface, '\0', sizeof(SP_DEVICE_INTERFACE_DATA));
 	currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
 	for(i = 0; usbDevices && SetupDiEnumDeviceInterfaces(usbDevices, NULL, &GUID_DEVINTERFACE_IBOOT, i, &currentInterface); i++) {
-		if (_client->iBootPath) {
-			free(_client->iBootPath);
-			_client->iBootPath = NULL;
-		}
+		free(_client->iBootPath);
+		_client->iBootPath = NULL;
 		_client->handle = NULL;
 		DWORD requiredSize = 0;
 		PSP_DEVICE_INTERFACE_DETAIL_DATA details;
@@ -1550,28 +1546,17 @@ IRECV_API irecv_error_t irecv_close(irecv_client_t client) {
 		}
 #endif
 #else
-		if (client->iBootPath!=NULL) {
-			free(client->iBootPath);
-			client->iBootPath = NULL;
-		}
-		if (client->DfuPath!=NULL) {
-			free(client->DfuPath);
-			client->DfuPath = NULL;
-		}
+		free(client->iBootPath);
+		client->iBootPath = NULL;
+		free(client->DfuPath);
+		client->DfuPath = NULL;
 		mobiledevice_closepipes(client);
 #endif
-		if (client->device_info.srnm) {
-			free(client->device_info.srnm);
-		}
-		if (client->device_info.imei) {
-			free(client->device_info.imei);
-		}
-		if (client->device_info.ap_nonce) {
-			free(client->device_info.ap_nonce);
-		}
-		if (client->device_info.sep_nonce) {
-			free(client->device_info.sep_nonce);
-		}
+		free(client->device_info.srnm);
+		free(client->device_info.imei);
+		free(client->device_info.ap_nonce);
+		free(client->device_info.sep_nonce);
+
 		free(client);
 		client = NULL;
 	}
@@ -2040,8 +2025,7 @@ IRECV_API irecv_error_t irecv_execute_script(irecv_client_t client, const char* 
 		line = strtok(NULL, "\n");
 	}
 
-	if (body)
-		free(body);
+	free(body);
 
 	return error;
 }
