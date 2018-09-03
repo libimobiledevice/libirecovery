@@ -569,13 +569,14 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 			}
 
 			char serial_str[256];
+			char *p = strrchr(result, '\\');
 			serial_str[0] = '\0';
-			if ((sscanf(result, "\\\\?\\usb#vid_%*04x&pid_%*04x#%s#", serial_str) != 1) || (serial_str[0] == '\0')) {
+			if (!p && (sscanf(p, "\\usb#vid_%*04x&pid_%*04x#%s", serial_str) != 1) || (serial_str[0] == '\0')) {
 				mobiledevice_closepipes(_client);
 				continue;
 			}
 
-			char* p = strchr(serial_str, '#');
+			p = strchr(serial_str, '#');
 			if (p) {
 				*p = '\0';
 			}
@@ -645,13 +646,14 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 			}
 
 			char serial_str[256];
+			char *p = strrchr(result, '\\');
 			serial_str[0] = '\0';
-			if ((sscanf(result, "\\\\?\\usb#vid_%*04x&pid_%*04x#%s#", serial_str) != 1) || (serial_str[0] == '\0')) {
+			if (!p || (sscanf(p, "\\usb#vid_%*04x&pid_%*04x#%s", serial_str) != 1) || (serial_str[0] == '\0')) {
 				mobiledevice_closepipes(_client);
 				continue;
 			}
 
-			char* p = strchr(serial_str, '#');
+			p = strchr(serial_str, '#');
 			if (p) {
 				*p = '\0';
 			}
