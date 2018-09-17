@@ -459,12 +459,18 @@ int main(int argc, char* argv[]) {
 	for (i = 0; i <= 5; i++) {
 		debug("Attempting to connect... \n");
 
-		if (irecv_open_with_ecid(&client, ecid) != IRECV_E_SUCCESS)
+		irecv_error_t err = irecv_open_with_ecid(&client, ecid);
+		if (err == IRECV_E_UNSUPPORTED) {
+			fprintf(stderr, "ERROR: %s\n", irecv_strerror(err));
+			return -1;
+		}
+		else if (err != IRECV_E_SUCCESS)
 			sleep(1);
 		else
 			break;
 
 		if (i == 5) {
+			fprintf(stderr, "ERROR: %s\n", irecv_strerror(err));
 			return -1;
 		}
 	}

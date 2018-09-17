@@ -59,6 +59,11 @@ case "$host_os" in
 esac
 AC_SUBST(LIBIRECOVERYLDFLAGS)
 
+AC_ARG_WITH([dummy],
+	[AS_HELP_STRING([--with-dummy], [Use no USB driver at all [default=no]. This is only useful if you just want to query the device list by product type or hardware model. All other operations are no-ops or will return IRECV_E_UNSUPPORTED.])],
+	[],
+	[with_dummy=no])
+
 AS_IF([test "x$have_iokit" = "xyes"], [
 	AC_ARG_WITH([iokit],
 		[AS_HELP_STRING([--with-iokit], [Use IOKit instead of libusb on OS X [default=yes]])],
@@ -67,17 +72,22 @@ AS_IF([test "x$have_iokit" = "xyes"], [
 	], []
 )
 
-AS_IF([test "x$with_iokit" = "xyes" && test "x$have_iokit" = "xyes"] , [
-		AC_DEFINE(HAVE_IOKIT, 1, [Define if we have IOKit])
-		USB_BACKEND="IOKit"
-	],
-	[
-		PKG_CHECK_MODULES(libusb, libusb-1.0 >= $LIBUSB_VERSION)
-		USB_BACKEND="libusb `$PKG_CONFIG --modversion libusb-1.0`"
-		LIBUSB_REQUIRED="libusb-1.0 >= $LIBUSB_VERSION"
-		AC_SUBST(LIBUSB_REQUIRED)
-	]
-)
+AS_IF([test "x$with_dummy" = "xyes"], [
+	AC_DEFINE(USE_DUMMY, 1, [Define if we are using dummy USB driver])
+	USB_BACKEND="dummy"
+], [
+	AS_IF([test "x$with_iokit" = "xyes" && test "x$have_iokit" = "xyes"] , [
+			AC_DEFINE(HAVE_IOKIT, 1, [Define if we have IOKit])
+			USB_BACKEND="IOKit"
+		],
+		[
+			PKG_CHECK_MODULES(libusb, libusb-1.0 >= $LIBUSB_VERSION)
+			USB_BACKEND="libusb `$PKG_CONFIG --modversion libusb-1.0`"
+			LIBUSB_REQUIRED="libusb-1.0 >= $LIBUSB_VERSION"
+			AC_SUBST(LIBUSB_REQUIRED)
+		]
+	)
+])
 
 # Checks for header files.
 AC_HEADER_STDC
