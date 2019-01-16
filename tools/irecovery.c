@@ -348,7 +348,7 @@ static void print_usage(int argc, char **argv) {
 	printf("Usage: %s [OPTIONS]\n", (name ? name + 1: argv[0]));
 	printf("Interact with an iOS device in DFU or recovery mode.\n\n");
 	printf("options:\n");
-	printf("  -i ECID\tconnect to specific device by its hexadecimal ECID\n");
+	printf("  -i ECID\tconnect to specific device by its ECID\n");
 	printf("  -c CMD\trun CMD on device\n");
 	printf("  -m\t\tprint current device mode\n");
 	printf("  -f FILE\tsend file to device\n");
@@ -386,7 +386,7 @@ int main(int argc, char* argv[]) {
 			case 'i':
 				if (optarg) {
 					char* tail = NULL;
-					ecid = strtoull(optarg, &tail, 16);
+					ecid = strtoull(optarg, &tail, 0);
 					if (tail && (tail[0] != '\0')) {
 						ecid = 0;
 					}
