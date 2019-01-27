@@ -212,7 +212,7 @@ static struct irecv_device irecv_devices[] = {
 };
 
 #ifndef USE_DUMMY
-static unsigned int dfu_hash_t1[256] = {
+static unsigned int crc32_lookup_t1[256] = {
 	0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA,
 	0x076DC419, 0x706AF48F, 0xE963A535, 0x9E6495A3,
 	0x0EDB8832, 0x79DCB8A4, 0xE0D5E91E, 0x97D2D988,
@@ -279,8 +279,8 @@ static unsigned int dfu_hash_t1[256] = {
 	0xB40BBE37, 0xC30C8EA1, 0x5A05DF1B, 0x2D02EF8D,
 };
 
-#define dfu_hash_step(a,b) \
-	a = (dfu_hash_t1[(a & 0xFF) ^ ((unsigned char)b)] ^ (a >> 8))
+#define crc32_step(a,b) \
+	a = (crc32_lookup_t1[(a & 0xFF) ^ ((unsigned char)b)] ^ (a >> 8))
 
 #ifdef HAVE_IOKIT
 static int iokit_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc_index, unsigned char * buffer, int size) {
@@ -1849,7 +1849,7 @@ IRECV_API irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* 
 		} else {
 			int j;
 			for (j = 0; j < size; j++) {
-				dfu_hash_step(h1, buffer[i*packet_size + j]);
+				crc32_step(h1, buffer[i*packet_size + j]);
 			}
 			if (i+1 == packets) {
 				if (size+16 > packet_size) {
@@ -1862,12 +1862,12 @@ IRECV_API irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* 
 				}
 
 				for (j = 0; j < 2; j++) {
-					dfu_hash_step(h1, dfu_xbuf[j*6 + 0]);
-					dfu_hash_step(h1, dfu_xbuf[j*6 + 1]);
-					dfu_hash_step(h1, dfu_xbuf[j*6 + 2]);
-					dfu_hash_step(h1, dfu_xbuf[j*6 + 3]);
-					dfu_hash_step(h1, dfu_xbuf[j*6 + 4]);
-					dfu_hash_step(h1, dfu_xbuf[j*6 + 5]);
+					crc32_step(h1, dfu_xbuf[j*6 + 0]);
+					crc32_step(h1, dfu_xbuf[j*6 + 1]);
+					crc32_step(h1, dfu_xbuf[j*6 + 2]);
+					crc32_step(h1, dfu_xbuf[j*6 + 3]);
+					crc32_step(h1, dfu_xbuf[j*6 + 4]);
+					crc32_step(h1, dfu_xbuf[j*6 + 5]);
 				}
 
 				char* newbuf = (char*)malloc(size + 16);
