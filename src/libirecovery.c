@@ -1541,9 +1541,11 @@ IRECV_API irecv_error_t irecv_event_subscribe(irecv_client_t client, irecv_event
 
 	case IRECV_PROGRESS:
 		client->progress_callback = callback;
+		break;
 
 	case IRECV_CONNECTED:
 		client->connected_callback = callback;
+		break;
 
 	case IRECV_PRECOMMAND:
 		client->precommand_callback = callback;
@@ -1555,6 +1557,7 @@ IRECV_API irecv_error_t irecv_event_subscribe(irecv_client_t client, irecv_event
 
 	case IRECV_DISCONNECTED:
 		client->disconnected_callback = callback;
+		break;
 
 	default:
 		return IRECV_E_UNKNOWN_ERROR;
@@ -1575,9 +1578,11 @@ IRECV_API irecv_error_t irecv_event_unsubscribe(irecv_client_t client, irecv_eve
 
 	case IRECV_PROGRESS:
 		client->progress_callback = NULL;
+		break;
 
 	case IRECV_CONNECTED:
 		client->connected_callback = NULL;
+		break;
 
 	case IRECV_PRECOMMAND:
 		client->precommand_callback = NULL;
@@ -1589,6 +1594,7 @@ IRECV_API irecv_error_t irecv_event_unsubscribe(irecv_client_t client, irecv_eve
 
 	case IRECV_DISCONNECTED:
 		client->disconnected_callback = NULL;
+		break;
 
 	default:
 		return IRECV_E_UNKNOWN_ERROR;
