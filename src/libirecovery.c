@@ -1027,7 +1027,7 @@ static irecv_error_t iokit_usb_open_service(irecv_client_t *pclient, io_service_
 	IOObjectRelease(service);
 
 	// Create the device interface
-	result = (*plug)->QueryInterface(plug, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), (LPVOID *)&(client->handle));
+	result = (*plug)->QueryInterface(plug, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID320), (LPVOID *)&(client->handle));
 	IODestroyPlugInInterface(plug);
 	if (result != kIOReturnSuccess) {
 		free(client);
@@ -1412,7 +1412,7 @@ static irecv_error_t iokit_usb_set_interface(irecv_client_t client, int usb_inte
 		return IRECV_E_USB_INTERFACE;
 	}
 
-	result = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBInterfaceInterfaceID), (LPVOID)&client->usbInterface);
+	result = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBInterfaceInterfaceID300), (LPVOID)&client->usbInterface);
 	IODestroyPlugInInterface(plugInInterface);
 	if (result != kIOReturnSuccess) {
 		debug("error creating interface interface: %#x\n", result);
