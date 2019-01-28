@@ -1664,7 +1664,11 @@ IRECV_API void irecv_set_debug_level(int level) {
 #ifndef WIN32
 #ifndef HAVE_IOKIT
 	if(libirecovery_context) {
+#if LIBUSB_API_VERSION >= 0x01000106
+		libusb_set_option(libirecovery_context, LIBUSB_OPTION_LOG_LEVEL, libirecovery_debug > 2 ? 1: 0);
+#else
 		libusb_set_debug(libirecovery_context, libirecovery_debug > 2 ? 1: 0);
+#endif
 	}
 #endif
 #endif
