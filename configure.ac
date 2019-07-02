@@ -33,7 +33,7 @@ AC_CHECK_HEADERS([readline/readline.h], [],
 	[AC_MSG_ERROR([Please install readline development headers])]
 )
 
-# Check additional platform flags
+# Checks additional platform flags
 case "$host_os" in
 	darwin*)
 		AC_CHECK_HEADER(CoreFoundation/CoreFoundation.h, [
@@ -69,7 +69,7 @@ AS_IF([test "x$have_iokit" = "xyes"], [
 		[AS_HELP_STRING([--with-iokit], [Use IOKit instead of libusb on OS X [default=yes]])],
 		[],
 		[with_iokit=yes])
-	], []
+	]
 )
 
 AS_IF([test "x$with_dummy" = "xyes"], [
