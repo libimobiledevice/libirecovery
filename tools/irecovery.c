@@ -2,7 +2,7 @@
  * irecovery.c
  * Software frontend for iBoot/iBSS communication with iOS devices
  *
- * Copyright (c) 2012-2017 Nikias Bassen
+ * Copyright (c) 2012-2019 Nikias Bassen <nikias@gmx.li>
  * Copyright (c) 2012-2015 Martin Szulecki <martin.szulecki@libimobiledevice.org>
  * Copyright (c) 2010-2011 Chronic-Dev Team
  * Copyright (c) 2010-2011 Joshua Hill
@@ -454,7 +454,6 @@ int main(int argc, char* argv[]) {
 	if (verbose)
 		irecv_set_debug_level(verbose);
 
-	irecv_init();
 	irecv_client_t client = NULL;
 	for (i = 0; i <= 5; i++) {
 		debug("Attempting to connect... \n");
@@ -565,7 +564,6 @@ int main(int argc, char* argv[]) {
 	}
 
 	irecv_close(client);
-	irecv_exit();
 
 	return 0;
 }

@@ -28,67 +28,6 @@ AC_PROG_CXX
 AM_PROG_CC_C_O
 AC_PROG_LIBTOOL
 
-# Checks for libraries.
-AC_CHECK_HEADERS([readline/readline.h], [],
-	[AC_MSG_ERROR([Please install readline development headers])]
-)
-
-# Check additional platform flags
-case "$host_os" in
-	darwin*)
-		AC_CHECK_HEADER(CoreFoundation/CoreFoundation.h, [
-			AC_CHECK_HEADER(IOKit/usb/IOUSBLib.h, [
-				LIBIRECOVERYLDFLAGS="-framework IOKit -framework CoreFoundation"
-				have_iokit=yes
-			], [])
-		], [])
-	;;
-	mingw32*)
-		LDFLAGS+=" -static-libgcc"
-		LIBIRECOVERYLDFLAGS=" -lkernel32 -lmsvcrt -lsetupapi"
-	;;
-	cygwin*)
-		CC=gcc-3
-		CFLAGS+=" -mno-cygwin"
-		LDFLAGS+=" -static-libgcc"
-		LIBIRECOVERYLDFLAGS=" -lkernel32 -lmsvcrt -lsetupapi"
-	;;
-	*)
-		LIBIRECOVERYLDFLAGS=
-	;;
-esac
-AC_SUBST(LIBIRECOVERYLDFLAGS)
-
-AC_ARG_WITH([dummy],
-	[AS_HELP_STRING([--with-dummy], [Use no USB driver at all [default=no]. This is only useful if you just want to query the device list by product type or hardware model. All other operations are no-ops or will return IRECV_E_UNSUPPORTED.])],
-	[],
-	[with_dummy=no])
-
-AS_IF([test "x$have_iokit" = "xyes"], [
-	AC_ARG_WITH([iokit],
-		[AS_HELP_STRING([--with-iokit], [Use IOKit instead of libusb on OS X [default=yes]])],
-		[],
-		[with_iokit=yes])
-	], []
-)
-
-AS_IF([test "x$with_dummy" = "xyes"], [
-	AC_DEFINE(USE_DUMMY, 1, [Define if we are using dummy USB driver])
-	USB_BACKEND="dummy"
-], [
-	AS_IF([test "x$with_iokit" = "xyes" && test "x$have_iokit" = "xyes"] , [
-			AC_DEFINE(HAVE_IOKIT, 1, [Define if we have IOKit])
-			USB_BACKEND="IOKit"
-		],
-		[
-			PKG_CHECK_MODULES(libusb, libusb-1.0 >= $LIBUSB_VERSION)
-			USB_BACKEND="libusb `$PKG_CONFIG --modversion libusb-1.0`"
-			LIBUSB_REQUIRED="libusb-1.0 >= $LIBUSB_VERSION"
-			AC_SUBST(LIBUSB_REQUIRED)
-		]
-	)
-])
-
 # Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS([stdint.h stdlib.h string.h])
@@ -104,26 +43,79 @@ AC_TYPE_UINT8_T
 # Checks for library functions.
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
-AC_CHECK_FUNCS([strcasecmp strdup strerror strndup])
+AC_CHECK_FUNCS([strdup strerror strndup])
 
-# Check for operating system
-AC_MSG_CHECKING([whether to enable WIN32 build settings])
+# Checks for libraries.
+AC_CHECK_HEADERS([readline/readline.h], [],
+	[AC_MSG_ERROR([Please install readline development headers])]
+)
+
+# Check additional platform flags
+AC_MSG_CHECKING([for platform-specific build settings])
 case ${host_os} in
-	*mingw32*|*cygwin*)
+	darwin*)
+		AC_MSG_RESULT([${host_os}])
+		AC_CHECK_HEADER(CoreFoundation/CoreFoundation.h, [
+			AC_CHECK_HEADER(IOKit/usb/IOUSBLib.h, [
+				GLOBAL_LDFLAGS+=" -framework IOKit -framework CoreFoundation"
+				have_iokit=yes
+			], [])
+		], [])
+		AX_PTHREAD([], [AC_MSG_ERROR([pthread is required to build $PACKAGE])])
+	;;
+	mingw32*)
+		AC_MSG_RESULT([${host_os}])
+		GLOBAL_LDFLAGS+=" -static-libgcc -lkernel32 -lmsvcrt -lsetupapi"
 		win32=true
-		AC_MSG_RESULT([yes])
-		AC_CHECK_TOOL([WINDRES], [windres], AC_MSG_ERROR([windres not found]))
-		AC_SUBST(WINDRES)
+	;;
+	cygwin*)
+		AC_MSG_RESULT([${host_os}])
+		CC=gcc-3
+		CFLAGS+=" -mno-cygwin"
+		GLOBAL_LDFLAGS+=" -static-libgcc -lkernel32 -lmsvcrt -lsetupapi"
+		win32=true
 	;;
 	*)
-		win32=false
-		AC_MSG_RESULT([no])
+		AC_MSG_RESULT([${host_os}])
+		AX_PTHREAD([], [AC_MSG_ERROR([pthread is required to build $PACKAGE])])
 	;;
 esac
 AM_CONDITIONAL(WIN32, test x$win32 = xtrue)
 
-AS_COMPILER_FLAGS(GLOBAL_CFLAGS, "-Wall -Wextra -Wmissing-declarations -Wredundant-decls -Wshadow -Wpointer-arith -Wwrite-strings -Wswitch-default -Wno-unused-parameter -fvisibility=hidden")
+AC_ARG_WITH([dummy],
+	[AS_HELP_STRING([--with-dummy], [Use no USB driver at all [default=no]. This is only useful if you just want to query the device list by product type or hardware model. All other operations are no-ops or will return IRECV_E_UNSUPPORTED.])],
+	[],
+	[with_dummy=no])
+
+AS_IF([test "x$have_iokit" = "xyes"], [
+	AC_ARG_WITH([iokit],
+		[AS_HELP_STRING([--with-iokit], [Use IOKit instead of libusb on OS X [default=yes]])],
+		[],
+		[with_iokit=yes])
+	]
+)
+
+AS_IF([test "x$with_dummy" = "xyes"], [
+	AC_DEFINE(USE_DUMMY, 1, [Define if we are using dummy USB driver])
+	USB_BACKEND="dummy"
+], [
+	AS_IF([test "x$with_iokit" = "xyes" && test "x$have_iokit" = "xyes"], [
+		AC_DEFINE(HAVE_IOKIT, 1, [Define if we have IOKit])
+		USB_BACKEND="IOKit"
+	], [
+		AS_IF([test "x$win32" = "xtrue"], [
+			USB_BACKEND="win32 native (setupapi)"
+		], [
+			PKG_CHECK_MODULES(libusb, libusb-1.0 >= $LIBUSB_VERSION)
+			USB_BACKEND="libusb `$PKG_CONFIG --modversion libusb-1.0`"
+		])
+	])
+])
+
+AS_COMPILER_FLAGS(GLOBAL_CFLAGS, "-Wall -Wextra -Wmissing-declarations -Wredundant-decls -Wshadow -Wpointer-arith -Wwrite-strings -Wswitch-default -Wno-unused-parameter -fvisibility=hidden $PTHREAD_CFLAGS")
+GLOBAL_LDFLAGS+=" $PTHREAD_LIBS"
 AC_SUBST(GLOBAL_CFLAGS)
+AC_SUBST(GLOBAL_LDFLAGS)
 
 case "$GLOBAL_CFLAGS" in
 	*-fvisibility=hidden*)

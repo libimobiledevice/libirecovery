@@ -2,8 +2,8 @@
  * libirecovery.h
  * Communication to iBoot/iBSS on Apple iOS devices via USB
  *
+ * Copyright (c) 2012-2019 Nikias Bassen <nikias@gmx.li>
  * Copyright (c) 2012-2013 Martin Szulecki <m.szulecki@libimobiledevice.org>
- * Copyright (c) 2012-2013 Nikias Bassen
  * Copyright (c) 2010 Chronic-Dev Team
  * Copyright (c) 2010 Joshua Hill
  *
@@ -27,7 +27,7 @@ extern "C" {
 
 #include <stdint.h>
 
-enum {
+enum irecv_mode {
 	IRECV_K_RECOVERY_MODE_1   = 0x1280,
 	IRECV_K_RECOVERY_MODE_2   = 0x1281,
 	IRECV_K_RECOVERY_MODE_3   = 0x1282,
@@ -93,14 +93,25 @@ struct irecv_device_info {
 	unsigned int sep_nonce_size;	
 };
 
+typedef enum {
+	IRECV_DEVICE_ADD     = 1,
+	IRECV_DEVICE_REMOVE  = 2
+} irecv_device_event_type;
+
+typedef struct {
+	irecv_device_event_type type;
+	enum irecv_mode mode;
+	struct irecv_device_info *device_info;
+} irecv_device_event_t;
+
 typedef struct irecv_client_private irecv_client_private;
 typedef irecv_client_private* irecv_client_t;
 
 /* library */
 void irecv_set_debug_level(int level);
 const char* irecv_strerror(irecv_error_t error);
-void irecv_init(void);
-void irecv_exit(void);
+void irecv_init(void); /* deprecated: libirecovery has constructor now */
+void irecv_exit(void); /* deprecated: libirecovery has destructor now */
 
 /* device connectivity */
 irecv_error_t irecv_open_with_ecid(irecv_client_t* client, unsigned long long ecid);
@@ -123,6 +134,10 @@ int irecv_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, u
 int irecv_usb_bulk_transfer(irecv_client_t client, unsigned char endpoint, unsigned char *data, int length, int *transferred, unsigned int timeout);
 
 /* events */
+typedef void(*irecv_device_event_cb_t)(const irecv_device_event_t* event, void *user_data);
+typedef struct irecv_device_event_context* irecv_device_event_context_t;
+irecv_error_t irecv_device_event_subscribe(irecv_device_event_context_t *context, irecv_device_event_cb_t callback, void *user_data);
+irecv_error_t irecv_device_event_unsubscribe(irecv_device_event_context_t context);
 typedef int(*irecv_event_cb_t)(irecv_client_t client, const irecv_event_t* event);
 irecv_error_t irecv_event_subscribe(irecv_client_t client, irecv_event_type type, irecv_event_cb_t callback, void *user_data);
 irecv_error_t irecv_event_unsubscribe(irecv_client_t client, irecv_event_type type);
