@@ -1,5 +1,6 @@
-About
-=====
+# libirecovery
+
+## About
 
 libirecovery is a cross-platform library which implements communication to
 iBoot/iBSS found on Apple's iOS devices via USB. A command-line utility is also
@@ -11,60 +12,45 @@ terms of the LGPL 2.1. The full license text can be found in the LICENSE file.
 This is a fork of an older version from http://www.openjailbreak.org/ and is
 ment to be used with idevicerestore from the libimobiledevice project.
 
-Requirements
-============
+## Requirements
 
 Development Packages of:
-	libusb
-	libreadline
+* libusb (Darwin: IOKit, Windows: SetupAPI)
+* libreadline
 
 Software:
-	make
-	autoheader
-	automake
-	autoconf
-	libtool
-	pkg-config
-	gcc
+* make
+* autoheader
+* automake
+* autoconf
+* libtool
+* pkg-config
+* gcc or clang
 
-Installation
-============
+## Installation
 
 To compile run:
-	./autogen.sh
-	make
-	sudo make install
+```bash
+./autogen.sh
+make
+sudo make install
+```
 
-Who/What/Where?
-===============
+## Who/What/Where?
 
-Home:
-	http://www.libimobiledevice.org/
+* Home:	https://www.libimobiledevice.org/
+* Code: `git clone https://git.libimobiledevice.org/libirecovery.git`
+* Code (Mirror): `git clone https://github.com/libimobiledevice/libirecovery.git`
+* Tickets: https://github.com/libimobiledevice/libirecovery/issues
+* Mailing List: https://lists.libimobiledevice.org/mailman/listinfo/libimobiledevice-devel
+* IRC: irc://irc.freenode.net#libimobiledevice
+* Twitter: https://twitter.com/libimobiledev
 
-Code:
-	git clone http://git.libimobiledevice.org/libirecovery.git
-
-Code (Mirror):
-	git clone https://github.com/libimobiledevice/libirecovery.git
-
-Tickets:
-	http://github.com/libimobiledevice/libirecovery/issues
-
-Mailing List:
-	http://lists.libimobiledevice.org/mailman/listinfo/libimobiledevice-devel
-
-IRC:
-	irc://irc.freenode.net#libimobiledevice
-
-Twitter:
-	https://twitter.com/libimobiledev
-
-Credits
-=======
+## Credits
 
 Apple, iPhone, iPod, and iPod Touch are trademarks of Apple Inc.
 libirecovery is an independent software library and has not been authorized,
 sponsored, or otherwise approved by Apple Inc.
 
 README Updated on:
-	2015-10-06
+	2019-09-05
