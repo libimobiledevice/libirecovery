@@ -108,6 +108,8 @@ AS_IF([test "x$with_dummy" = "xyes"], [
 		], [
 			PKG_CHECK_MODULES(libusb, libusb-1.0 >= $LIBUSB_VERSION)
 			USB_BACKEND="libusb `$PKG_CONFIG --modversion libusb-1.0`"
+			LIBUSB_REQUIRED="libusb-1.0 >= $LIBUSB_VERSION"
+			AC_SUBST(LIBUSB_REQUIRED)
 		])
 	])
 ])
