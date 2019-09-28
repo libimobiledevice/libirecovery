@@ -74,6 +74,7 @@ struct irecv_device {
 	const char* hardware_model;
 	unsigned int board_id;
 	unsigned int chip_id;
+	const char* display_name;
 };
 typedef struct irecv_device* irecv_device_t;
 
