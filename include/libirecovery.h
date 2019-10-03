@@ -88,6 +88,7 @@ struct irecv_device_info {
 	unsigned int ibfl;
 	char* srnm;
 	char* imei;
+	char* srtg;
 	char* serial_string;
 	unsigned char* ap_nonce;
 	unsigned int ap_nonce_size;

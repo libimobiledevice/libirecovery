@@ -528,6 +528,17 @@ static void irecv_load_device_info_from_iboot_string(irecv_client_t client, cons
 		}
 		client->device_info.imei = strdup(tmp);
 	}
+
+	tmp[0] = '\0';
+	ptr = strstr(iboot_string, "SRTG:[");
+	if(ptr != NULL) {
+		sscanf(ptr, "SRTG:[%s]", tmp);
+		ptr = strrchr(tmp, ']');
+		if(ptr != NULL) {
+			*ptr = '\0';
+		}
+		client->device_info.srtg = strdup(tmp);
+	}
 }	
 
 static void irecv_copy_nonce_with_tag(irecv_client_t client, const char* tag, unsigned char** nonce, unsigned int* nonce_size)
@@ -1920,10 +1931,12 @@ static void _irecv_handle_device_remove(struct irecv_usb_device_info *devinfo)
 	} ENDFOREACH
 	mutex_unlock(&listener_mutex);
 	free(devinfo->device_info.srnm);
-	free(devinfo->device_info.imei);
-	free(devinfo->device_info.serial_string);
 	devinfo->device_info.srnm = NULL;
+	free(devinfo->device_info.imei);
 	devinfo->device_info.imei = NULL;
+	free(devinfo->device_info.srtg);
+	devinfo->device_info.srtg = NULL;
+	free(devinfo->device_info.serial_string);
 	devinfo->device_info.serial_string = NULL;
 	devinfo->alive = 0;
 	collection_remove(&devices, devinfo);
@@ -2289,10 +2302,12 @@ IRECV_API irecv_error_t irecv_device_event_unsubscribe(irecv_device_event_contex
 		mutex_lock(&device_mutex);
 		FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
 			free(devinfo->device_info.srnm);
-			free(devinfo->device_info.imei);
-			free(devinfo->device_info.serial_string);
 			devinfo->device_info.srnm = NULL;
+			free(devinfo->device_info.imei);
 			devinfo->device_info.imei = NULL;
+			free(devinfo->device_info.srtg);
+			devinfo->device_info.srtg = NULL;
+			free(devinfo->device_info.serial_string);
 			devinfo->device_info.serial_string = NULL;
 			free(devinfo);
 		} ENDFOREACH
@@ -2356,6 +2371,7 @@ IRECV_API irecv_error_t irecv_close(irecv_client_t client) {
 #endif
 		free(client->device_info.srnm);
 		free(client->device_info.imei);
+		free(client->device_info.srtg);
 		free(client->device_info.serial_string);
 		free(client->device_info.ap_nonce);
 		free(client->device_info.sep_nonce);
