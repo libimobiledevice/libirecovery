@@ -467,6 +467,8 @@ static void irecv_load_device_info_from_iboot_string(irecv_client_t client, cons
 
 	memset(&client->device_info, '\0', sizeof(struct irecv_device_info));
 
+	client->device_info.serial_string = strdup(iboot_string);
+
 	char* ptr;
 
 	ptr = strstr(iboot_string, "CPID:");
@@ -1919,8 +1921,10 @@ static void _irecv_handle_device_remove(struct irecv_usb_device_info *devinfo)
 	mutex_unlock(&listener_mutex);
 	free(devinfo->device_info.srnm);
 	free(devinfo->device_info.imei);
+	free(devinfo->device_info.serial_string);
 	devinfo->device_info.srnm = NULL;
 	devinfo->device_info.imei = NULL;
+	devinfo->device_info.serial_string = NULL;
 	devinfo->alive = 0;
 	collection_remove(&devices, devinfo);
 	free(devinfo);
@@ -2286,8 +2290,10 @@ IRECV_API irecv_error_t irecv_device_event_unsubscribe(irecv_device_event_contex
 		FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
 			free(devinfo->device_info.srnm);
 			free(devinfo->device_info.imei);
+			free(devinfo->device_info.serial_string);
 			devinfo->device_info.srnm = NULL;
 			devinfo->device_info.imei = NULL;
+			devinfo->device_info.serial_string = NULL;
 			free(devinfo);
 		} ENDFOREACH
 		collection_free(&devices);
@@ -2350,6 +2356,7 @@ IRECV_API irecv_error_t irecv_close(irecv_client_t client) {
 #endif
 		free(client->device_info.srnm);
 		free(client->device_info.imei);
+		free(client->device_info.serial_string);
 		free(client->device_info.ap_nonce);
 		free(client->device_info.sep_nonce);
 
