@@ -141,6 +141,7 @@ static void print_device_info(irecv_client_t client)
 		printf("CPFM: %02x\n", devinfo->cpfm);
 		printf("SCEP: %02x\n", devinfo->scep);
 		printf("IBFL: %02x\n", devinfo->ibfl);
+		printf("SRTG: %s\n", (devinfo->srtg) ? devinfo->srtg : "N/A");
 		printf("SRNM: %s\n", (devinfo->srnm) ? devinfo->srnm : "N/A");
 		printf("IMEI: %s\n", (devinfo->imei) ? devinfo->imei : "N/A");
 		printf("NONC: ");
