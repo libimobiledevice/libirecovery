@@ -2697,7 +2697,13 @@ IRECV_API irecv_error_t irecv_receive(irecv_client_t client) {
 		return IRECV_E_NO_DEVICE;
 
 	int bytes = 0;
-	while (irecv_usb_bulk_transfer(client, 0x81, (unsigned char*) buffer, BUFFER_SIZE, &bytes, 500) == 0) {
+	while (1) {
+		irecv_usb_set_interface(client, 1, 1);
+		int r = irecv_usb_bulk_transfer(client, 0x81, (unsigned char*) buffer, BUFFER_SIZE, &bytes, 500);
+		irecv_usb_set_interface(client, 0, 0);
+		if (r != 0) {
+			break;
+		}
 		if (bytes > 0) {
 			if (client->received_callback != NULL) {
 				irecv_event_t event;
@@ -2705,12 +2711,11 @@ IRECV_API irecv_error_t irecv_receive(irecv_client_t client) {
 				event.data = buffer;
 				event.type = IRECV_RECEIVED;
 				if (client->received_callback(client, &event) != 0) {
-					return IRECV_E_SUCCESS;
+					break;
 				}
 			}
 		} else break;
 	}
-
 	return IRECV_E_SUCCESS;
 #endif
 }
