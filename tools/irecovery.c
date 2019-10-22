@@ -166,6 +166,8 @@ static void print_device_info(irecv_client_t client)
 	if (ret == IRECV_E_SUCCESS) {
 		printf("MODE: %s\n", mode_to_str(mode));
 	}
+    
+    printf("PWND: %s\n", (devinfo->pwnd) ? devinfo->pwnd : "N/A");
 }
 
 static void parse_command(irecv_client_t client, unsigned char* command, unsigned int size) {

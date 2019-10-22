@@ -539,6 +539,17 @@ static void irecv_load_device_info_from_iboot_string(irecv_client_t client, cons
 		}
 		client->device_info.srtg = strdup(tmp);
 	}
+    
+    tmp[0] = '\0';
+    ptr = strstr(iboot_string, "PWND:[");
+    if(ptr != NULL) {
+        sscanf(ptr, "PWND:[%s]", tmp);
+        ptr = strrchr(tmp, ']');
+        if(ptr != NULL) {
+            *ptr = '\0';
+        }
+        client->device_info.pwnd = strdup(tmp);
+    }
 }	
 
 static void irecv_copy_nonce_with_tag(irecv_client_t client, const char* tag, unsigned char** nonce, unsigned int* nonce_size)
@@ -1936,6 +1947,8 @@ static void _irecv_handle_device_remove(struct irecv_usb_device_info *devinfo)
 	devinfo->device_info.imei = NULL;
 	free(devinfo->device_info.srtg);
 	devinfo->device_info.srtg = NULL;
+    free(devinfo->device_info.pwnd);
+    devinfo->device_info.pwnd = NULL;
 	free(devinfo->device_info.serial_string);
 	devinfo->device_info.serial_string = NULL;
 	devinfo->alive = 0;
@@ -2307,6 +2320,8 @@ IRECV_API irecv_error_t irecv_device_event_unsubscribe(irecv_device_event_contex
 			devinfo->device_info.imei = NULL;
 			free(devinfo->device_info.srtg);
 			devinfo->device_info.srtg = NULL;
+            free(devinfo->device_info.pwnd);
+            devinfo->device_info.pwnd = NULL;
 			free(devinfo->device_info.serial_string);
 			devinfo->device_info.serial_string = NULL;
 			free(devinfo);
@@ -2372,6 +2387,7 @@ IRECV_API irecv_error_t irecv_close(irecv_client_t client) {
 		free(client->device_info.srnm);
 		free(client->device_info.imei);
 		free(client->device_info.srtg);
+        free(client->device_info.pwnd);
 		free(client->device_info.serial_string);
 		free(client->device_info.ap_nonce);
 		free(client->device_info.sep_nonce);
