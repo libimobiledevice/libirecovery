@@ -1961,7 +1961,7 @@ static void iokit_device_added(void *refcon, io_iterator_t iterator)
 			kr = IOObjectRelease(device);
 			continue;
 		}
-		result = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), (LPVOID *)&dev);
+		result = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID320), (LPVOID *)&dev);
 		(*plugInInterface)->Release(plugInInterface);
 
 		if (result || !dev) {
