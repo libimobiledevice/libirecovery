@@ -228,6 +228,16 @@ static struct irecv_device irecv_devices[] = {
 	{ "AppleTV3,2",  "j33iap",   0x00, 0x8947, "Apple TV 3 (2013)" },
 	{ "AppleTV5,3",  "j42dap",   0x34, 0x7000, "Apple TV 4" },
 	{ "AppleTV6,2",  "j105aap",  0x02, 0x8011, "Apple TV 4K" },
+	/* Apple T2 Coprocessor */
+	{ "iBridge2,1",	"j137ap", 	 0x0A, 0x8012, "Apple T2 Coprocessor (j137)" },
+	{ "iBridge2,3",	"j680ap", 	 0x0B, 0x8012, "Apple T2 Coprocessor (j680)" },
+	{ "iBridge2,4",	"j132ap", 	 0x0C, 0x8012, "Apple T2 Coprocessor (j132)" },
+	{ "iBridge2,5",	"j174ap", 	 0x0E, 0x8012, "Apple T2 Coprocessor (j174)" },
+	{ "iBridge2,6",	"j160ap", 	 0x0F, 0x8012, "Apple T2 Coprocessor (j160)" },
+	{ "iBridge2,7",	"j780ap", 	 0x07, 0x8012, "Apple T2 Coprocessor (j780)" },
+	{ "iBridge2,8",	"j140kap", 	 0x17, 0x8012, "Apple T2 Coprocessor (j140k)" },
+	{ "iBridge2,10",	"j213ap",  0x18, 0x8012, "Apple T2 Coprocessor (j213)" },
+	{ "iBridge2,12",	"j140aap", 0x37, 0x8012, "Apple T2 Coprocessor (j140a)" },
 	{ NULL,          NULL,      -1,   -1,     NULL }
 };
 
@@ -442,7 +452,7 @@ static int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc
 
 	if (ret < 0) return ret;
 	if (data[1] != 0x03) return IRECV_E_UNKNOWN_ERROR;
-	if (data[0] > ret) return IRECV_E_UNKNOWN_ERROR; 
+	if (data[0] > ret) return IRECV_E_UNKNOWN_ERROR;
 
 	for (di = 0, si = 2; si < data[0]; si += 2) {
 		if (di >= (size - 1)) break;
@@ -539,7 +549,7 @@ static void irecv_load_device_info_from_iboot_string(irecv_client_t client, cons
 		}
 		client->device_info.srtg = strdup(tmp);
 	}
-}	
+}
 
 static void irecv_copy_nonce_with_tag(irecv_client_t client, const char* tag, unsigned char** nonce, unsigned int* nonce_size)
 {
@@ -797,7 +807,7 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 				if (serial_str[j] == '_') {
 					serial_str[j] = ' ';
 				} else {
-					serial_str[j] = toupper(serial_str[j]);	
+					serial_str[j] = toupper(serial_str[j]);
 				}
 			}
 
@@ -963,7 +973,7 @@ IRECV_API int irecv_usb_control_transfer(irecv_client_t client, uint8_t bm_reque
 	packet->wValue = w_value;
 	packet->wIndex = w_index;
 	packet->wLength = w_length;
-	
+
 	if (bm_request_type < 0x80 && w_length > 0) {
 		memcpy(packet->data, data, w_length);
 	}
@@ -3174,7 +3184,7 @@ IRECV_API irecv_client_t irecv_reconnect(irecv_client_t client, int initial_paus
 		debug("Waiting %d seconds for the device to pop up...\n", initial_pause);
 		sleep(initial_pause);
 	}
-	
+
 	error = irecv_open_with_ecid_and_attempts(&new_client, ecid, 10);
 	if(error != IRECV_E_SUCCESS) {
 		return NULL;
