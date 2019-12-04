@@ -158,6 +158,14 @@ static void print_device_info(irecv_client_t client)
 			printf("N/A");
 		}
 		printf("\n");
+		char* p = strstr(devinfo->serial_string, "PWND:[");
+		if (p) {
+			p+=6;
+			char* pend = strchr(p, ']');
+			if (pend) {
+				printf("PWND: %.*s\n", (int)(pend-p), p);
+			}
+		}
 	} else {
 		printf("Could not get device info?!\n");
 	}
