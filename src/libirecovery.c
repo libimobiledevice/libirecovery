@@ -229,15 +229,16 @@ static struct irecv_device irecv_devices[] = {
 	{ "AppleTV5,3",  "j42dap",   0x34, 0x7000, "Apple TV 4" },
 	{ "AppleTV6,2",  "j105aap",  0x02, 0x8011, "Apple TV 4K" },
 	/* Apple T2 Coprocessor */
-	{ "iBridge2,1",	"j137ap", 	 0x0A, 0x8012, "Apple T2 Coprocessor (j137)" },
-	{ "iBridge2,3",	"j680ap", 	 0x0B, 0x8012, "Apple T2 Coprocessor (j680)" },
-	{ "iBridge2,4",	"j132ap", 	 0x0C, 0x8012, "Apple T2 Coprocessor (j132)" },
-	{ "iBridge2,5",	"j174ap", 	 0x0E, 0x8012, "Apple T2 Coprocessor (j174)" },
-	{ "iBridge2,6",	"j160ap", 	 0x0F, 0x8012, "Apple T2 Coprocessor (j160)" },
-	{ "iBridge2,7",	"j780ap", 	 0x07, 0x8012, "Apple T2 Coprocessor (j780)" },
-	{ "iBridge2,8",	"j140kap", 	 0x17, 0x8012, "Apple T2 Coprocessor (j140k)" },
-	{ "iBridge2,10",	"j213ap",  0x18, 0x8012, "Apple T2 Coprocessor (j213)" },
-	{ "iBridge2,12",	"j140aap", 0x37, 0x8012, "Apple T2 Coprocessor (j140a)" },
+	{ "iBridge2,1",	 "j137ap",   0x0A, 0x8012, "Apple T2 iMacPro1,1 (j137)" },
+	{ "iBridge2,3",	 "j680ap",   0x0B, 0x8012, "Apple T2 MacBookPro15,1 (j680)" },
+	{ "iBridge2,4",	 "j132ap",   0x0C, 0x8012, "Apple T2 MacBookPro15,2 (j132)" },
+	{ "iBridge2,5",	 "j174ap",   0x0E, 0x8012, "Apple T2 Macmini8,1 (j174)" },
+	{ "iBridge2,6",	 "j160ap",   0x0F, 0x8012, "Apple T2 MacPro7,1 (j160)" },
+	{ "iBridge2,7",	 "j780ap",   0x07, 0x8012, "Apple T2 MacBookPro15,3 (j780)" },
+	{ "iBridge2,8",	 "j140kap",  0x17, 0x8012, "Apple T2 MacBookAir8,1 (j140k)" },
+	{ "iBridge2,10", "j213ap",   0x18, 0x8012, "Apple T2 MacBookPro15,4 (j213)" },
+	{ "iBridge2,12", "j140aap",  0x37, 0x8012, "Apple T2 MacBookAir8,2 (j140a)" },
+	{ "iBridge2,14", "j152f",    0x3A, 0x8012, "Apple T2 MacBookPro16,1 (j152f)" },
 	{ NULL,          NULL,      -1,   -1,     NULL }
 };
 
