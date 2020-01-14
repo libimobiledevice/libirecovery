@@ -2,7 +2,7 @@
  * libirecovery.c
  * Communication to iBoot/iBSS on Apple iOS devices via USB
  *
- * Copyright (c) 2011-2019 Nikias Bassen <nikias@gmx.li>
+ * Copyright (c) 2011-2020 Nikias Bassen <nikias@gmx.li>
  * Copyright (c) 2012-2015 Martin Szulecki <martin.szulecki@libimobiledevice.org>
  * Copyright (c) 2010 Chronic-Dev Team
  * Copyright (c) 2010 Joshua Hill
@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 #include <ctype.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -45,14 +46,10 @@
 #include <IOKit/IOCFPlugIn.h>
 #include <pthread.h>
 #endif
-#define _FMT_qX "%qX"
-#define _FMT_016llx "%016llx"
 #else
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <setupapi.h>
-#define _FMT_qX "%I64X"
-#define _FMT_016llx "%016I64x"
 #ifndef sleep
 #define sleep(n) Sleep(1000 * n)
 #endif
@@ -509,7 +506,7 @@ static void irecv_load_device_info_from_iboot_string(irecv_client_t client, cons
 
 	ptr = strstr(iboot_string, "ECID:");
 	if (ptr != NULL) {
-		sscanf(ptr, "ECID:" _FMT_qX, &client->device_info.ecid);
+		sscanf(ptr, "ECID:%" SCNx64, &client->device_info.ecid);
 	}
 
 	ptr = strstr(iboot_string, "IBFL:");
@@ -739,7 +736,7 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 					mobiledevice_closepipes(_client);
 					continue;
 				}
-				debug("found device with ECID " _FMT_016llx "\n", (unsigned long long)ecid);
+				debug("found device with ECID %016" PRIx64 "\n", (unsigned long long)ecid);
 			}
 			found = 1;
 			break;
@@ -821,7 +818,7 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 					mobiledevice_closepipes(_client);
 					continue;
 				}
-				debug("found device with ECID " _FMT_016llx" \n", (unsigned long long)ecid);
+				debug("found device with ECID %016" PRIx64 "\n", (unsigned long long)ecid);
 			}
 			found = 1;
 			break;
@@ -1368,7 +1365,7 @@ IRECV_API irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned l
 						irecv_close(client);
 						continue;
 					}
-					debug("found device with ECID " _FMT_016llx "\n", (unsigned long long)ecid);
+					debug("found device with ECID %016" PRIx64 "\n", (unsigned long long)ecid);
 				}
 
 				error = irecv_usb_set_configuration(client, 1);

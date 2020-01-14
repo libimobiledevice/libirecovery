@@ -2,7 +2,7 @@
  * irecovery.c
  * Software frontend for iBoot/iBSS communication with iOS devices
  *
- * Copyright (c) 2012-2019 Nikias Bassen <nikias@gmx.li>
+ * Copyright (c) 2012-2020 Nikias Bassen <nikias@gmx.li>
  * Copyright (c) 2012-2015 Martin Szulecki <martin.szulecki@libimobiledevice.org>
  * Copyright (c) 2010-2011 Chronic-Dev Team
  * Copyright (c) 2010-2011 Joshua Hill
@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <inttypes.h>
 #include <libirecovery.h>
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -36,9 +37,6 @@
 #ifndef sleep
 #define sleep(n) Sleep(1000 * n)
 #endif
-#define _FMT_lld "%I64d"
-#else
-#define _FMT_lld "%lld"
 #endif
 
 #define FILE_HISTORY_PATH ".irecovery"
@@ -134,13 +132,13 @@ static void print_device_info(irecv_client_t client)
 	int ret, mode;
 	const struct irecv_device_info *devinfo = irecv_get_device_info(client);
 	if (devinfo) {
-		printf("CPID: %04x\n", devinfo->cpid);
-		printf("CPRV: %02x\n", devinfo->cprv);
-		printf("BDID: %02x\n", devinfo->bdid);
-		printf("ECID: " _FMT_lld "\n", devinfo->ecid);
-		printf("CPFM: %02x\n", devinfo->cpfm);
-		printf("SCEP: %02x\n", devinfo->scep);
-		printf("IBFL: %02x\n", devinfo->ibfl);
+		printf("CPID: 0x%04x\n", devinfo->cpid);
+		printf("CPRV: 0x%02x\n", devinfo->cprv);
+		printf("BDID: 0x%02x\n", devinfo->bdid);
+		printf("ECID: 0x%016" PRIx64 "\n", devinfo->ecid);
+		printf("CPFM: 0x%02x\n", devinfo->cpfm);
+		printf("SCEP: 0x%02x\n", devinfo->scep);
+		printf("IBFL: 0x%02x\n", devinfo->ibfl);
 		printf("SRTG: %s\n", (devinfo->srtg) ? devinfo->srtg : "N/A");
 		printf("SRNM: %s\n", (devinfo->srnm) ? devinfo->srnm : "N/A");
 		printf("IMEI: %s\n", (devinfo->imei) ? devinfo->imei : "N/A");
