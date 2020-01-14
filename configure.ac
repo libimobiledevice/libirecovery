@@ -41,9 +41,7 @@ AC_TYPE_UINT32_T
 AC_TYPE_UINT8_T
 
 # Checks for library functions.
-AC_FUNC_MALLOC
-AC_FUNC_REALLOC
-AC_CHECK_FUNCS([strdup strerror strndup])
+AC_CHECK_FUNCS([strdup strerror strndup malloc realloc calloc])
 
 # Checks for libraries.
 AC_CHECK_HEADERS([readline/readline.h], [],
