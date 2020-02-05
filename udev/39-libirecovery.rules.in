@@ -3,3 +3,6 @@
 # Change group and permissions of iOS devices in DFU, legacy WTF, and Recovery mode
 ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="05ac", ATTR{idProduct}=="122[27]|128[0-3]", @udev_activation_rule@
 
+# Handle checkra1n DFU mode
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="05ac", ATTR{idProduct}=="1338", @udev_activation_rule@
+
