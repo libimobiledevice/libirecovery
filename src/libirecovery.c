@@ -325,6 +325,11 @@ static libusb_context* irecv_hotplug_ctx = NULL;
 
 static void _irecv_init(void)
 {
+	char* dbglvl = getenv("LIBIRECOVERY_DEBUG_LEVEL");
+	if (dbglvl) {
+		libirecovery_debug = strtol(dbglvl, NULL, 0);
+		irecv_set_debug_level(libirecovery_debug);
+	}
 #ifndef USE_DUMMY
 #ifndef WIN32
 #ifndef HAVE_IOKIT
@@ -1814,7 +1819,7 @@ static void* _irecv_handle_device_add(void *userdata)
 
 	unsigned int pid = 0;
 	if (!p || (sscanf(p, "\\usb#vid_%*04x&pid_%04x#%s", &pid, serial_str) != 2) || (serial_str[0] == '\0')) {
-		fprintf(stderr, "%s: ERROR: failed to parse DevicePath?!\n", __func__);
+		debug("%s: ERROR: failed to parse DevicePath?!\n", __func__);
 		return NULL;
 	}
 	if (!_irecv_is_recovery_device(p)) {
@@ -1843,17 +1848,17 @@ static void* _irecv_handle_device_add(void *userdata)
 	IOUSBDeviceInterface **dev = iokit_ctx->dev;
 
 	if (!device) {
-		fprintf(stderr, "%s: ERROR: no device?!\n", __func__);
+		debug("%s: ERROR: no device?!\n", __func__);
 		return NULL;
 	}
 	if (!dev) {
-		fprintf(stderr, "%s: ERROR: no device interface?!\n", __func__);
+		debug("%s: ERROR: no device interface?!\n", __func__);
 		return NULL;
 	}
 
 	(*dev)->GetDeviceProduct(dev, &product_id);
 	if (!product_id) {
-		fprintf(stderr, "%s: ERROR: could not get product id?!\n", __func__);
+		debug("%s: ERROR: could not get product id?!\n", __func__);
 		return NULL;
 	}
 	CFNumberRef locationNum = (CFNumberRef)IORegistryEntryCreateCFProperty(device, CFSTR(kUSBDevicePropertyLocationID), kCFAllocatorDefault, 0);
@@ -1862,7 +1867,7 @@ static void* _irecv_handle_device_add(void *userdata)
 		CFRelease(locationNum);
 	}
 	if (!location) {
-		fprintf(stderr, "%s: ERROR: could not get locationID?!\n", __func__);
+		debug("%s: ERROR: could not get locationID?!\n", __func__);
 		return NULL;
 	}
 	CFStringRef serialString = (CFStringRef)IORegistryEntryCreateCFProperty(device, CFSTR(kUSBSerialNumberString), kCFAllocatorDefault, 0);
@@ -1878,7 +1883,7 @@ static void* _irecv_handle_device_add(void *userdata)
 
 	libusb_error = libusb_get_device_descriptor(device, &devdesc);
 	if (libusb_error != 0) {
-		fprintf(stderr, "%s: ERROR: failed to get device descriptor: %s\n", __func__, libusb_error_name(libusb_error));
+		debug("%s: ERROR: failed to get device descriptor: %s\n", __func__, libusb_error_name(libusb_error));
 		return NULL;
 	}
 	product_id = devdesc.idProduct;
@@ -1889,14 +1894,14 @@ static void* _irecv_handle_device_add(void *userdata)
 
 	libusb_error = libusb_open(device, &usb_handle);
 	if (usb_handle == NULL || libusb_error != 0) {
-		fprintf(stderr, "%s: ERROR: can't connect to device: %s\n", __func__, libusb_error_name(libusb_error));
+		debug("%s: ERROR: can't connect to device: %s\n", __func__, libusb_error_name(libusb_error));
 		libusb_close(usb_handle);
 		return 0;
 	}
 
 	libusb_error = libusb_get_string_descriptor_ascii(usb_handle, devdesc.iSerialNumber, (unsigned char*)serial_str, 255);
 	if (libusb_error < 0) {
-		fprintf(stderr, "%s: Failed to get string descriptor: %s\n", __func__, libusb_error_name(libusb_error));
+		debug("%s: Failed to get string descriptor: %s\n", __func__, libusb_error_name(libusb_error));
 		return 0;
 	}
 	libusb_close(usb_handle);
@@ -1965,7 +1970,7 @@ static void iokit_device_added(void *refcon, io_iterator_t iterator)
 	while ((device = IOIteratorNext(iterator))) {
 		kr = IOCreatePlugInInterfaceForService(device, kIOUSBDeviceUserClientTypeID, kIOCFPlugInInterfaceID, &plugInInterface, &score);
 		if ((kIOReturnSuccess != kr) || !plugInInterface) {
-			fprintf(stderr, "%s: ERROR: Unable to create a plug-in (%08x)\n", __func__, kr);
+			debug("%s: ERROR: Unable to create a plug-in (%08x)\n", __func__, kr);
 			kr = IOObjectRelease(device);
 			continue;
 		}
@@ -1973,7 +1978,7 @@ static void iokit_device_added(void *refcon, io_iterator_t iterator)
 		(*plugInInterface)->Release(plugInInterface);
 
 		if (result || !dev) {
-			fprintf(stderr, "%s: ERROR: Couldn't create a device interface (%08x)\n", __func__, (int)result);
+			debug("%s: ERROR: Couldn't create a device interface (%08x)\n", __func__, (int)result);
 			kr = IOObjectRelease(device);
 			continue;
 		}
@@ -2028,7 +2033,7 @@ static int _irecv_usb_hotplug_cb(libusb_context *ctx, libusb_device *device, lib
 	if (event == LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED) {
 		THREAD_T th_device;
 		if (thread_new(&th_device, _irecv_handle_device_add, device) != 0) {
-			fprintf(stderr, "%s: FATAL: failed to create thread to handle device add\n", __func__);
+			debug("%s: FATAL: failed to create thread to handle device add\n", __func__);
 			return 0;
 		}
 		thread_detach(th_device);
@@ -2063,7 +2068,7 @@ static void *_irecv_event_handler(void* unused)
 		for (k = 0; guids[k]; k++) {
 			usbDevices = SetupDiGetClassDevs(guids[k], NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
 			if (!usbDevices) {
-				fprintf(stderr, "%s: ERROR: SetupDiGetClassDevs failed\n", __func__);
+				debug("%s: ERROR: SetupDiGetClassDevs failed\n", __func__);
 				return NULL;
 			}
 
@@ -2090,13 +2095,13 @@ static void *_irecv_event_handler(void* unused)
 				char driver[256];
 				driver[0] = '\0';
 				if (!SetupDiGetDeviceRegistryProperty(usbDevices, &devinfodata, SPDRP_DRIVER, &sz, (PBYTE)driver, sizeof(driver), NULL)) {
-					fprintf(stderr, "%s: ERROR: Failed to get driver key\n", __func__);
+					debug("%s: ERROR: Failed to get driver key\n", __func__);
 					free(details);
 					continue;
 				}
 				char *p = strrchr(driver, '\\');
 				if (!p) {
-					fprintf(stderr, "%s: ERROR: Failed to parse device location\n", __func__);
+					debug("%s: ERROR: Failed to parse device location\n", __func__);
 					free(details);
 					continue;
 				}
@@ -2195,7 +2200,7 @@ static void *_irecv_event_handler(void* unused)
 	do {
 		cnt = libusb_get_device_list(irecv_hotplug_ctx, &devs);
 		if (cnt < 0) {
-			fprintf(stderr, "%s: FATAL: Failed to get device list: %s\n", __func__, libusb_error_name(cnt));
+			debug("%s: FATAL: Failed to get device list: %s\n", __func__, libusb_error_name(cnt));
 			return NULL;
 		}
 
