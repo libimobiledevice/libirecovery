@@ -745,7 +745,7 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 					mobiledevice_closepipes(_client);
 					continue;
 				}
-				debug("found device with ECID %016" PRIx64 "\n", (unsigned long long)ecid);
+				debug("found device with ECID %016" PRIx64 "\n", (uint64_t)ecid);
 			}
 			found = 1;
 			break;
@@ -827,7 +827,7 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ec
 					mobiledevice_closepipes(_client);
 					continue;
 				}
-				debug("found device with ECID %016" PRIx64 "\n", (unsigned long long)ecid);
+				debug("found device with ECID %016" PRIx64 "\n", (uint64_t)ecid);
 			}
 			found = 1;
 			break;
@@ -1374,7 +1374,7 @@ IRECV_API irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned l
 						irecv_close(client);
 						continue;
 					}
-					debug("found device with ECID %016" PRIx64 "\n", (unsigned long long)ecid);
+					debug("found device with ECID %016" PRIx64 "\n", (uint64_t)ecid);
 				}
 
 				error = irecv_usb_set_configuration(client, 1);
