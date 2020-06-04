@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.64)
-AC_INIT([libirecovery], [1.0.0], [https://github.com/libimobiledevice/libirecovery/issues],, [http://libimobiledevice.org])
+AC_INIT([libirecovery], [1.0.0], [https://github.com/libimobiledevice/libirecovery/issues],, [https://libimobiledevice.org])
 AM_INIT_AUTOMAKE([dist-bzip2 no-dist-gzip])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
 AC_CONFIG_SRCDIR([src/])
