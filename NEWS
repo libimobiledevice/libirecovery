@@ -1,0 +1,53 @@
+Version 1.0.0
+~~~~~~~~~~~~~
+
+* Changes:
+  - Output basic device information after connecting
+  - Remove obsolete "in-tree" copy of libusb-1.0
+  - Improve source code directory structure
+  - Clean up and update of build system files
+  - Major code refactoring
+  - Add getters to retrieve device model information
+  - Change exploit related wording to more accurate limera1n
+  - Various improvements/fixes for win32 build
+  - Add support for latest device models
+  - Fix some memory leaks
+  - Add requirement for autoconf 2.64
+  - Update README file with project information
+  - Support IOKit on OSX (removes dependency on libusb)
+  - Add DFU mode error handling
+  - Add udev rules to allow non-root device access
+  - Support ECID in hex or decimal format
+  - Fix various compiler warnings
+  - Add device add/remove event subscription interface
+  - Convert README to markdown
+  - Print PWND string if present
+  - Add support for Apple T2 processors
+  - Allow compiling without USB functionality
+  - Support checkra1n DFU mode devices
+  - Allow toggling debug level using "LIBIRECOVERY_DEBUG_LEVEL" environment
+    variable
+
+Version 0.1.1
+~~~~~~~~~~~~~
+
+* Changes:
+  - Add serial number and imei getters
+  - Improve USB communication stability
+  - Add support for WTF mode
+  - Add option to target device by ECID
+  - Add nonce getter
+  - Improve win32 device detection and mingw compatibility
+  - Add support for new device models
+  - Switch to autotools build system instead of plain Makefile
+  - Expose control and bulk transfer methods in public interface
+  - Improve maintainability of device model information
+  - Change license to LGPL 2.1
+
+Version 0.1.0
+~~~~~~~~~~~~~
+
+* Changes:
+  - Implement initial interface and device communication
+  - Add basic irecovery tool
+  - Setup build system
