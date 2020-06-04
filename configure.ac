@@ -3,7 +3,7 @@
 
 AC_PREREQ(2.64)
 AC_INIT([libirecovery], [1.0.0], [https://github.com/libimobiledevice/libirecovery/issues],, [https://libimobiledevice.org])
-AM_INIT_AUTOMAKE([dist-bzip2 no-dist-gzip])
+AM_INIT_AUTOMAKE([dist-bzip2 no-dist-gzip check-news])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
 AC_CONFIG_SRCDIR([src/])
 AC_CONFIG_HEADERS([config.h])
