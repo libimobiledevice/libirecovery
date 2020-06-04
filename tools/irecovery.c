@@ -353,8 +353,10 @@ static void print_usage(int argc, char **argv) {
 	char *name = NULL;
 	name = strrchr(argv[0], '/');
 	printf("Usage: %s [OPTIONS]\n", (name ? name + 1: argv[0]));
-	printf("Interact with an iOS device in DFU or recovery mode.\n\n");
-	printf("options:\n");
+	printf("\n");
+	printf("Interact with an iOS device in DFU or recovery mode.\n");
+	printf("\n");
+	printf("OPTIONS:\n");
 	printf("  -i ECID\tconnect to specific device by its ECID\n");
 	printf("  -c CMD\trun CMD on device\n");
 	printf("  -m\t\tprint current device mode\n");
@@ -368,7 +370,8 @@ static void print_usage(int argc, char **argv) {
 	printf("  -v\t\tenable verbose output, repeat for higher verbosity\n");
 	printf("  -h\t\tprints this usage information\n");
 	printf("\n");
-	printf("Homepage: <" PACKAGE_URL ">\n");
+	printf("Homepage:    <" PACKAGE_URL ">\n");
+	printf("Bug Reports: <" PACKAGE_BUGREPORT ">\n");
 }
 
 int main(int argc, char* argv[]) {
