@@ -22,4 +22,4 @@ libirecovery_la_LDFLAGS += -avoid-version
 endif
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = libirecovery.pc
+pkgconfig_DATA = libirecovery-1.0.pc

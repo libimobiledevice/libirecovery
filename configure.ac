@@ -183,7 +183,7 @@ m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 AC_OUTPUT([
 Makefile
 src/Makefile
-src/libirecovery.pc
+src/libirecovery-1.0.pc
 include/Makefile
 tools/Makefile
 udev/Makefile
