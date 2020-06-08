@@ -19,3 +19,6 @@ libirecovery_la_SOURCES = libirecovery.c \
 if WIN32
 libirecovery_la_LDFLAGS += -avoid-version
 endif
+
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = libirecovery.pc
