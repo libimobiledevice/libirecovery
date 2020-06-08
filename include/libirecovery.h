@@ -93,7 +93,7 @@ struct irecv_device_info {
 	unsigned char* ap_nonce;
 	unsigned int ap_nonce_size;
 	unsigned char* sep_nonce;
-	unsigned int sep_nonce_size;	
+	unsigned int sep_nonce_size;
 };
 
 typedef enum {
