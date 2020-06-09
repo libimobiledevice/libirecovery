@@ -27,6 +27,7 @@ Version 1.0.0
   - Support checkra1n DFU mode devices
   - Allow toggling debug level using "LIBIRECOVERY_DEBUG_LEVEL" environment
     variable
+  - Rename pkg-config file to "libirecovery-1.0.pc" adding major version number
 
 Version 0.1.1
 ~~~~~~~~~~~~~
