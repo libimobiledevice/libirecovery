@@ -9,7 +9,7 @@ libirecovery is a cross-platform library which implements communication to
 iBoot/iBSS found on Apple's iOS devices via USB. A command-line utility named
 `irecovery` is also provided.
 
-This is a fork of an older version from former openjailbreak.org and is ment to
+This is a fork of an older version from former openjailbreak.org and is meant to
 be used with [idevicerestore](https://github.com/libimobiledevice/idevicerestore.git/) from the [libimobiledevice](https://github.com/libimobiledevice/) project.
 
 ## Installation / Getting started
@@ -54,7 +54,7 @@ Then simply run:
 irecovery
 ```
 
-This connects to your device and opens a simple shell to interace with the
+This connects to your device and opens a simple shell to interact with the
 device.
 
 For instance to make your device boot into normal mode again use:
@@ -86,7 +86,7 @@ also included in the repository in the `COPYING` file.
 
 ## Credits
 
-Apple, iPhone, iPod, and iPod Touch are trademarks of Apple Inc.
+Apple, iPhone, iPad, iPod, and iPod Touch are trademarks of Apple Inc.
 
 This project is an independent software library and has not been authorized,
 sponsored, or otherwise approved by Apple Inc.
