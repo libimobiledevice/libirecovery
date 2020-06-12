@@ -1,55 +1,94 @@
 # libirecovery
 
-## About
+*The libirecovery library allows communication with iBoot/iBSS of iOS devices
+via USB.*
+
+## Features
 
 libirecovery is a cross-platform library which implements communication to
-iBoot/iBSS found on Apple's iOS devices via USB. A command-line utility is also
-provided.
-
-The software is completely open-source, the source code is released under the
-terms of the LGPL 2.1. The full license text can be found in the LICENSE file.
+iBoot/iBSS found on Apple's iOS devices via USB. A command-line utility named
+`irecovery` is also provided.
 
 This is a fork of an older version from former openjailbreak.org and is ment to
-be used with idevicerestore from the libimobiledevice project.
+be used with [idevicerestore](https://github.com/libimobiledevice/idevicerestore.git/) from the [libimobiledevice](https://github.com/libimobiledevice/) project.
 
-## Requirements
+## Installation / Getting started
 
-Development Packages of:
-* libusb (Darwin: IOKit, Windows: SetupAPI)
-* libreadline
+### Debian / Ubuntu Linux
 
-Software:
-* make
-* autoheader
-* automake
-* autoconf
-* libtool
-* pkg-config
-* gcc or clang
+First install all required dependencies and build tools:
+```shell
+sudo apt-get install \
+	build-essential \
+	checkinstall \
+	git \
+	autoconf \
+	automake \
+	libtool-bin \
+	libreadline-dev \
+	libusb-1.0-0-dev
+```
 
-## Installation
+Then clone the actual project repository:
+```shell
+git clone https://github.com/libimobiledevice/libirecovery.git
+cd libirecovery
+```
 
-To compile run:
-```bash
+Now you can build and install it:
+```shell
 ./autogen.sh
 make
 sudo make install
 ```
 
-## Who/What/Where?
+## Usage
 
-* Home: https://libimobiledevice.org/
-* Code: `git clone https://git.libimobiledevice.org/libirecovery.git`
-* Code (Mirror): `git clone https://github.com/libimobiledevice/libirecovery.git`
-* Tickets: https://github.com/libimobiledevice/libirecovery/issues
+First of all attach your device to your machine. Make sure your device is not
+in normal mode. You can use the `ideviceenterrecovery` application from
+[libimobiledevice](https://github.com/libimobiledevice/libimobiledevice.git/)
+to let your device boot into recovery mode if you need it.
+
+Then simply run:
+```shell
+irecovery
+```
+
+This connects to your device and opens a simple shell to interace with the
+device.
+
+For instance to make your device boot into normal mode again use:
+```shell
+setenv auto-boot true
+reboot
+```
+
+Please consult the usage information or manual page for a full documentation of
+available command line options:
+```shell
+irecovery --help
+man irecovery
+```
+
+## Links
+
+* Homepage: https://libimobiledevice.org/
+* Repository: https://git.libimobiledevice.org/libirecovery.git
+* Repository (Mirror): https://github.com/libimobiledevice/libirecovery.git
+* Issue Tracker: https://github.com/libimobiledevice/libirecovery/issues
 * Mailing List: https://lists.libimobiledevice.org/mailman/listinfo/libimobiledevice-devel
 * Twitter: https://twitter.com/libimobiledev
+
+## License
+
+This project is licensed under the [GNU Lesser General Public License v2.1](https://www.gnu.org/licenses/lgpl-2.1.en.html),
+also included in the repository in the `COPYING` file.
 
 ## Credits
 
 Apple, iPhone, iPod, and iPod Touch are trademarks of Apple Inc.
 
-libirecovery is an independent software library and has not been authorized,
+This project is an independent software library and has not been authorized,
 sponsored, or otherwise approved by Apple Inc.
 
-README Updated on: 2020-06-08
+README Updated on: 2020-06-12
