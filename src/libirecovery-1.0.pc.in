@@ -6,6 +6,6 @@ includedir=@includedir@
 Name: @PACKAGE_NAME@
 Description: A library to communicate with iBoot/iBSS on iOS devices via USB
 Version: @PACKAGE_VERSION@
-Libs: -L${libdir} -lirecovery
+Libs: -L${libdir} -lirecovery-1.0
 Cflags: -I${includedir}
 Requires.private: @LIBUSB_REQUIRED@

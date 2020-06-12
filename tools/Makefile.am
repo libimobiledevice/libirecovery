@@ -8,4 +8,4 @@ bin_PROGRAMS = irecovery
 irecovery_SOURCES = irecovery.c
 irecovery_CFLAGS = $(AM_CFLAGS)
 irecovery_LDFLAGS = $(AM_LDFLAGS)
-irecovery_LDADD = $(top_builddir)/src/libirecovery.la
+irecovery_LDADD = $(top_builddir)/src/libirecovery-1.0.la
