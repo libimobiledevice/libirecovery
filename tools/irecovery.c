@@ -23,6 +23,8 @@
 #include "config.h"
 #endif
 
+#define TOOL_NAME "irecovery"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -371,6 +373,7 @@ static void print_usage(int argc, char **argv) {
 	printf("  -q, --query\t\tquery device info\n");
 	printf("  -v, --verbose\t\tenable verbose output, repeat for higher verbosity\n");
 	printf("  -h, --help\t\tprints this usage information\n");
+	printf("  -V, --version\t\tprints version information\n");
 	printf("\n");
 	printf("Homepage:    <" PACKAGE_URL ">\n");
 	printf("Bug Reports: <" PACKAGE_BUGREPORT ">\n");
@@ -390,6 +393,7 @@ int main(int argc, char* argv[]) {
 		{ "query",   no_argument,       NULL, 'q' },
 		{ "verbose", no_argument,       NULL, 'v' },
 		{ "help",    no_argument,       NULL, 'h' },
+		{ "version", no_argument,       NULL, 'V' },
 		{ NULL, 0, NULL, 0 }
 	};
 	int i = 0;
@@ -408,7 +412,7 @@ int main(int argc, char* argv[]) {
 		return 0;
 	}
 
-	while ((opt = getopt_long(argc, argv, "i:vhrsmnc:f:e:k:q", longopts, NULL)) > 0) {
+	while ((opt = getopt_long(argc, argv, "i:vVhrsmnc:f:e:k:q", longopts, NULL)) > 0) {
 		switch (opt) {
 			case 'i':
 				if (optarg) {
@@ -471,6 +475,10 @@ int main(int argc, char* argv[]) {
 			case 'q':
 				action = kQueryInfo;
 				break;
+
+			case 'V':
+				printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+				return 0;
 
 			default:
 				fprintf(stderr, "Unknown argument\n");
