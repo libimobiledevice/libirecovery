@@ -43,6 +43,7 @@
 #define debug(...) if(verbose) fprintf(stderr, __VA_ARGS__)
 
 enum {
+	kNoAction,
 	kResetDevice,
 	kStartShell,
 	kSendCommand,
@@ -377,7 +378,7 @@ static void print_usage(int argc, char **argv) {
 int main(int argc, char* argv[]) {
 	int i = 0;
 	int opt = 0;
-	int action = 0;
+	int action = kNoAction;
 	unsigned long long ecid = 0;
 	int mode = -1;
 	char* argument = NULL;
@@ -459,6 +460,12 @@ int main(int argc, char* argv[]) {
 				fprintf(stderr, "Unknown argument\n");
 				return -1;
 		}
+	}
+
+	if (action == kNoAction) {
+		fprintf(stderr, "ERROR: Missing action option\n");
+		print_usage(argc, argv);
+		return -1;
 	}
 
 	if (verbose)
