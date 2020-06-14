@@ -51,7 +51,7 @@ to let your device boot into recovery mode if you need it.
 
 Then simply run:
 ```shell
-irecovery
+irecovery --shell
 ```
 
 This connects to your device and opens a simple shell to interact with the
@@ -111,4 +111,4 @@ iPadOS, tvOS, watchOS, and macOS are trademarks of Apple Inc.
 This project is an independent software library and has not been authorized,
 sponsored, or otherwise approved by Apple Inc.
 
-README Updated on: 2020-06-12
+README Updated on: 2020-06-14
