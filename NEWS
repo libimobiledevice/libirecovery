@@ -13,7 +13,6 @@ Version 1.0.0
   - Add support for latest device models
   - Fix some memory leaks
   - Add requirement for autoconf 2.64
-  - Update README file with project information
   - Support IOKit on OSX (removes dependency on libusb)
   - Add DFU mode error handling
   - Add udev rules to allow non-root device access
@@ -27,7 +26,15 @@ Version 1.0.0
   - Support checkra1n DFU mode devices
   - Allow toggling debug level using "LIBIRECOVERY_DEBUG_LEVEL" environment
     variable
-  - Rename pkg-config file to "libirecovery-1.0.pc" adding major version number
+  - Add long argument name variants to irecovery
+  - Add new "--version" argument to irecovery
+  - Add support for Apple Watch 1st gen devices
+  - Add support for missing iPad4,3 model and fix wrong device information
+    iPad7 variants
+  - Improve README.md with project description, installation, contributing and
+    usage sections
+  - Rename library and all related files by adding an API version resulting
+    in "libirecovery-1.0"
 
 Version 0.1.1
 ~~~~~~~~~~~~~
