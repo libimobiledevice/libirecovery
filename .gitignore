@@ -34,3 +34,5 @@ tools/.libs/*
 tools/irecovery
 .irecovery
 udev/39-libirecovery.rules
+
+.idea/

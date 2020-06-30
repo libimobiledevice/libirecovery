@@ -27,7 +27,7 @@ extern "C" {
 
 #include <stdint.h>
 
-enum irecv_mode {
+enum irecv_mode : uint32_t {
 	IRECV_K_RECOVERY_MODE_1   = 0x1280,
 	IRECV_K_RECOVERY_MODE_2   = 0x1281,
 	IRECV_K_RECOVERY_MODE_3   = 0x1282,
@@ -36,7 +36,7 @@ enum irecv_mode {
 	IRECV_K_DFU_MODE          = 0x1227
 };
 
-typedef enum {
+typedef enum : int32_t {
 	IRECV_E_SUCCESS           =  0,
 	IRECV_E_NO_DEVICE         = -1,
 	IRECV_E_OUT_OF_MEMORY     = -2,
@@ -53,7 +53,7 @@ typedef enum {
 	IRECV_E_UNKNOWN_ERROR     = -255
 } irecv_error_t;
 
-typedef enum {
+typedef enum : uint32_t {
 	IRECV_RECEIVED            = 1,
 	IRECV_PRECOMMAND          = 2,
 	IRECV_POSTCOMMAND         = 3,
