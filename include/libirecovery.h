@@ -84,7 +84,7 @@ struct irecv_device_info {
 	unsigned int cpfm;
 	unsigned int scep;
 	unsigned int bdid;
-	unsigned long long ecid;
+	uint64_t ecid;
 	unsigned int ibfl;
 	char* srnm;
 	char* imei;
@@ -117,8 +117,8 @@ void irecv_init(void); /* deprecated: libirecovery has constructor now */
 void irecv_exit(void); /* deprecated: libirecovery has destructor now */
 
 /* device connectivity */
-irecv_error_t irecv_open_with_ecid(irecv_client_t* client, unsigned long long ecid);
-irecv_error_t irecv_open_with_ecid_and_attempts(irecv_client_t* pclient, unsigned long long ecid, int attempts);
+irecv_error_t irecv_open_with_ecid(irecv_client_t* client, uint64_t ecid);
+irecv_error_t irecv_open_with_ecid_and_attempts(irecv_client_t* pclient, uint64_t ecid, int attempts);
 irecv_error_t irecv_reset(irecv_client_t client);
 irecv_error_t irecv_close(irecv_client_t client);
 irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause);

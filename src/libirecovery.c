@@ -662,9 +662,9 @@ typedef struct usb_control_request {
 
 irecv_error_t mobiledevice_openpipes(irecv_client_t client);
 void mobiledevice_closepipes(irecv_client_t client);
-irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ecid);
+irecv_error_t mobiledevice_connect(irecv_client_t* client, uint64_t ecid);
 
-irecv_error_t mobiledevice_connect(irecv_client_t* client, unsigned long long ecid) {
+irecv_error_t mobiledevice_connect(irecv_client_t* client, uint64_t ecid) {
 	int found = 0;
 	SP_DEVICE_INTERFACE_DATA currentInterface;
 	HDEVINFO usbDevices;
@@ -1214,7 +1214,7 @@ static io_iterator_t iokit_usb_get_iterator_for_pid(UInt16 pid) {
 	return iterator;
 }
 
-static irecv_error_t iokit_open_with_ecid(irecv_client_t* pclient, unsigned long long ecid) {
+static irecv_error_t iokit_open_with_ecid(irecv_client_t* pclient, uint64_t ecid) {
 
 	io_service_t service, ret_service;
 	io_iterator_t iterator;
@@ -1292,7 +1292,7 @@ static irecv_error_t iokit_open_with_ecid(irecv_client_t* pclient, unsigned long
 #endif
 #endif
 
-IRECV_API irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, unsigned long long ecid) {
+IRECV_API irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t ecid) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -1629,7 +1629,7 @@ IRECV_API irecv_error_t irecv_reset(irecv_client_t client) {
 #endif
 }
 
-IRECV_API irecv_error_t irecv_open_with_ecid_and_attempts(irecv_client_t* pclient, unsigned long long ecid, int attempts) {
+IRECV_API irecv_error_t irecv_open_with_ecid_and_attempts(irecv_client_t* pclient, uint64_t ecid, int attempts) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -3185,7 +3185,7 @@ IRECV_API irecv_client_t irecv_reconnect(irecv_client_t client, int initial_paus
 	irecv_event_cb_t postcommand_callback = client->postcommand_callback;
 	irecv_event_cb_t disconnected_callback = client->disconnected_callback;
 
-	unsigned long long ecid = client->device_info.ecid;
+	uint64_t ecid = client->device_info.ecid;
 
 	if (check_context(client) == IRECV_E_SUCCESS) {
 		irecv_close(client);

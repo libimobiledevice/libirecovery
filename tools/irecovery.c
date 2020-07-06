@@ -399,7 +399,7 @@ int main(int argc, char* argv[]) {
 	int i = 0;
 	int opt = 0;
 	int action = kNoAction;
-	unsigned long long ecid = 0;
+	uint64_t ecid = 0;
 	int mode = -1;
 	char* argument = NULL;
 	irecv_error_t error = 0;
