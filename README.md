@@ -60,6 +60,7 @@ device.
 For instance to make your device boot into normal mode again use:
 ```shell
 setenv auto-boot true
+saveenv
 reboot
 ```
 
