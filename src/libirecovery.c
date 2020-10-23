@@ -225,6 +225,10 @@ static struct irecv_device irecv_devices[] = {
 	{ "iPad11,2",    "j211ap",   0x16, 0x8020, "iPad Mini 5 (Cellular)" },
 	{ "iPad11,3",    "j217ap",   0x1C, 0x8020, "iPad Air 3 (WiFi)" },
 	{ "iPad11,4",    "j218ap",   0x1E, 0x8020, "iPad Air 3 (Celluar)" },
+	{ "iPad11,6",    "j171aap",  0x24, 0x8020, "iPad 8 (WiFi)" },
+	{ "iPad11,7",    "j172aap",  0x26, 0x8020, "iPad 8 (Celluar)" },
+	{ "iPad13,1",    "j307ap",   0x04, 0x8101, "iPad Air 4 (WiFi)" },
+	{ "iPad13,2",    "j308ap",   0x06, 0x8101, "iPad Air 4 (Celluar)" },
 	/* Apple TV */
 	{ "AppleTV2,1",  "k66ap",    0x10, 0x8930, "Apple TV 2" },
 	{ "AppleTV3,1",  "j33ap",    0x08, 0x8942, "Apple TV 3" },
