@@ -60,6 +60,7 @@ device.
 For instance to make your device boot into normal mode again use:
 ```shell
 setenv auto-boot true
+saveenv
 reboot
 ```
 
@@ -111,4 +112,4 @@ iPadOS, tvOS, watchOS, and macOS are trademarks of Apple Inc.
 This project is an independent software library and has not been authorized,
 sponsored, or otherwise approved by Apple Inc.
 
-README Updated on: 2020-06-14
+README Updated on: 2020-10-23
