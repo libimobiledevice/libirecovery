@@ -78,7 +78,7 @@ struct irecv_device {
 };
 typedef struct irecv_device* irecv_device_t;
 
-struct irecv_device_info {
+typedef struct irecv_device_info {
 	unsigned int cpid;
 	unsigned int cprv;
 	unsigned int cpfm;
@@ -94,7 +94,7 @@ struct irecv_device_info {
 	unsigned int ap_nonce_size;
 	unsigned char* sep_nonce;
 	unsigned int sep_nonce_size;
-};
+} irecv_device_info_t;
 
 typedef enum {
 	IRECV_DEVICE_ADD     = 1,

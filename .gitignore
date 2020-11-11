@@ -34,3 +34,4 @@ tools/.libs/*
 tools/irecovery
 .irecovery
 udev/39-libirecovery.rules
+.DS_Store
