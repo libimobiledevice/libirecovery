@@ -747,14 +747,17 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, uint64_t ecid) {
 			}
 
 			char serial_str[256];
-			char *p = result + strlen(result) - 1;
-			while (p-- && p > result) {
-				if (*p == '\\' && (strncmp(p, "\\usb", 4) == 0)) {
-					break;
-				}
-			}
+
 			serial_str[0] = '\0';
-			if (!p || (sscanf(p, "\\usb#vid_%*04x&pid_%*04x#%s", serial_str) != 1) || (serial_str[0] == '\0')) {
+
+			char *p = result;
+			while ((p = strstr(p, "\\usb"))) {
+				if (sscanf(p, "\\usb#vid_%*04x&pid_%*04x#%s", serial_str) == 1)
+					break;
+				p += 4;
+			}
+
+			if (serial_str[0] == '\0') {
 				mobiledevice_closepipes(_client);
 				continue;
 			}
@@ -829,14 +832,16 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, uint64_t ecid) {
 			}
 
 			char serial_str[256];
-			char *p = result + strlen(result) - 1;
-			while (p-- && p > result) {
-				if (*p == '\\' && (strncmp(p, "\\usb", 4) == 0)) {
-					break;
-				}
-			}
 			serial_str[0] = '\0';
-			if (!p || (sscanf(p, "\\usb#vid_%*04x&pid_%*04x#%s", serial_str) != 1) || (serial_str[0] == '\0')) {
+
+			char *p = result;
+			while ((p = strstr(p, "\\usb"))) {
+				if (sscanf(p, "\\usb#vid_%*04x&pid_%*04x#%s", serial_str) == 1)
+					break;
+				p += 4;
+			}
+
+			if (serial_str[0] == '\0') {
 				mobiledevice_closepipes(_client);
 				continue;
 			}
@@ -1850,18 +1855,20 @@ static void* _irecv_handle_device_add(void *userdata)
 	LPSTR result = (LPSTR)details->DevicePath;
 	location = win_ctx->location;
 
-	char *p = result + strlen(result) - 1;
-	while (p-- && p > result) {
-		if (*p == '\\' && (strncmp(p, "\\usb", 4) == 0)) {
+	unsigned int pid = 0;
+
+	char *p = result;
+	while ((p = strstr(p, "\\usb"))) {
+		if (sscanf(p, "\\usb#vid_%*04x&pid_%04x#%s", &pid, serial_str) == 2)
 			break;
-		}
+		p += 4;
 	}
 
-	unsigned int pid = 0;
-	if (!p || (sscanf(p, "\\usb#vid_%*04x&pid_%04x#%s", &pid, serial_str) != 2) || (serial_str[0] == '\0')) {
+	if (serial_str[0] == '\0') {
 		debug("%s: ERROR: failed to parse DevicePath?!\n", __func__);
 		return NULL;
 	}
+
 	if (!_irecv_is_recovery_device(p)) {
 		return NULL;
 	}
@@ -2105,6 +2112,11 @@ static void *_irecv_event_handler(void* unused)
 		HDEVINFO usbDevices;
 		DWORD i;
 		int k;
+
+		FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
+			devinfo->alive = 0;
+		} ENDFOREACH
+
 		for (k = 0; guids[k]; k++) {
 			usbDevices = SetupDiGetClassDevs(guids[k], NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
 			if (!usbDevices) {
@@ -2112,9 +2124,6 @@ static void *_irecv_event_handler(void* unused)
 				return NULL;
 			}
 
-			FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
-				devinfo->alive = 0;
-			} ENDFOREACH
 
 			memset(&currentInterface, '\0', sizeof(SP_DEVICE_INTERFACE_DATA));
 			currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
@@ -2139,6 +2148,7 @@ static void *_irecv_event_handler(void* unused)
 					free(details);
 					continue;
 				}
+
 				char *p = strrchr(driver, '\\');
 				if (!p) {
 					debug("%s: ERROR: Failed to parse device location\n", __func__);
