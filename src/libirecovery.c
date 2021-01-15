@@ -270,6 +270,11 @@ static struct irecv_device irecv_devices[] = {
 	{ "Watch6,2",    "n157bap", 0x0A, 0x8301, "Apple Watch Series 6 (44mm)" },
 	{ "Watch6,3",    "n158sap", 0x0C, 0x8301, "Apple Watch Series 6 (40mm Cellular)" },
 	{ "Watch6,4",    "n158bap", 0x0E, 0x8301, "Apple Watch Series 6 (44mm Cellular)" },
+	/* Apple Silicon Macs */
+	{ "ADP3,2",         "j273aap", 0x42, 0x8027, "Developer Transition Kit" },
+	{ "Macmini9,1",	    "j274ap",  0x22, 0x8103, "Mac mini (M1, 2020)" },
+	{ "MacBookPro17,1", "j293ap",  0x24, 0x8103, "MacBook Pro (M1, 2020)" },
+	{ "MacBookAir10,1", "j313ap",  0x26, 0x8103, "MacBook Air (M1, 2020)" },
 	/* Apple T2 Coprocessor */
 	{ "iBridge2,1",	 "j137ap",   0x0A, 0x8012, "Apple T2 iMacPro1,1 (j137)" },
 	{ "iBridge2,3",	 "j680ap",   0x0B, 0x8012, "Apple T2 MacBookPro15,1 (j680)" },
@@ -281,6 +286,12 @@ static struct irecv_device irecv_devices[] = {
 	{ "iBridge2,10", "j213ap",   0x18, 0x8012, "Apple T2 MacBookPro15,4 (j213)" },
 	{ "iBridge2,12", "j140aap",  0x37, 0x8012, "Apple T2 MacBookAir8,2 (j140a)" },
 	{ "iBridge2,14", "j152fap",  0x3A, 0x8012, "Apple T2 MacBookPro16,1 (j152f)" },
+	{ "iBridge2,15", "j230kap",  0x3F, 0x8012, "Apple T2 MacBookAir9,1 (j230k)" },
+	{ "iBridge2,16", "j214kap",  0x3E, 0x8012, "Apple T2 MacBookPro16,2 (j214k)" },
+	{ "iBridge2,19", "j185ap",   0x22, 0x8012, "Apple T2 iMac20,1 (j185)" },
+	{ "iBridge2,20", "j185fap",  0x23, 0x8012, "Apple T2 iMac20,2 (j185f)" },
+	{ "iBridge2,21", "j223ap",   0x3B, 0x8012, "Apple T2 MacBookPro16,3 (j223)" },
+	{ "iBridge2,22", "j215ap",   0x38, 0x8012, "Apple T2 MacBookPro16,4 (j215)" },
 	{ NULL,          NULL,         -1,     -1, NULL }
 };
 
