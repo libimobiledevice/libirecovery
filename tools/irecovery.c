@@ -135,6 +135,7 @@ static void print_hex(unsigned char *buf, size_t len)
 static void print_device_info(irecv_client_t client)
 {
 	int ret, mode;
+	irecv_device_t device = NULL;
 	const struct irecv_device_info *devinfo = irecv_get_device_info(client);
 	if (devinfo) {
 		printf("CPID: 0x%04x\n", devinfo->cpid);
@@ -176,6 +177,13 @@ static void print_device_info(irecv_client_t client)
 	ret = irecv_get_mode(client, &mode);
 	if (ret == IRECV_E_SUCCESS) {
 		printf("MODE: %s\n", mode_to_str(mode));
+	}
+
+	irecv_devices_get_device_by_client(client, &device);
+	if (device) {
+		printf("PRODUCT: %s\n", device->product_type);
+		printf("MODEL: %s\n", device->hardware_model);
+		printf("NAME: %s\n", device->display_name);
 	}
 }
 
