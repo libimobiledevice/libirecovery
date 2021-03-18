@@ -55,7 +55,8 @@ enum {
 	kSendScript,
 	kShowMode,
 	kRebootToNormalMode,
-	kQueryInfo
+	kQueryInfo,
+	kListDevices
 };
 
 static unsigned int quit = 0;
@@ -175,6 +176,18 @@ static void print_device_info(irecv_client_t client)
 	ret = irecv_get_mode(client, &mode);
 	if (ret == IRECV_E_SUCCESS) {
 		printf("MODE: %s\n", mode_to_str(mode));
+	}
+}
+
+static void print_devices() {
+	struct irecv_device *devices = irecv_devices_get_all();
+	struct irecv_device *device = NULL;
+	int i = 0;
+
+	for (i = 0; devices[i].product_type != NULL; i++) {
+		device = &devices[i];
+
+		printf("%s %s 0x%02x 0x%04x %s\n", device->product_type, device->hardware_model, device->board_id, device->chip_id, device->display_name);
 	}
 }
 
@@ -371,6 +384,7 @@ static void print_usage(int argc, char **argv) {
 	printf("  -e, --script FILE\texecutes recovery script from FILE\n");
 	printf("  -s, --shell\t\tstart an interactive shell\n");
 	printf("  -q, --query\t\tquery device info\n");
+	printf("  -a, --devices\t\tlist information for all known devices\n");
 	printf("  -v, --verbose\t\tenable verbose output, repeat for higher verbosity\n");
 	printf("  -h, --help\t\tprints this usage information\n");
 	printf("  -V, --version\t\tprints version information\n");
@@ -391,6 +405,7 @@ int main(int argc, char* argv[]) {
 		{ "script",  required_argument, NULL, 'e' },
 		{ "shell",   no_argument,       NULL, 's' },
 		{ "query",   no_argument,       NULL, 'q' },
+		{ "devices", no_argument,       NULL, 'a' },
 		{ "verbose", no_argument,       NULL, 'v' },
 		{ "help",    no_argument,       NULL, 'h' },
 		{ "version", no_argument,       NULL, 'V' },
@@ -412,7 +427,7 @@ int main(int argc, char* argv[]) {
 		return 0;
 	}
 
-	while ((opt = getopt_long(argc, argv, "i:vVhrsmnc:f:e:k:q", longopts, NULL)) > 0) {
+	while ((opt = getopt_long(argc, argv, "i:vVhrsmnc:f:e:k:qa", longopts, NULL)) > 0) {
 		switch (opt) {
 			case 'i':
 				if (optarg) {
@@ -475,6 +490,11 @@ int main(int argc, char* argv[]) {
 			case 'q':
 				action = kQueryInfo;
 				break;
+
+			case 'a':
+				action = kListDevices;
+				print_devices();
+				return 0;
 
 			case 'V':
 				printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
