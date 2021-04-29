@@ -247,7 +247,7 @@ static struct irecv_device irecv_devices[] = {
 	{ "AppleTV3,2",  "j33iap",   0x00, 0x8947, "Apple TV 3 (2013)" },
 	{ "AppleTV5,3",  "j42dap",   0x34, 0x7000, "Apple TV 4" },
 	{ "AppleTV6,2",  "j105aap",  0x02, 0x8011, "Apple TV 4K" },
-	{ "AppleTV11,1", "j305ap",   0x08, 0x8020, "Apple TV 4K (2nd gen)",
+	{ "AppleTV11,1", "j305ap",   0x08, 0x8020, "Apple TV 4K (2nd gen)" },
 	/* HomePod */
 	{ "AudioAccessory1,1",  "b238aap",  0x38, 0x7000, "HomePod" },
 	{ "AudioAccessory1,2",  "b238ap",   0x1A, 0x7000, "HomePod" },
