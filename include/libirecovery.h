@@ -148,6 +148,7 @@ irecv_error_t irecv_event_unsubscribe(irecv_client_t client, irecv_event_type ty
 /* I/O */
 irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, int dfu_notify_finished);
 irecv_error_t irecv_send_command(irecv_client_t client, const char* command);
+irecv_error_t irecv_send_command_breq(irecv_client_t client, const char* command, uint8_t b_request);
 irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfu_notify_finished);
 irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned long length);
 
