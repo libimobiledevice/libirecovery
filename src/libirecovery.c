@@ -56,16 +56,6 @@
 #endif
 #endif
 
-#ifdef WIN32
-#define IRECV_API __declspec( dllexport )
-#else
-#ifdef HAVE_FVISIBILITY
-#define IRECV_API __attribute__((visibility("default")))
-#else
-#define IRECV_API
-#endif
-#endif
-
 #include "libirecovery.h"
 #include "utils.h"
 #include "thread.h"
@@ -968,12 +958,12 @@ static int check_context(irecv_client_t client) {
 }
 #endif
 
-IRECV_API void irecv_init(void)
+void irecv_init(void)
 {
 	thread_once(&init_once, _irecv_init);
 }
 
-IRECV_API void irecv_exit(void)
+void irecv_exit(void)
 {
 	thread_once(&deinit_once, _irecv_deinit);
 }
@@ -1013,7 +1003,7 @@ static int iokit_usb_control_transfer(irecv_client_t client, uint8_t bm_request_
 #endif
 #endif
 
-IRECV_API int irecv_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, unsigned int timeout) {
+int irecv_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, unsigned int timeout) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -1123,7 +1113,7 @@ static int iokit_usb_bulk_transfer(irecv_client_t client,
 #endif
 #endif
 
-IRECV_API int irecv_usb_bulk_transfer(irecv_client_t client,
+int irecv_usb_bulk_transfer(irecv_client_t client,
 							unsigned char endpoint,
 							unsigned char *data,
 							int length,
@@ -1344,7 +1334,7 @@ static irecv_error_t iokit_open_with_ecid(irecv_client_t* pclient, uint64_t ecid
 #endif
 #endif
 
-IRECV_API irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t ecid) {
+irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t ecid) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -1496,7 +1486,7 @@ IRECV_API irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t e
 #endif
 }
 
-IRECV_API irecv_error_t irecv_usb_set_configuration(irecv_client_t client, int configuration) {
+irecv_error_t irecv_usb_set_configuration(irecv_client_t client, int configuration) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -1612,7 +1602,7 @@ static irecv_error_t iokit_usb_set_interface(irecv_client_t client, int usb_inte
 #endif
 #endif
 
-IRECV_API irecv_error_t irecv_usb_set_interface(irecv_client_t client, int usb_interface, int usb_alt_interface) {
+irecv_error_t irecv_usb_set_interface(irecv_client_t client, int usb_interface, int usb_alt_interface) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -1648,7 +1638,7 @@ IRECV_API irecv_error_t irecv_usb_set_interface(irecv_client_t client, int usb_i
 #endif
 }
 
-IRECV_API irecv_error_t irecv_reset(irecv_client_t client) {
+irecv_error_t irecv_reset(irecv_client_t client) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -1681,7 +1671,7 @@ IRECV_API irecv_error_t irecv_reset(irecv_client_t client) {
 #endif
 }
 
-IRECV_API irecv_error_t irecv_open_with_ecid_and_attempts(irecv_client_t* pclient, uint64_t ecid, int attempts) {
+irecv_error_t irecv_open_with_ecid_and_attempts(irecv_client_t* pclient, uint64_t ecid, int attempts) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -1704,7 +1694,7 @@ IRECV_API irecv_error_t irecv_open_with_ecid_and_attempts(irecv_client_t* pclien
 #endif
 }
 
-IRECV_API irecv_error_t irecv_event_subscribe(irecv_client_t client, irecv_event_type type, irecv_event_cb_t callback, void* user_data) {
+irecv_error_t irecv_event_subscribe(irecv_client_t client, irecv_event_type type, irecv_event_cb_t callback, void* user_data) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -1741,7 +1731,7 @@ IRECV_API irecv_error_t irecv_event_subscribe(irecv_client_t client, irecv_event
 #endif
 }
 
-IRECV_API irecv_error_t irecv_event_unsubscribe(irecv_client_t client, irecv_event_type type) {
+irecv_error_t irecv_event_unsubscribe(irecv_client_t client, irecv_event_type type) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -2318,7 +2308,7 @@ static void *_irecv_event_handler(void* unused)
 }
 #endif /* !USE_DUMMY */
 
-IRECV_API irecv_error_t irecv_device_event_subscribe(irecv_device_event_context_t *context, irecv_device_event_cb_t callback, void *user_data)
+irecv_error_t irecv_device_event_subscribe(irecv_device_event_context_t *context, irecv_device_event_cb_t callback, void *user_data)
 {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
@@ -2355,7 +2345,7 @@ IRECV_API irecv_error_t irecv_device_event_subscribe(irecv_device_event_context_
 #endif
 }
 
-IRECV_API irecv_error_t irecv_device_event_unsubscribe(irecv_device_event_context_t context)
+irecv_error_t irecv_device_event_unsubscribe(irecv_device_event_context_t context)
 {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
@@ -2406,7 +2396,7 @@ IRECV_API irecv_error_t irecv_device_event_unsubscribe(irecv_device_event_contex
 #endif
 }
 
-IRECV_API irecv_error_t irecv_close(irecv_client_t client) {
+irecv_error_t irecv_close(irecv_client_t client) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -2462,7 +2452,7 @@ IRECV_API irecv_error_t irecv_close(irecv_client_t client) {
 #endif
 }
 
-IRECV_API void irecv_set_debug_level(int level) {
+void irecv_set_debug_level(int level) {
 	libirecovery_debug = level;
 #ifndef USE_DUMMY
 #ifndef WIN32
@@ -2494,7 +2484,7 @@ static irecv_error_t irecv_send_command_raw(irecv_client_t client, const char* c
 }
 #endif
 
-IRECV_API irecv_error_t irecv_send_command_breq(irecv_client_t client, const char* command, uint8_t b_request) {
+irecv_error_t irecv_send_command_breq(irecv_client_t client, const char* command, uint8_t b_request) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -2538,11 +2528,11 @@ IRECV_API irecv_error_t irecv_send_command_breq(irecv_client_t client, const cha
 #endif
 }
 
-IRECV_API irecv_error_t irecv_send_command(irecv_client_t client, const char* command) {
+irecv_error_t irecv_send_command(irecv_client_t client, const char* command) {
 	return irecv_send_command_breq(client, command, 0);
 }
 
-IRECV_API irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, int dfu_notify_finished) {
+irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, int dfu_notify_finished) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -2601,7 +2591,7 @@ static irecv_error_t irecv_get_status(irecv_client_t client, unsigned int* statu
 }
 #endif
 
-IRECV_API irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfu_notify_finished) {
+irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfu_notify_finished) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -2768,7 +2758,7 @@ IRECV_API irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* 
 #endif
 }
 
-IRECV_API irecv_error_t irecv_receive(irecv_client_t client) {
+irecv_error_t irecv_receive(irecv_client_t client) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -2802,7 +2792,7 @@ IRECV_API irecv_error_t irecv_receive(irecv_client_t client) {
 #endif
 }
 
-IRECV_API irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** value) {
+irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** value) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -2842,7 +2832,7 @@ IRECV_API irecv_error_t irecv_getenv(irecv_client_t client, const char* variable
 #endif
 }
 
-IRECV_API irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value) {
+irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -2865,7 +2855,7 @@ IRECV_API irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value)
 #endif
 }
 
-IRECV_API irecv_error_t irecv_get_mode(irecv_client_t client, int* mode) {
+irecv_error_t irecv_get_mode(irecv_client_t client, int* mode) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -2878,7 +2868,7 @@ IRECV_API irecv_error_t irecv_get_mode(irecv_client_t client, int* mode) {
 #endif
 }
 
-IRECV_API const struct irecv_device_info* irecv_get_device_info(irecv_client_t client)
+const struct irecv_device_info* irecv_get_device_info(irecv_client_t client)
 {
 #ifdef USE_DUMMY
 	return NULL;
@@ -2906,7 +2896,7 @@ static void *iokit_limera1n_usb_submit_request(void *argv) {
 #endif
 #endif
 
-IRECV_API irecv_error_t irecv_trigger_limera1n_exploit(irecv_client_t client) {
+irecv_error_t irecv_trigger_limera1n_exploit(irecv_client_t client) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -2957,7 +2947,7 @@ IRECV_API irecv_error_t irecv_trigger_limera1n_exploit(irecv_client_t client) {
 #endif
 }
 
-IRECV_API irecv_error_t irecv_execute_script(irecv_client_t client, const char* script) {
+irecv_error_t irecv_execute_script(irecv_client_t client, const char* script) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -2989,7 +2979,7 @@ IRECV_API irecv_error_t irecv_execute_script(irecv_client_t client, const char* 
 #endif
 }
 
-IRECV_API irecv_error_t irecv_saveenv(irecv_client_t client) {
+irecv_error_t irecv_saveenv(irecv_client_t client) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -3002,7 +2992,7 @@ IRECV_API irecv_error_t irecv_saveenv(irecv_client_t client) {
 #endif
 }
 
-IRECV_API irecv_error_t irecv_setenv(irecv_client_t client, const char* variable, const char* value) {
+irecv_error_t irecv_setenv(irecv_client_t client, const char* variable, const char* value) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -3026,7 +3016,7 @@ IRECV_API irecv_error_t irecv_setenv(irecv_client_t client, const char* variable
 #endif
 }
 
-IRECV_API irecv_error_t irecv_reboot(irecv_client_t client) {
+irecv_error_t irecv_reboot(irecv_client_t client) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -3039,7 +3029,7 @@ IRECV_API irecv_error_t irecv_reboot(irecv_client_t client) {
 #endif
 }
 
-IRECV_API const char* irecv_strerror(irecv_error_t error) {
+const char* irecv_strerror(irecv_error_t error) {
 	switch (error) {
 	case IRECV_E_SUCCESS:
 		return "Command completed successfully";
@@ -3087,7 +3077,7 @@ IRECV_API const char* irecv_strerror(irecv_error_t error) {
 	return NULL;
 }
 
-IRECV_API irecv_error_t irecv_reset_counters(irecv_client_t client) {
+irecv_error_t irecv_reset_counters(irecv_client_t client) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -3102,7 +3092,7 @@ IRECV_API irecv_error_t irecv_reset_counters(irecv_client_t client) {
 #endif
 }
 
-IRECV_API irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned long length) {
+irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned long length) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -3148,7 +3138,7 @@ IRECV_API irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, u
 #endif
 }
 
-IRECV_API irecv_error_t irecv_finish_transfer(irecv_client_t client) {
+irecv_error_t irecv_finish_transfer(irecv_client_t client) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -3170,11 +3160,11 @@ IRECV_API irecv_error_t irecv_finish_transfer(irecv_client_t client) {
 #endif
 }
 
-IRECV_API irecv_device_t irecv_devices_get_all(void) {
+irecv_device_t irecv_devices_get_all(void) {
 	return irecv_devices;
 }
 
-IRECV_API irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client, irecv_device_t* device) {
+irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client, irecv_device_t* device) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -3197,7 +3187,7 @@ IRECV_API irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client
 #endif
 }
 
-IRECV_API irecv_error_t irecv_devices_get_device_by_product_type(const char* product_type, irecv_device_t* device) {
+irecv_error_t irecv_devices_get_device_by_product_type(const char* product_type, irecv_device_t* device) {
 	int i = 0;
 
 	*device = NULL;
@@ -3212,7 +3202,7 @@ IRECV_API irecv_error_t irecv_devices_get_device_by_product_type(const char* pro
 	return IRECV_E_NO_DEVICE;
 }
 
-IRECV_API irecv_error_t irecv_devices_get_device_by_hardware_model(const char* hardware_model, irecv_device_t* device) {
+irecv_error_t irecv_devices_get_device_by_hardware_model(const char* hardware_model, irecv_device_t* device) {
 	int i = 0;
 
 	*device = NULL;
@@ -3233,7 +3223,7 @@ IRECV_API irecv_error_t irecv_devices_get_device_by_hardware_model(const char* h
 	return IRECV_E_NO_DEVICE;
 }
 
-IRECV_API irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause) {
+irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause) {
 #ifdef USE_DUMMY
 	return NULL;
 #else
