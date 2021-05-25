@@ -139,6 +139,7 @@ static void print_device_info(irecv_client_t client)
     if (modelinfo){
         printf("Name: %s\n", modelinfo->display_name);
         printf("Type: %s\n", modelinfo->product_type);
+				printf("BORD: %s\n", modelinfo->hardware_model);
     }
 	const struct irecv_device_info *devinfo = irecv_get_device_info(client);
 	if (devinfo) {
