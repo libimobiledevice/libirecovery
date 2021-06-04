@@ -2491,21 +2491,21 @@ IRECV_API void irecv_set_debug_level(int level) {
 }
 
 #ifndef USE_DUMMY
-static irecv_error_t irecv_send_command_raw(irecv_client_t client, const char* command) {
+static irecv_error_t irecv_send_command_raw(irecv_client_t client, const char* command, uint8_t b_request) {
 	unsigned int length = strlen(command);
 	if (length >= 0x100) {
 		length = 0xFF;
 	}
 
 	if (length > 0) {
-		irecv_usb_control_transfer(client, 0x40, 0, 0, 0, (unsigned char*) command, length + 1, USB_TIMEOUT);
+		irecv_usb_control_transfer(client, 0x40, b_request, 0, 0, (unsigned char*) command, length + 1, USB_TIMEOUT);
 	}
 
 	return IRECV_E_SUCCESS;
 }
 #endif
 
-IRECV_API irecv_error_t irecv_send_command(irecv_client_t client, const char* command) {
+IRECV_API irecv_error_t irecv_send_command_breq(irecv_client_t client, const char* command, uint8_t b_request) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -2529,7 +2529,7 @@ IRECV_API irecv_error_t irecv_send_command(irecv_client_t client, const char* co
 		}
 	}
 
-	error = irecv_send_command_raw(client, command);
+	error = irecv_send_command_raw(client, command, b_request);
 	if (error != IRECV_E_SUCCESS) {
 		debug("Failed to send command %s\n", command);
 		if (error != IRECV_E_PIPE)
@@ -2547,6 +2547,10 @@ IRECV_API irecv_error_t irecv_send_command(irecv_client_t client, const char* co
 
 	return IRECV_E_SUCCESS;
 #endif
+}
+
+IRECV_API irecv_error_t irecv_send_command(irecv_client_t client, const char* command) {
+	return irecv_send_command_breq(client, command, 0);
 }
 
 IRECV_API irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, int dfu_notify_finished) {
@@ -2826,7 +2830,7 @@ IRECV_API irecv_error_t irecv_getenv(irecv_client_t client, const char* variable
 
 	memset(command, '\0', sizeof(command));
 	snprintf(command, sizeof(command)-1, "getenv %s", variable);
-	irecv_error_t error = irecv_send_command_raw(client, command);
+	irecv_error_t error = irecv_send_command_raw(client, command, 0);
 	if(error == IRECV_E_PIPE) {
 		return IRECV_E_SUCCESS;
 	}
@@ -3000,7 +3004,7 @@ IRECV_API irecv_error_t irecv_saveenv(irecv_client_t client) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
-	irecv_error_t error = irecv_send_command_raw(client, "saveenv");
+	irecv_error_t error = irecv_send_command_raw(client, "saveenv", 0);
 	if(error != IRECV_E_SUCCESS) {
 		return error;
 	}
@@ -3024,7 +3028,7 @@ IRECV_API irecv_error_t irecv_setenv(irecv_client_t client, const char* variable
 
 	memset(command, '\0', sizeof(command));
 	snprintf(command, sizeof(command)-1, "setenv %s %s", variable, value);
-	irecv_error_t error = irecv_send_command_raw(client, command);
+	irecv_error_t error = irecv_send_command_raw(client, command, 0);
 	if(error != IRECV_E_SUCCESS) {
 		return error;
 	}
@@ -3037,7 +3041,7 @@ IRECV_API irecv_error_t irecv_reboot(irecv_client_t client) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
-	irecv_error_t error = irecv_send_command_raw(client, "reboot");
+	irecv_error_t error = irecv_send_command_raw(client, "reboot", 0);
 	if(error != IRECV_E_SUCCESS) {
 		return error;
 	}
