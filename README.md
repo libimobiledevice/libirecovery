@@ -3,6 +3,8 @@
 *The libirecovery library allows communication with iBoot/iBSS of iOS devices
 via USB.*
 
+![](https://github.com/libimobiledevice/libirecovery/workflows/build/badge.svg)
+
 ## Features
 
 libirecovery is a cross-platform library which implements communication to

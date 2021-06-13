@@ -1,0 +1,120 @@
+name: build
+
+on: [push]
+
+jobs:
+  build-linux-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+    - name: install dependencies
+      run: |
+          sudo apt-get install libusb-1.0-0-dev
+    - name: prepare environment
+      run: |
+          echo "target_triplet=`gcc -dumpmachine`" >> $GITHUB_ENV
+    - uses: actions/checkout@v2
+    - name: autogen
+      run: |
+          export LDFLAGS="-Wl,-rpath=/usr/local/lib"
+          ./autogen.sh
+    - name: make
+      run: make
+    - name: make install
+      run: sudo make install
+    - name: prepare artifact
+      run: |
+          mkdir -p dest
+          DESTDIR=`pwd`/dest make install
+          tar -C dest -cf libirecovery.tar lib usr
+    - name: publish artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: libirecovery-latest_${{env.target_triplet}}
+        path: libirecovery.tar
+  build-macOS:
+    runs-on: macOS-latest
+    steps:
+    - name: install dependencies
+      run: |
+          if test -x "`which port`"; then
+            sudo port install libtool autoconf automake
+          else
+            brew install libtool autoconf automake
+          fi
+      shell: bash
+    - uses: actions/checkout@v2
+    - name: autogen
+      run: |
+          SDKDIR=`xcrun --sdk macosx --show-sdk-path`
+          TESTARCHS="arm64 x86_64"
+          USEARCHS=
+          for ARCH in $TESTARCHS; do
+            if echo "int main(int argc, char **argv) { return 0; }" |clang -arch $ARCH -o /dev/null -isysroot $SDKDIR -x c - 2>/dev/null; then
+              USEARCHS="$USEARCHS -arch $ARCH"
+            fi
+          done
+          export CFLAGS="$USEARCHS -isysroot $SDKDIR"
+          echo "Using CFLAGS: $CFLAGS"
+          ./autogen.sh
+    - name: make
+      run: make
+    - name: make install
+      run: sudo make install
+    - name: prepare artifact
+      run: |
+          mkdir -p dest
+          DESTDIR=`pwd`/dest make install
+          tar -C dest -cf libirecovery.tar usr
+    - name: publish artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: libirecovery-latest_macOS
+        path: libirecovery.tar
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: [
+          { msystem: MINGW64, arch: x86_64 },
+          { msystem: MINGW32, arch: i686   }
+        ]
+    steps:
+    - uses: msys2/setup-msys2@v2
+      with:
+        msystem: ${{ matrix.msystem }}
+        release: false
+        update: false
+        install: >-
+          base-devel
+          git
+          mingw-w64-${{ matrix.arch }}-gcc
+          make
+          libtool
+          autoconf
+          automake-wrapper
+    - name: prepare environment
+      run: |
+          dest=`echo ${{ matrix.msystem }} |tr [:upper:] [:lower:]`
+          echo "dest=$dest" >> $GITHUB_ENV
+          echo "target_triplet=`gcc -dumpmachine`" >> $GITHUB_ENV
+    - uses: actions/checkout@v2
+    - name: autogen
+      run: ./autogen.sh CC=gcc CXX=g++
+    - name: make
+      run: make
+    - name: make install
+      run: make install
+    - name: prepare artifact
+      run: |
+          mkdir -p dest
+          DESTDIR=`pwd`/dest make install
+          tar -C dest -cf libirecovery.tar ${{ env.dest }}
+    - name: publish artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: libirecovery-latest_${{ matrix.arch }}-${{ env.dest }}
+        path: libirecovery.tar
