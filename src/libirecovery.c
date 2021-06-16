@@ -2381,6 +2381,7 @@ IRECV_API irecv_error_t irecv_device_event_unsubscribe(irecv_device_event_contex
 	if (num == 0) {
 #ifdef HAVE_IOKIT
 		if (iokit_runloop) {
+			while (!CFRunLoopIsWaiting(iokit_runloop)) usleep(420);
 			CFRunLoopStop(iokit_runloop);
 		}
 #endif
