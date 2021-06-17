@@ -30,6 +30,10 @@ sudo apt-get install \
 	libreadline-dev \
 	libusb-1.0-0-dev
 ```
+### Arch Linux
+```shell
+sudo pacman -S --noconfirm base-devel git usbmuxd
+```
 
 Then clone the actual project repository:
 ```shell
