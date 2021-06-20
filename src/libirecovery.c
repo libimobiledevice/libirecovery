@@ -2127,11 +2127,22 @@ static int _irecv_usb_hotplug_cb(libusb_context *ctx, libusb_device *device, lib
 #endif /* !HAVE_IOKIT */
 #endif /* !WIN32 */
 
-static void *_irecv_event_handler(void* unused)
+struct _irecv_event_handler_info {
+	cond_t startup_cond;
+	mutex_t startup_mutex;
+};
+
+static void *_irecv_event_handler(void* data)
 {
+	struct _irecv_event_handler_info* info = (struct _irecv_event_handler_info*)data;
 #ifdef WIN32
 	const GUID *guids[] = { &GUID_DEVINTERFACE_DFU, &GUID_DEVINTERFACE_IBOOT, NULL };
 	int running = 1;
+
+	mutex_lock(&(info->startup_mutex));
+	cond_signal(&(info->startup_cond));
+	mutex_unlock(&(info->startup_mutex));
+
 	do {
 		SP_DEVICE_INTERFACE_DATA currentInterface;
 		HDEVINFO usbDevices;
@@ -2246,6 +2257,10 @@ static void *_irecv_event_handler(void* unused)
 		i++;
 	}
 
+	mutex_lock(&(info->startup_mutex));
+	cond_signal(&(info->startup_cond));
+	mutex_unlock(&(info->startup_mutex));
+
 	CFRunLoopRun();
 
 #else /* !HAVE_IOKIT */
@@ -2253,6 +2268,11 @@ static void *_irecv_event_handler(void* unused)
 	static libusb_hotplug_callback_handle usb_hotplug_cb_handle;
 	libusb_hotplug_register_callback(irecv_hotplug_ctx, LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED | LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT, LIBUSB_HOTPLUG_ENUMERATE, APPLE_VENDOR_ID, LIBUSB_HOTPLUG_MATCH_ANY, 0, _irecv_usb_hotplug_cb, NULL, &usb_hotplug_cb_handle);
 	int running = 1;
+
+	mutex_lock(&(info->startup_mutex));
+	cond_signal(&(info->startup_cond));
+	mutex_unlock(&(info->startup_mutex));
+
 	do {
 		struct timeval tv;
 		tv.tv_sec = tv.tv_usec = 0;
@@ -2271,6 +2291,10 @@ static void *_irecv_event_handler(void* unused)
 	int i, cnt;
 	libusb_device **devs;
 	int running = 1;
+
+	mutex_lock(&(info->startup_mutex));
+	cond_signal(&(info->startup_cond));
+	mutex_unlock(&(info->startup_mutex));
 
 	do {
 		cnt = libusb_get_device_list(irecv_hotplug_ctx, &devs);
@@ -2349,6 +2373,9 @@ IRECV_API irecv_error_t irecv_device_event_subscribe(irecv_device_event_context_
 	mutex_unlock(&listener_mutex);
 
 	if (th_event_handler == THREAD_T_NULL || !thread_alive(th_event_handler)) {
+		struct _irecv_event_handler_info info;
+		cond_init(&info.startup_cond);
+		mutex_init(&info.startup_mutex);
 #ifndef WIN32
 #ifndef HAVE_IOKIT
 		libusb_init(&irecv_hotplug_ctx);
@@ -2356,7 +2383,13 @@ IRECV_API irecv_error_t irecv_device_event_subscribe(irecv_device_event_context_
 #endif
 		collection_init(&devices);
 		mutex_init(&device_mutex);
-		thread_new(&th_event_handler, _irecv_event_handler, NULL);
+		mutex_lock(&info.startup_mutex);
+		if (thread_new(&th_event_handler, _irecv_event_handler, &info) == 0) {
+			cond_wait(&info.startup_cond, &info.startup_mutex);
+		}
+		mutex_unlock(&info.startup_mutex);
+		cond_destroy(&info.startup_cond);
+		mutex_destroy(&info.startup_mutex);
 	}
 
 	*context = _context;
@@ -2378,10 +2411,11 @@ IRECV_API irecv_error_t irecv_device_event_unsubscribe(irecv_device_event_contex
 	int num = collection_count(&listeners);
 	mutex_unlock(&listener_mutex);
 
-	if (num == 0) {
+	if (num == 0 && th_event_handler != THREAD_T_NULL && thread_alive(th_event_handler)) {
 #ifdef HAVE_IOKIT
 		if (iokit_runloop) {
 			CFRunLoopStop(iokit_runloop);
+			iokit_runloop = NULL;
 		}
 #endif
 		thread_join(th_event_handler);
