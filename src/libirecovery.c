@@ -3225,6 +3225,9 @@ IRECV_API irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client
 #else
 	int i = 0;
 
+	if (!client || !device)
+		return IRECV_E_INVALID_INPUT;
+
 	*device = NULL;
 
 	if (client->device_info.cpid == 0) {
@@ -3245,6 +3248,9 @@ IRECV_API irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client
 IRECV_API irecv_error_t irecv_devices_get_device_by_product_type(const char* product_type, irecv_device_t* device) {
 	int i = 0;
 
+	if (!product_type || !device)
+		return IRECV_E_INVALID_INPUT;
+
 	*device = NULL;
 
 	for (i = 0; irecv_devices[i].product_type != NULL; i++) {
@@ -3259,6 +3265,9 @@ IRECV_API irecv_error_t irecv_devices_get_device_by_product_type(const char* pro
 
 IRECV_API irecv_error_t irecv_devices_get_device_by_hardware_model(const char* hardware_model, irecv_device_t* device) {
 	int i = 0;
+
+	if (!hardware_model || !device)
+		return IRECV_E_INVALID_INPUT;
 
 	*device = NULL;
 
