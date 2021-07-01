@@ -3271,14 +3271,8 @@ IRECV_API irecv_error_t irecv_devices_get_device_by_hardware_model(const char* h
 
 	*device = NULL;
 
-	/* lowercase hardware_model string for proper lookup */
-	char model[8];
-	strcpy(model, hardware_model);
-	char *p = model;
-	for (; *p; ++p) *p = tolower(*p);
-
 	for (i = 0; irecv_devices[i].hardware_model != NULL; i++) {
-		if (!strcmp(model, irecv_devices[i].hardware_model)) {
+		if (!strcasecmp(hardware_model, irecv_devices[i].hardware_model)) {
 			*device = &irecv_devices[i];
 			return IRECV_E_SUCCESS;
 		}
