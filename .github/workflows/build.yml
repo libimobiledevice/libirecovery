@@ -12,11 +12,31 @@ jobs:
     - name: prepare environment
       run: |
           echo "target_triplet=`gcc -dumpmachine`" >> $GITHUB_ENV
+    - name: fetch libplist
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libplist-latest_${{env.target_triplet}}
+        repo: libimobiledevice/libplist
+    - name: fetch libimobiledevice-glue
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libimobiledevice-glue-latest_${{env.target_triplet}}
+        repo: libimobiledevice/libimobiledevice-glue
+    - name: install external dependencies
+      run: |
+          mkdir extract
+          for I in *.tar; do
+            tar -C extract -xvf $I
+          done
+          sudo cp -r extract/* /
+          sudo ldconfig
     - uses: actions/checkout@v2
     - name: autogen
-      run: |
-          export LDFLAGS="-Wl,-rpath=/usr/local/lib"
-          ./autogen.sh
+      run: ./autogen.sh PKG_CONFIG_PATH=/usr/local/lib/pkgconfig LDFLAGS="-Wl,-rpath=/usr/local/lib"
     - name: make
       run: make
     - name: make install
@@ -37,11 +57,32 @@ jobs:
     - name: install dependencies
       run: |
           if test -x "`which port`"; then
-            sudo port install libtool autoconf automake
+            sudo port install libtool autoconf automake pkgconfig
           else
-            brew install libtool autoconf automake
+            brew install libtool autoconf automake pkgconfig
           fi
       shell: bash
+    - name: fetch libplist
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libplist-latest_macOS
+        repo: libimobiledevice/libplist
+    - name: fetch libimobiledevice-glue
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libimobiledevice-glue-latest_macOS
+        repo: libimobiledevice/libimobiledevice-glue
+    - name: install external dependencies
+      run: |
+          mkdir extract
+          for I in *.tar; do
+            tar -C extract -xvf $I
+          done
+          sudo cp -r extract/* /
     - uses: actions/checkout@v2
     - name: autogen
       run: |
@@ -55,7 +96,7 @@ jobs:
           done
           export CFLAGS="$USEARCHS -isysroot $SDKDIR"
           echo "Using CFLAGS: $CFLAGS"
-          ./autogen.sh
+          ./autogen.sh PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
     - name: make
       run: make
     - name: make install
@@ -101,6 +142,27 @@ jobs:
           dest=`echo ${{ matrix.msystem }} |tr [:upper:] [:lower:]`
           echo "dest=$dest" >> $GITHUB_ENV
           echo "target_triplet=`gcc -dumpmachine`" >> $GITHUB_ENV
+    - name: fetch libplist
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libplist-latest_${{ matrix.arch }}-${{ env.dest }}
+        repo: libimobiledevice/libplist
+    - name: fetch libimobiledevice-glue
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: build.yml
+        name: libimobiledevice-glue-latest_${{ matrix.arch }}-${{ env.dest }}
+        repo: libimobiledevice/libimobiledevice-glue
+    - name: install external dependencies
+      run: |
+          mkdir extract
+          for I in *.tar; do
+            tar -C extract -xvf $I
+          done
+          cp -r extract/* /
     - uses: actions/checkout@v2
     - name: autogen
       run: ./autogen.sh CC=gcc CXX=g++
