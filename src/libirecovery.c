@@ -32,11 +32,13 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#include <libimobiledevice-glue/collection.h>
+#include <libimobiledevice-glue/thread.h>
+
 #ifndef USE_DUMMY
 #ifndef WIN32
 #ifndef HAVE_IOKIT
 #include <libusb.h>
-#include <pthread.h>
 #if (defined(LIBUSB_API_VERSION) && (LIBUSB_API_VERSION >= 0x01000102)) || (defined(LIBUSBX_API_VERSION) && (LIBUSBX_API_VERSION >= 0x01000102))
 #define HAVE_LIBUSB_HOTPLUG_API 1
 #endif
@@ -44,7 +46,6 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/usb/IOUSBLib.h>
 #include <IOKit/IOCFPlugIn.h>
-#include <pthread.h>
 #endif
 #else
 #define WIN32_LEAN_AND_MEAN
@@ -67,8 +68,6 @@
 #endif
 
 #include "libirecovery.h"
-#include "utils.h"
-#include "thread.h"
 
 struct irecv_client_private {
 	int debug;
@@ -2977,8 +2976,8 @@ IRECV_API irecv_error_t irecv_trigger_limera1n_exploit(irecv_client_t client) {
 	// which can be accomplished by sending on another thread.
 
 	void *args[2] = { client->handle, &req };
-	pthread_t thread;
-	pthread_create(&thread, NULL, iokit_limera1n_usb_submit_request, args);
+	THREAD_T thread;
+	thread_new(&thread, iokit_limera1n_usb_submit_request, args);
 
 	usleep(5 * 1000);
 	result = (*client->handle)->USBDeviceAbortPipeZero(client->handle);

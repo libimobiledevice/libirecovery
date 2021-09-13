@@ -19,14 +19,19 @@ LIBIRECOVERY_SO_VERSION=3:0:0
 
 dnl Minimum package versions
 LIBUSB_VERSION=1.0.3
+LIMD_GLUE_VERSION=1.0.0
 
 AC_SUBST(LIBIRECOVERY_SO_VERSION)
+AC_SUBST(LIMD_GLUE_VERSION)
 
 # Checks for programs.
 AC_PROG_CC
 #AC_PROG_CXX
 AM_PROG_CC_C_O
 LT_INIT
+
+# Checks for libraries.
+PKG_CHECK_MODULES(limd_glue, libimobiledevice-glue-1.0 >= $LIMD_GLUE_VERSION)
 
 # Checks for header files.
 AC_CHECK_HEADERS([stdint.h stdlib.h string.h])
@@ -58,7 +63,6 @@ case ${host_os} in
 				have_iokit=yes
 			], [])
 		], [])
-		AX_PTHREAD([], [AC_MSG_ERROR([pthread is required to build $PACKAGE])])
 	;;
 	mingw32*)
 		AC_MSG_RESULT([${host_os}])
@@ -74,7 +78,6 @@ case ${host_os} in
 	;;
 	*)
 		AC_MSG_RESULT([${host_os}])
-		AX_PTHREAD([], [AC_MSG_ERROR([pthread is required to build $PACKAGE])])
 	;;
 esac
 AM_CONDITIONAL(WIN32, test x$win32 = xtrue)
@@ -111,8 +114,7 @@ AS_IF([test "x$with_dummy" = "xyes"], [
 	])
 ])
 
-AS_COMPILER_FLAGS(GLOBAL_CFLAGS, "-Wall -Wextra -Wmissing-declarations -Wredundant-decls -Wshadow -Wpointer-arith -Wwrite-strings -Wswitch-default -Wno-unused-parameter -fvisibility=hidden $PTHREAD_CFLAGS")
-GLOBAL_LDFLAGS+=" $PTHREAD_LIBS"
+AS_COMPILER_FLAGS(GLOBAL_CFLAGS, "-Wall -Wextra -Wmissing-declarations -Wredundant-decls -Wshadow -Wpointer-arith -Wwrite-strings -Wswitch-default -Wno-unused-parameter -fvisibility=hidden")
 AC_SUBST(GLOBAL_CFLAGS)
 AC_SUBST(GLOBAL_LDFLAGS)
 
