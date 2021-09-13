@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.64)
+AC_PREREQ(2.68)
 AC_INIT([libirecovery], [1.0.1], [https://github.com/libimobiledevice/libirecovery/issues],, [https://libimobiledevice.org])
 AM_INIT_AUTOMAKE([dist-bzip2 no-dist-gzip check-news])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
@@ -24,12 +24,11 @@ AC_SUBST(LIBIRECOVERY_SO_VERSION)
 
 # Checks for programs.
 AC_PROG_CC
-AC_PROG_CXX
+#AC_PROG_CXX
 AM_PROG_CC_C_O
-AC_PROG_LIBTOOL
+LT_INIT
 
 # Checks for header files.
-AC_HEADER_STDC
 AC_CHECK_HEADERS([stdint.h stdlib.h string.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -180,7 +179,7 @@ AM_CONDITIONAL(WITH_UDEV, test "x$with_udev" = "xyes")
 
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 
-AC_OUTPUT([
+AC_CONFIG_FILES([
 Makefile
 src/Makefile
 src/libirecovery-1.0.pc
@@ -188,6 +187,7 @@ include/Makefile
 tools/Makefile
 udev/Makefile
 ])
+AC_OUTPUT
 
 echo "
 Configuration for $PACKAGE $VERSION:
