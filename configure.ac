@@ -66,14 +66,14 @@ case ${host_os} in
 	;;
 	mingw32*)
 		AC_MSG_RESULT([${host_os}])
-		GLOBAL_LDFLAGS+=" -static-libgcc -lkernel32 -lmsvcrt -lsetupapi"
+		GLOBAL_LDFLAGS+=" -static-libgcc -lkernel32 -lsetupapi"
 		win32=true
 	;;
 	cygwin*)
 		AC_MSG_RESULT([${host_os}])
 		CC=gcc-3
 		CFLAGS+=" -mno-cygwin"
-		GLOBAL_LDFLAGS+=" -static-libgcc -lkernel32 -lmsvcrt -lsetupapi"
+		GLOBAL_LDFLAGS+=" -static-libgcc -lkernel32 -lsetupapi"
 		win32=true
 	;;
 	*)
