@@ -235,7 +235,7 @@ static struct irecv_device irecv_devices[] = {
 	{ "iPad11,6",    "j171aap",  0x24, 0x8020, "iPad (8th gen, WiFi)" },
 	{ "iPad11,7",    "j172aap",  0x26, 0x8020, "iPad (8th gen, Celluar)" },
 	{ "iPad12,1",    "j181ap",   0x18, 0x8030, "iPad (9th gen, WiFi)" },
-	{ "iPad12,1",    "j182ap",   0x1A, 0x8030, "iPad (9th gen, Cellular)" },
+	{ "iPad12,2",    "j182ap",   0x1A, 0x8030, "iPad (9th gen, Cellular)" },
 	{ "iPad13,1",    "j307ap",   0x04, 0x8101, "iPad Air (4th gen, WiFi)" },
 	{ "iPad13,2",    "j308ap",   0x06, 0x8101, "iPad Air (4th gen, Celluar)" },
 	{ "iPad13,4",    "j517ap",   0x08, 0x8103, "iPad Pro 11-inch (3rd gen, WiFi)" },
