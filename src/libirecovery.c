@@ -2207,7 +2207,7 @@ static void *_irecv_event_handler(void* data)
 					free(details);
 					continue;
 				}
-				uint32_t location = strtoul(p+1, NULL, 10);
+				uint32_t location = strtoul(p+1, NULL, 16);
 				int found = 0;
 
 				FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
