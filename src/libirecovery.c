@@ -1808,14 +1808,18 @@ struct irecv_device_event_context {
 
 struct irecv_usb_device_info {
 	struct irecv_device_info device_info;
-	uint32_t location;
+#if defined(_WIN32)
+	unsigned long long location;
+#else
+    uint32_t location;
+#endif
 	int alive;
 };
 
 #ifdef WIN32
 struct irecv_win_dev_ctx {
 	PSP_DEVICE_INTERFACE_DETAIL_DATA details;
-	uint32_t location;
+	unsigned long long location;
 };
 #else
 #ifdef HAVE_IOKIT
@@ -1882,7 +1886,11 @@ static void* _irecv_handle_device_add(void *userdata)
 {
 	struct irecv_client_private client_loc;
 	char serial_str[256];
-	uint32_t location = 0;
+#if defined(_WIN32)
+	unsigned long long location = 0;
+#else
+    uint32_t location = 0;
+#endif
 	uint16_t product_id = 0;
 
 	serial_str[0] = '\0';
@@ -2188,22 +2196,18 @@ static void *_irecv_event_handler(void* data)
 					continue;
 				}
 
-				DWORD sz = REG_SZ;
-				char driver[256];
-				driver[0] = '\0';
-				if (!SetupDiGetDeviceRegistryProperty(usbDevices, &devinfodata, SPDRP_DRIVER, &sz, (PBYTE)driver, sizeof(driver), NULL)) {
-					debug("%s: ERROR: Failed to get driver key\n", __func__);
-					free(details);
-					continue;
-				}
-
-				char *p = strrchr(driver, '\\');
-				if (!p) {
-					debug("%s: ERROR: Failed to parse device location\n", __func__);
-					free(details);
-					continue;
-				}
-				uint32_t location = strtoul(p+1, NULL, 10);
+                char *ptr_ecid = strstr(details->DevicePath, "ECID:");
+                if(ptr_ecid == NULL)
+                {
+                    ptr_ecid = strstr(details->DevicePath, "ecid:");
+                }
+                if(ptr_ecid == NULL)
+                {
+                    debug("%s: ERROR: Failed to parse device ecid\n", __func__);
+                    free(details);
+                    continue;
+                }
+                unsigned long long location = strtoull(ptr_ecid + 5, NULL, 16);
 				int found = 0;
 
 				FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
