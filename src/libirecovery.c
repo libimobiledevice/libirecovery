@@ -2207,7 +2207,14 @@ static void *_irecv_event_handler(void* data)
 					free(details);
 					continue;
 				}
-				uint32_t location = strtoul(p+1, NULL, 16);
+				p++;
+				uint32_t location = 0;
+				if (!*p || strlen(p) < 4) {
+					debug("%s: ERROR: Driver location suffix too short\n", __func__);
+					free(details);
+					continue;
+				}
+				memcpy(&location, p, 4);
 				int found = 0;
 
 				FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
