@@ -27,6 +27,10 @@ extern "C" {
 
 #include <stdint.h>
 
+#define IRECV_TRANSFER_SIZE_DFU 0x800
+#define IRECV_TRANSFER_SIZE_RECOVERY 0x2000
+#define IRECV_TRANSFER_SIZE_COMMAND 0x100
+
 enum irecv_mode {
 	IRECV_K_RECOVERY_MODE_1   = 0x1280,
 	IRECV_K_RECOVERY_MODE_2   = 0x1281,

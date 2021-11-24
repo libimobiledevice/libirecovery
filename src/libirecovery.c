@@ -642,12 +642,13 @@ static void irecv_copy_nonce_with_tag(irecv_client_t client, const char* tag, un
 		return;
 	}
 
-	char buf[255];
+	char buf[256];
 	int len;
 
 	*nonce = NULL;
 	*nonce_size = 0;
 
+	memset(buf, 0, 256);
 	len = irecv_get_string_descriptor_ascii(client, 1, (unsigned char*) buf, 255);
 	if (len < 0) {
 		debug("%s: got length: %d\n", __func__, len);
@@ -1285,7 +1286,7 @@ static io_iterator_t iokit_usb_get_iterator_for_pid(UInt16 pid) {
 	iokit_cfdictionary_set_short(matchingDict, CFSTR(kUSBVendorID), kAppleVendorID);
 	iokit_cfdictionary_set_short(matchingDict, CFSTR(kUSBProductID), pid);
 
-	result = IOServiceGetMatchingServices(kIOMasterPortDefault, matchingDict, &iterator);
+	result = IOServiceGetMatchingServices(kIOMainPortDefault, matchingDict, &iterator);
 	if (result != kIOReturnSuccess)
 		return IO_OBJECT_NULL;
 
@@ -1445,6 +1446,7 @@ IRECV_API irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t e
 				client->mode = usb_descriptor.idProduct;
 
 				char serial_str[256];
+				memset(serial_str, 0, 256);
 				irecv_get_string_descriptor_ascii(client, usb_descriptor.iSerialNumber, (unsigned char*)serial_str, 255);
 
 				irecv_load_device_info_from_iboot_string(client, serial_str);
@@ -1526,8 +1528,9 @@ IRECV_API irecv_error_t irecv_usb_set_configuration(irecv_client_t client, int c
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
-	if (check_context(client) != IRECV_E_SUCCESS)
+	if (check_context(client) != IRECV_E_SUCCESS) {
 		return IRECV_E_NO_DEVICE;
+	}
 
 #ifndef WIN32
 	debug("Setting to configuration %d\n", configuration);
@@ -1642,8 +1645,9 @@ IRECV_API irecv_error_t irecv_usb_set_interface(irecv_client_t client, int usb_i
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
-	if (check_context(client) != IRECV_E_SUCCESS)
+	if (check_context(client) != IRECV_E_SUCCESS) {
 		return IRECV_E_NO_DEVICE;
+	}
 
 	debug("Setting to interface %d:%d\n", usb_interface, usb_alt_interface);
 #ifndef WIN32
@@ -1678,8 +1682,9 @@ IRECV_API irecv_error_t irecv_reset(irecv_client_t client) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
-	if (check_context(client) != IRECV_E_SUCCESS)
+	if (check_context(client) != IRECV_E_SUCCESS) {
 		return IRECV_E_NO_DEVICE;
+	}
 
 #ifndef WIN32
 #ifdef HAVE_IOKIT
@@ -1889,7 +1894,7 @@ static void* _irecv_handle_device_add(void *userdata)
 	uint32_t location = 0;
 	uint16_t product_id = 0;
 
-	serial_str[0] = '\0';
+	memset(serial_str, 0, 256);
 #ifdef WIN32
 	struct irecv_win_dev_ctx *win_ctx = (struct irecv_win_dev_ctx*)userdata;
 	PSP_DEVICE_INTERFACE_DETAIL_DATA details = win_ctx->details;
@@ -2255,7 +2260,7 @@ static void *_irecv_event_handler(void* data)
 #ifdef HAVE_IOKIT
 	kern_return_t kr;
 
-	IONotificationPortRef notifyPort = IONotificationPortCreate(kIOMasterPortDefault);
+	IONotificationPortRef notifyPort = IONotificationPortCreate(kIOMainPortDefault);
 	CFRunLoopSourceRef runLoopSource = IONotificationPortGetRunLoopSource(notifyPort);
 	iokit_runloop = CFRunLoopGetCurrent();
 	CFRunLoopAddSource(iokit_runloop, runLoopSource, kCFRunLoopDefaultMode);
@@ -2380,8 +2385,9 @@ IRECV_API irecv_error_t irecv_device_event_subscribe(irecv_device_event_context_
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
-	if (!context || !callback)
+	if (!context || !callback) {
 		return IRECV_E_INVALID_INPUT;
+	}
 
 	struct irecv_device_event_context* _context = malloc(sizeof(struct irecv_device_event_context));
 	if (!_context) {
@@ -2426,8 +2432,9 @@ IRECV_API irecv_error_t irecv_device_event_unsubscribe(irecv_device_event_contex
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
-	if (!context)
+	if (!context) {
 		return IRECV_E_INVALID_INPUT;
+	}
 
 	mutex_lock(&listener_mutex);
 	collection_remove(&listeners, context);
@@ -2549,8 +2556,8 @@ IRECV_API void irecv_set_debug_level(int level) {
 #ifndef USE_DUMMY
 static irecv_error_t irecv_send_command_raw(irecv_client_t client, const char* command, uint8_t b_request) {
 	unsigned int length = strlen(command);
-	if (length >= 0x100) {
-		length = 0xFF;
+	if (length >= IRECV_TRANSFER_SIZE_COMMAND) {
+		return IRECV_E_INVALID_INPUT;
 	}
 
 	if (length > 0) {
@@ -2567,12 +2574,13 @@ IRECV_API irecv_error_t irecv_send_command_breq(irecv_client_t client, const cha
 #else
 	irecv_error_t error = 0;
 
-	if (check_context(client) != IRECV_E_SUCCESS)
+	if (check_context(client) != IRECV_E_SUCCESS) {
 		return IRECV_E_NO_DEVICE;
+	}
 
 	unsigned int length = strlen(command);
-	if (length >= 0x100) {
-		length = 0xFF;
+	if (length >= IRECV_TRANSFER_SIZE_COMMAND) {
+		return IRECV_E_INVALID_INPUT;
 	}
 
 	irecv_event_t event;
@@ -2588,8 +2596,9 @@ IRECV_API irecv_error_t irecv_send_command_breq(irecv_client_t client, const cha
 	error = irecv_send_command_raw(client, command, b_request);
 	if (error != IRECV_E_SUCCESS) {
 		debug("Failed to send command %s\n", command);
-		if (error != IRECV_E_PIPE)
+		if (error != IRECV_E_PIPE) {
 			return error;
+		}
 	}
 
 	if(client->postcommand_callback != NULL) {
@@ -2613,8 +2622,9 @@ IRECV_API irecv_error_t irecv_send_file(irecv_client_t client, const char* filen
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
-	if (check_context(client) != IRECV_E_SUCCESS)
+	if (check_context(client) != IRECV_E_SUCCESS) {
 		return IRECV_E_NO_DEVICE;
+	}
 
 	FILE* file = fopen(filename, "rb");
 	if (file == NULL) {
@@ -2675,12 +2685,13 @@ IRECV_API irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* 
 	irecv_error_t error = 0;
 	int recovery_mode = ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE));
 
-	if (check_context(client) != IRECV_E_SUCCESS)
+	if (check_context(client) != IRECV_E_SUCCESS) {
 		return IRECV_E_NO_DEVICE;
+	}
 
 	unsigned int h1 = 0xFFFFFFFF;
 	unsigned char dfu_xbuf[12] = {0xff, 0xff, 0xff, 0xff, 0xac, 0x05, 0x00, 0x01, 0x55, 0x46, 0x44, 0x10};
-	int packet_size = recovery_mode ? 0x8000 : 0x800;
+	int packet_size = recovery_mode ? IRECV_TRANSFER_SIZE_RECOVERY : IRECV_TRANSFER_SIZE_DFU;
 	int last = length % packet_size;
 	int packets = length / packet_size;
 
@@ -2842,8 +2853,9 @@ IRECV_API irecv_error_t irecv_receive(irecv_client_t client) {
 	char buffer[BUFFER_SIZE];
 	memset(buffer, '\0', BUFFER_SIZE);
 
-	if (check_context(client) != IRECV_E_SUCCESS)
+	if (check_context(client) != IRECV_E_SUCCESS) {
 		return IRECV_E_NO_DEVICE;
+	}
 
 	int bytes = 0;
 	while (1) {
@@ -2875,8 +2887,10 @@ IRECV_API irecv_error_t irecv_getenv(irecv_client_t client, const char* variable
 #else
 	char command[256];
 
-	if (check_context(client) != IRECV_E_SUCCESS)
+	memset(command, 0, 256);
+	if (check_context(client) != IRECV_E_SUCCESS) {
 		return IRECV_E_NO_DEVICE;
+	}
 
 	*value = NULL;
 
@@ -2885,7 +2899,10 @@ IRECV_API irecv_error_t irecv_getenv(irecv_client_t client, const char* variable
 	}
 
 	memset(command, '\0', sizeof(command));
-	snprintf(command, sizeof(command)-1, "getenv %s", variable);
+	if (snprintf(command, sizeof(command)-1, "getenv %s", variable) < 0) {
+		return IRECV_E_INVALID_INPUT;
+	}
+
 	irecv_error_t error = irecv_send_command_raw(client, command, 0);
 	if(error == IRECV_E_PIPE) {
 		return IRECV_E_SUCCESS;
@@ -2936,8 +2953,9 @@ IRECV_API irecv_error_t irecv_get_mode(irecv_client_t client, int* mode) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
-	if (check_context(client) != IRECV_E_SUCCESS)
+	if (check_context(client) != IRECV_E_SUCCESS) {
 		return IRECV_E_NO_DEVICE;
+	}
 
 	*mode = client->mode;
 
@@ -2950,8 +2968,9 @@ IRECV_API const struct irecv_device_info* irecv_get_device_info(irecv_client_t c
 #ifdef USE_DUMMY
 	return NULL;
 #else
-	if (check_context(client) != IRECV_E_SUCCESS)
+	if (check_context(client) != IRECV_E_SUCCESS) {
 		return NULL;
+	}
 
 	return &client->device_info;
 #endif
@@ -2977,8 +2996,9 @@ IRECV_API irecv_error_t irecv_trigger_limera1n_exploit(irecv_client_t client) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
-	if (check_context(client) != IRECV_E_SUCCESS)
+	if (check_context(client) != IRECV_E_SUCCESS) {
 		return IRECV_E_NO_DEVICE;
+	}
 
 #ifdef HAVE_IOKIT
 	IOReturn result;
@@ -3029,8 +3049,9 @@ IRECV_API irecv_error_t irecv_execute_script(irecv_client_t client, const char* 
 	return IRECV_E_UNSUPPORTED;
 #else
 	irecv_error_t error = IRECV_E_SUCCESS;
-	if (check_context(client) != IRECV_E_SUCCESS)
+	if (check_context(client) != IRECV_E_SUCCESS) {
 		return IRECV_E_NO_DEVICE;
+	}
 
 	char* body = strdup(script);
 	char* line = strtok(body, "\n");
@@ -3075,8 +3096,9 @@ IRECV_API irecv_error_t irecv_setenv(irecv_client_t client, const char* variable
 #else
 	char command[256];
 
-	if (check_context(client) != IRECV_E_SUCCESS)
-		return IRECV_E_NO_DEVICE;
+	if (check_context(client) != IRECV_E_SUCCESS) {
+		eturn IRECV_E_NO_DEVICE;
+	}
 
 	if(variable == NULL || value == NULL) {
 		return IRECV_E_UNKNOWN_ERROR;
@@ -3158,8 +3180,9 @@ IRECV_API irecv_error_t irecv_reset_counters(irecv_client_t client) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
-	if (check_context(client) != IRECV_E_SUCCESS)
+	if (check_context(client) != IRECV_E_SUCCESS) {
 		return IRECV_E_NO_DEVICE;
+	}
 
 	if ((client->mode == IRECV_K_DFU_MODE) || (client->mode == IRECV_K_WTF_MODE)) {
 		irecv_usb_control_transfer(client, 0x21, 4, 0, 0, 0, 0, USB_TIMEOUT);
@@ -3175,10 +3198,11 @@ IRECV_API irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, u
 #else
 	int recovery_mode = ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE));
 
-	if (check_context(client) != IRECV_E_SUCCESS)
+	if (check_context(client) != IRECV_E_SUCCESS) {
 		return IRECV_E_NO_DEVICE;
+	}
 
-	int packet_size = recovery_mode ? 0x2000: 0x800;
+	int packet_size = recovery_mode ? IRECV_TRANSFER_SIZE_RECOVERY : IRECV_TRANSFER_SIZE_DFU;
 	int last = length % packet_size;
 	int packets = length / packet_size;
 	if (last != 0) {
@@ -3222,8 +3246,9 @@ IRECV_API irecv_error_t irecv_finish_transfer(irecv_client_t client) {
 	int i = 0;
 	unsigned int status = 0;
 
-	if (check_context(client) != IRECV_E_SUCCESS)
+	if (check_context(client) != IRECV_E_SUCCESS) {
 		return IRECV_E_NO_DEVICE;
+	}
 
 	irecv_usb_control_transfer(client, 0x21, 1, 0, 0, 0, 0, USB_TIMEOUT);
 
@@ -3247,8 +3272,9 @@ IRECV_API irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client
 #else
 	int i = 0;
 
-	if (!client || !device)
+	if (!client || !device) {
 		return IRECV_E_INVALID_INPUT;
+	}
 
 	*device = NULL;
 
@@ -3270,8 +3296,9 @@ IRECV_API irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client
 IRECV_API irecv_error_t irecv_devices_get_device_by_product_type(const char* product_type, irecv_device_t* device) {
 	int i = 0;
 
-	if (!product_type || !device)
+	if (!product_type || !device) {
 		return IRECV_E_INVALID_INPUT;
+	}
 
 	*device = NULL;
 
@@ -3288,8 +3315,9 @@ IRECV_API irecv_error_t irecv_devices_get_device_by_product_type(const char* pro
 IRECV_API irecv_error_t irecv_devices_get_device_by_hardware_model(const char* hardware_model, irecv_device_t* device) {
 	int i = 0;
 
-	if (!hardware_model || !device)
+	if (!hardware_model || !device) {
 		return IRECV_E_INVALID_INPUT;
+	}
 
 	*device = NULL;
 
