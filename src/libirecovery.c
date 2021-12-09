@@ -996,12 +996,16 @@ static int check_context(irecv_client_t client) {
 
 IRECV_API void irecv_init(void)
 {
+#ifndef USE_DUMMY
 	thread_once(&init_once, _irecv_init);
+#endif
 }
 
 IRECV_API void irecv_exit(void)
 {
+#ifndef USE_DUMMY
 	thread_once(&deinit_once, _irecv_deinit);
+#endif
 }
 
 #ifndef USE_DUMMY
