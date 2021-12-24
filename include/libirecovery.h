@@ -156,6 +156,7 @@ irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned lo
 irecv_error_t irecv_saveenv(irecv_client_t client);
 irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** value);
 irecv_error_t irecv_setenv(irecv_client_t client, const char* variable, const char* value);
+irecv_error_t irecv_setenv_np(irecv_client_t client, const char* variable, const char* value);
 irecv_error_t irecv_reboot(irecv_client_t client);
 irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value);
 

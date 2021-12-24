@@ -3114,6 +3114,30 @@ IRECV_API irecv_error_t irecv_setenv(irecv_client_t client, const char* variable
 #endif
 }
 
+IRECV_API irecv_error_t irecv_setenv_np(irecv_client_t client, const char* variable, const char* value) {
+#ifdef USE_DUMMY
+	return IRECV_E_UNSUPPORTED;
+#else
+	char command[256];
+
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return IRECV_E_NO_DEVICE;
+
+	if(variable == NULL || value == NULL) {
+		return IRECV_E_UNKNOWN_ERROR;
+	}
+
+	memset(command, '\0', sizeof(command));
+	snprintf(command, sizeof(command)-1, "setenvnp %s %s", variable, value);
+	irecv_error_t error = irecv_send_command_raw(client, command, 0);
+	if(error != IRECV_E_SUCCESS) {
+		return error;
+	}
+
+	return IRECV_E_SUCCESS;
+#endif
+}
+
 IRECV_API irecv_error_t irecv_reboot(irecv_client_t client) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
