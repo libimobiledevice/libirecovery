@@ -113,7 +113,7 @@ jobs:
         name: libirecovery-latest_macOS
         path: libirecovery.tar
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2019
     defaults:
       run:
         shell: msys2 {0}
