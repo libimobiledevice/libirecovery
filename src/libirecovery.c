@@ -323,6 +323,8 @@ static struct irecv_device irecv_devices[] = {
 	{ "iBridge2,20", "j185fap",  0x23, 0x8012, "Apple T2 iMac20,2 (j185f)" },
 	{ "iBridge2,21", "j223ap",   0x3B, 0x8012, "Apple T2 MacBookPro16,3 (j223)" },
 	{ "iBridge2,22", "j215ap",   0x38, 0x8012, "Apple T2 MacBookPro16,4 (j215)" },
+	/* Apple Displays */
+	{ "AppleDisplay2,1", "j327ap", 0x22, 0x8030, "Studio Display" },
 	{ NULL,          NULL,         -1,     -1, NULL }
 };
 
