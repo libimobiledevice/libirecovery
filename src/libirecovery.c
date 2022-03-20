@@ -1302,7 +1302,7 @@ static io_iterator_t iokit_usb_get_iterator_for_pid(UInt16 pid) {
 	iokit_cfdictionary_set_short(matchingDict, CFSTR(kUSBVendorID), kAppleVendorID);
 	iokit_cfdictionary_set_short(matchingDict, CFSTR(kUSBProductID), pid);
 
-	result = IOServiceGetMatchingServices(kIOMasterPortDefault, matchingDict, &iterator);
+	result = IOServiceGetMatchingServices(MACH_PORT_NULL, matchingDict, &iterator);
 	if (result != kIOReturnSuccess)
 		return IO_OBJECT_NULL;
 
@@ -2272,7 +2272,7 @@ static void *_irecv_event_handler(void* data)
 #ifdef HAVE_IOKIT
 	kern_return_t kr;
 
-	IONotificationPortRef notifyPort = IONotificationPortCreate(kIOMasterPortDefault);
+	IONotificationPortRef notifyPort = IONotificationPortCreate(MACH_PORT_NULL);
 	CFRunLoopSourceRef runLoopSource = IONotificationPortGetRunLoopSource(notifyPort);
 	iokit_runloop = CFRunLoopGetCurrent();
 	CFRunLoopAddSource(iokit_runloop, runLoopSource, kCFRunLoopDefaultMode);
