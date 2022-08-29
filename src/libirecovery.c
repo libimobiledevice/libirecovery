@@ -296,7 +296,7 @@ static struct irecv_device irecv_devices[] = {
 	/* Apple Silicon Macs */
 	{ "ADP3,2",         "j273aap", 0x42, 0x8027, "Developer Transition Kit (2020)" },
 	{ "Macmini9,1",	    "j274ap",  0x22, 0x8103, "Mac mini (M1, 2020)" },
-	{ "MacBookPro17,1", "j293ap",  0x24, 0x8103, "MacBook Pro (M1, 2020)" },
+	{ "MacBookPro17,1", "j293ap",  0x24, 0x8103, "MacBook Pro (M1, 13-inch, 2020)" },
 	{ "MacBookPro18,1", "j316sap", 0x0A, 0x6000, "MacBook Pro (M1 Pro, 16-inch, 2021)" },
 	{ "MacBookPro18,2", "j316cap", 0x0A, 0x6001, "MacBook Pro (M1 Max, 16-inch, 2021)" },
 	{ "MacBookPro18,3", "j314sap", 0x08, 0x6000, "MacBook Pro (M1 Pro, 14-inch, 2021)" },
@@ -306,6 +306,8 @@ static struct irecv_device irecv_devices[] = {
 	{ "iMac21,2",       "j457ap",  0x2A, 0x8103, "iMac 24-inch (M1, Four Ports, 2021)" },
 	{ "Mac13,1",        "j375cap", 0x04, 0x6001, "Mac Studio (M1 Max, 2022)" },
 	{ "Mac13,2",        "j375dap", 0x0C, 0x6002, "Mac Studio (M1 Ultra, 2022)" },
+	{ "Mac14,2",        "j413ap",  0x28, 0x8112, "MacBook Air (M2, 2022)" },
+	{ "Mac14,7",        "j493ap",  0x2A, 0x8112, "MacBook Pro (M2, 13-inch, 2022)" },
 	/* Apple Silicon VMs (supported by Virtualization.framework on macOS 12) */
 	{ "VirtualMac2,1",  "vma2macosap",  0x20, 0xFE00, "Apple Virtual Machine 1" },
 	/* Apple T2 Coprocessor */
