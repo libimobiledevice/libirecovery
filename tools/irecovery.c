@@ -199,6 +199,16 @@ static void print_devices() {
 	}
 }
 
+static int _is_breq_command(const char* cmd)
+{
+	return (
+		!strcmp(cmd, "go")
+		|| !strcmp(cmd, "bootx")
+		|| !strcmp(cmd, "reboot")
+		|| !strcmp(cmd, "memboot")
+	);
+}
+
 static void parse_command(irecv_client_t client, unsigned char* command, unsigned int size) {
 	char* cmd = strdup((char*)command);
 	char* action = strtok(cmd, " ");
@@ -269,7 +279,11 @@ static void init_shell(irecv_client_t client) {
 
 		char* cmd = readline("> ");
 		if (cmd && *cmd) {
-			error = irecv_send_command(client, cmd);
+			if (_is_breq_command(cmd)) {
+				error = irecv_send_command_breq(client, cmd, 1);
+			} else {
+				error = irecv_send_command(client, cmd);
+			}
 			if (error != IRECV_E_SUCCESS) {
 				quit = 1;
 			}
@@ -560,7 +574,11 @@ int main(int argc, char* argv[]) {
 			break;
 
 		case kSendCommand:
-			error = irecv_send_command(client, argument);
+			if (_is_breq_command(argument)) {
+				error = irecv_send_command_breq(client, argument, 1);
+			} else {
+				error = irecv_send_command(client, argument);
+			}
 			debug("%s\n", irecv_strerror(error));
 			break;
 
