@@ -253,8 +253,14 @@ static struct irecv_device irecv_devices[] = {
 	{ "iPad13,11",   "j523xap",  0x1E, 0x8103, "iPad Pro 12.9-inch (5th gen, Cellular, 2TB)" },
 	{ "iPad13,16",   "j407ap",   0x10, 0x8103, "iPad Air (5th gen, WiFi)" },
 	{ "iPad13,17",   "j408ap",   0x12, 0x8103, "iPad Air (5th gen, Cellular)" },
+	{ "iPad13,18",   "j271ap",   0x14, 0x8101, "iPad (10th gen, WiFi)" },
+	{ "iPad13,19",   "j272ap",   0x16, 0x8101, "iPad (10th gen, Cellular)" },
 	{ "iPad14,1",    "j310ap",   0x04, 0x8110, "iPad mini (6th gen, WiFi)" },
 	{ "iPad14,2",    "j311ap",   0x06, 0x8110, "iPad mini (6th gen, Cellular)" },
+	{ "iPad14,3",    "j617ap",   0x08, 0x8112, "iPad Pro 11-inch (4th gen, WiFi)" },
+	{ "iPad14,4",    "j618ap",   0x0A, 0x8112, "iPad Pro 11-inch (4th gen, Cellular)" },
+	{ "iPad14,5",    "j620ap",   0x0C, 0x8112, "iPad Pro 12.9-inch (6th gen, WiFi)" },
+	{ "iPad14,6",    "j621ap",   0x0E, 0x8112, "iPad Pro 12.9-inch (6th gen, Cellular)" },
 	/* Apple TV */
 	{ "AppleTV2,1",  "k66ap",    0x10, 0x8930, "Apple TV 2" },
 	{ "AppleTV3,1",  "j33ap",    0x08, 0x8942, "Apple TV 3" },
@@ -262,6 +268,7 @@ static struct irecv_device irecv_devices[] = {
 	{ "AppleTV5,3",  "j42dap",   0x34, 0x7000, "Apple TV 4" },
 	{ "AppleTV6,2",  "j105aap",  0x02, 0x8011, "Apple TV 4K" },
 	{ "AppleTV11,1", "j305ap",   0x08, 0x8020, "Apple TV 4K (2nd gen)" },
+	{ "AppleTV14,1", "j255ap",   0x02, 0x8110, "Apple TV 4K (3rd gen)" },
 	/* HomePod */
 	{ "AudioAccessory1,1",  "b238aap",  0x38, 0x7000, "HomePod" },
 	{ "AudioAccessory1,2",  "b238ap",   0x1A, 0x7000, "HomePod" },
