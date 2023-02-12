@@ -270,9 +270,10 @@ static struct irecv_device irecv_devices[] = {
 	{ "AppleTV11,1", "j305ap",   0x08, 0x8020, "Apple TV 4K (2nd gen)" },
 	{ "AppleTV14,1", "j255ap",   0x02, 0x8110, "Apple TV 4K (3rd gen)" },
 	/* HomePod */
-	{ "AudioAccessory1,1",  "b238aap",  0x38, 0x7000, "HomePod" },
-	{ "AudioAccessory1,2",  "b238ap",   0x1A, 0x7000, "HomePod" },
+	{ "AudioAccessory1,1",  "b238aap",  0x38, 0x7000, "HomePod (1st gen)" },
+	{ "AudioAccessory1,2",  "b238ap",   0x1A, 0x7000, "HomePod (1st gen)" },
 	{ "AudioAccessory5,1",  "b520ap",   0x22, 0x8006, "HomePod mini" },
+	{ "AudioAccessory6,1",  "b620ap",   0x18, 0x8301, "HomePod (2nd gen)" },
 	/* Apple Watch */
 	{ "Watch1,1",    "n27aap",   0x02, 0x7002, "Apple Watch 38mm (1st gen)" },
 	{ "Watch1,2",    "n28aap",   0x04, 0x7002, "Apple Watch 42mm (1st gen)" },
@@ -328,6 +329,12 @@ static struct irecv_device irecv_devices[] = {
 	{ "Mac13,2",        "j375dap", 0x0C, 0x6002, "Mac Studio (M1 Ultra, 2022)" },
 	{ "Mac14,2",        "j413ap",  0x28, 0x8112, "MacBook Air (M2, 2022)" },
 	{ "Mac14,7",        "j493ap",  0x2A, 0x8112, "MacBook Pro (M2, 13-inch, 2022)" },
+	{ "Mac14,3",        "j473ap",  0x24, 0x8112, "Mac mini (M2, 2023)" },
+	{ "Mac14,5",        "j414cap", 0x04, 0x6021, "MacBook Pro (14-inch, M2 Max, 2023)" },
+	{ "Mac14,6",        "j416cap", 0x06, 0x6021, "MacBook Pro (16-inch, M2 Max, 2023)" },
+	{ "Mac14,9",        "j414sap", 0x04, 0x6020, "MacBook Pro (14-inch, M2 Pro, 2023)" },
+	{ "Mac14,10",       "j416sap", 0x06, 0x6020, "MacBook Pro (16-inch, M2 Pro, 2023)" },
+	{ "Mac14,12",       "j474sap", 0x02, 0x6020, "Mac mini (M2 Pro, 2023)" },
 	/* Apple Silicon VMs (supported by Virtualization.framework on macOS 12) */
 	{ "VirtualMac2,1",  "vma2macosap",  0x20, 0xFE00, "Apple Virtual Machine 1" },
 	/* Apple T2 Coprocessor */
