@@ -1855,6 +1855,7 @@ struct irecv_device_event_context {
 
 struct irecv_usb_device_info {
 	struct irecv_device_info device_info;
+	enum irecv_mode mode;
 	uint32_t location;
 	int alive;
 };
@@ -2046,6 +2047,7 @@ static void* _irecv_handle_device_add(void *userdata)
 	memcpy(&(usb_dev_info->device_info), &(client_loc.device_info), sizeof(struct irecv_device_info));
 	usb_dev_info->location = location;
 	usb_dev_info->alive = 1;
+	usb_dev_info->mode = client_loc.mode;
 
 	collection_add(&devices, usb_dev_info);
 
@@ -2436,9 +2438,9 @@ IRECV_API irecv_error_t irecv_device_event_subscribe(irecv_device_event_context_
 
 	mutex_lock(&listener_mutex);
 	collection_add(&listeners, _context);
-	mutex_unlock(&listener_mutex);
 
 	if (th_event_handler == THREAD_T_NULL || !thread_alive(th_event_handler)) {
+		mutex_unlock(&listener_mutex);
 		struct _irecv_event_handler_info info;
 		cond_init(&info.startup_cond);
 		mutex_init(&info.startup_mutex);
@@ -2456,6 +2458,18 @@ IRECV_API irecv_error_t irecv_device_event_subscribe(irecv_device_event_context_
 		mutex_unlock(&info.startup_mutex);
 		cond_destroy(&info.startup_cond);
 		mutex_destroy(&info.startup_mutex);
+	} else {
+		/* we need to submit DEVICE_ADD events to the new listener */
+		FOREACH(struct irecv_usb_device_info *dev, &devices) {
+			if (dev) {
+				irecv_device_event_t ev;
+				ev.type = IRECV_DEVICE_ADD;
+				ev.mode = dev->mode;
+				ev.device_info = &(dev->device_info);
+				_context->callback(&ev, _context->user_data);
+			}
+		} ENDFOREACH
+		mutex_unlock(&listener_mutex);
 	}
 
 	*context = _context;
