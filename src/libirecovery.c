@@ -51,6 +51,9 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <setupapi.h>
+#include <Dbt.h>
+#include <initguid.h>
+#include <usbiodef.h>
 #ifndef sleep
 #define sleep(n) Sleep(1000 * n)
 #endif
@@ -441,6 +444,8 @@ static CFRunLoopRef iokit_runloop = NULL;
 #else
 static libusb_context* irecv_hotplug_ctx = NULL;
 #endif
+#else
+static HWND win_window_hotplug = NULL;
 #endif
 
 static void _irecv_init(void)
@@ -2191,6 +2196,108 @@ static int _irecv_usb_hotplug_cb(libusb_context *ctx, libusb_device *device, lib
 }
 #endif /* HAVE_LIBUSB_HOTPLUG_API */
 #endif /* !HAVE_IOKIT */
+#else
+static void _irecv_win_hotplug_enum()
+{
+	const GUID *guids[] = { &GUID_DEVINTERFACE_DFU, &GUID_DEVINTERFACE_IBOOT, NULL };
+
+	SP_DEVICE_INTERFACE_DATA currentInterface;
+	HDEVINFO usbDevices;
+	DWORD i;
+	int k;
+
+	FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
+		devinfo->alive = 0;
+	} ENDFOREACH
+
+	for (k = 0; guids[k]; k++) {
+		usbDevices = SetupDiGetClassDevs(guids[k], NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+		if (!usbDevices) {
+			debug("%s: ERROR: SetupDiGetClassDevs failed\n", __func__);
+			return;
+		}
+
+		memset(&currentInterface, '\0', sizeof(SP_DEVICE_INTERFACE_DATA));
+		currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+		for (i = 0; usbDevices && SetupDiEnumDeviceInterfaces(usbDevices, NULL, guids[k], i, &currentInterface); i++) {
+			DWORD requiredSize = 0;
+			PSP_DEVICE_INTERFACE_DETAIL_DATA details;
+			SetupDiGetDeviceInterfaceDetail(usbDevices, &currentInterface, NULL, 0, &requiredSize, NULL);
+			details = (PSP_DEVICE_INTERFACE_DETAIL_DATA) malloc(requiredSize);
+			details->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
+			SP_DEVINFO_DATA devinfodata;
+			devinfodata.cbSize = sizeof(SP_DEVINFO_DATA);
+			if(!SetupDiGetDeviceInterfaceDetail(usbDevices, &currentInterface, details, requiredSize, NULL, &devinfodata)) {
+				free(details);
+				continue;
+			}
+
+			DWORD sz = REG_SZ;
+			char driver[256];
+			driver[0] = '\0';
+			if (!SetupDiGetDeviceRegistryProperty(usbDevices, &devinfodata, SPDRP_DRIVER, &sz, (PBYTE)driver, sizeof(driver), NULL)) {
+				debug("%s: ERROR: Failed to get driver key\n", __func__);
+				free(details);
+				continue;
+			}
+
+			char *p = strrchr(driver, '\\');
+			if (!p) {
+				debug("%s: ERROR: Failed to parse device location\n", __func__);
+				free(details);
+				continue;
+			}
+			p++;
+			uint32_t location = 0;
+			if (!*p || strlen(p) < 4) {
+				debug("%s: ERROR: Driver location suffix too short\n", __func__);
+				free(details);
+				continue;
+			}
+			memcpy(&location, p, 4);
+			int found = 0;
+
+			FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
+				if (devinfo->location == location) {
+					devinfo->alive = 1;
+					found = 1;
+					break;
+				}
+			} ENDFOREACH
+
+			if (!found) {
+				struct irecv_win_dev_ctx win_ctx;
+				win_ctx.details = details;
+				win_ctx.location = location;
+				_irecv_handle_device_add(&win_ctx);
+			}
+			free(details);
+		}
+		SetupDiDestroyDeviceInfoList(usbDevices);
+	}
+
+	FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
+		if (!devinfo->alive) {
+			_irecv_handle_device_remove(devinfo);
+		}
+	} ENDFOREACH
+}
+
+static LRESULT CALLBACK _irecv_win_hotplug_cb(HWND _Hwnd, UINT _Message, WPARAM wParam, LPARAM lParam)
+{
+	if(_Message == WM_CLOSE) {
+		DestroyWindow(_Hwnd);
+	}
+	else if(_Message == WM_DESTROY) {
+		PostQuitMessage(0);
+	}
+	else if(_Message == WM_DEVICECHANGE) {
+		if(wParam == DBT_DEVICEARRIVAL || wParam == DBT_DEVICEREMOVECOMPLETE) {
+			_irecv_win_hotplug_enum();
+		}
+	}
+	return DefWindowProcW(_Hwnd, _Message, wParam, lParam);
+}
 #endif /* !WIN32 */
 
 struct _irecv_event_handler_info {
@@ -2202,104 +2309,62 @@ static void *_irecv_event_handler(void* data)
 {
 	struct _irecv_event_handler_info* info = (struct _irecv_event_handler_info*)data;
 #ifdef WIN32
-	const GUID *guids[] = { &GUID_DEVINTERFACE_DFU, &GUID_DEVINTERFACE_IBOOT, NULL };
-	int running = 1;
-
 	mutex_lock(&(info->startup_mutex));
 	cond_signal(&(info->startup_cond));
 	mutex_unlock(&(info->startup_mutex));
 
-	do {
-		SP_DEVICE_INTERFACE_DATA currentInterface;
-		HDEVINFO usbDevices;
-		DWORD i;
-		int k;
+	wchar_t 	window_name[MAX_PATH] = {0};
+	HMODULE		app_module = GetModuleHandleW(NULL);
+	HWND		window_hwnd = NULL;
+	MSG		message;
+	WNDCLASSEXW	wcex;
 
-		FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
-			devinfo->alive = 0;
-		} ENDFOREACH
+	swprintf(window_name, MAX_PATH, L"irecv_hotplug_window_0x%08X", (unsigned int)GetCurrentThreadId());
 
-		for (k = 0; guids[k]; k++) {
-			usbDevices = SetupDiGetClassDevs(guids[k], NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
-			if (!usbDevices) {
-				debug("%s: ERROR: SetupDiGetClassDevs failed\n", __func__);
-				return NULL;
-			}
+	wcex.cbSize = sizeof(WNDCLASSEX);
+	wcex.style = CS_HREDRAW | CS_VREDRAW;
+	wcex.lpfnWndProc = _irecv_win_hotplug_cb;
+	wcex.cbClsExtra = 0;
+	wcex.cbWndExtra = 0;
+	wcex.hInstance = app_module;
+	wcex.hIcon = NULL;
+	wcex.hCursor = LoadCursorA(NULL, IDC_ARROW);
+	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+	wcex.lpszMenuName = NULL;
+	wcex.lpszClassName = window_name;
+	wcex.hIconSm = NULL;
+	RegisterClassExW(&wcex);
 
+	window_hwnd = CreateWindowExW(WS_EX_TOPMOST, window_name, window_name, WS_POPUP, 0, 0, 400, 300, NULL, NULL, app_module, NULL);
+	if(window_hwnd == NULL) {
+		return NULL;
+	}
+	win_window_hotplug = window_hwnd;
 
-			memset(&currentInterface, '\0', sizeof(SP_DEVICE_INTERFACE_DATA));
-			currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
-			for (i = 0; usbDevices && SetupDiEnumDeviceInterfaces(usbDevices, NULL, guids[k], i, &currentInterface); i++) {
-				DWORD requiredSize = 0;
-				PSP_DEVICE_INTERFACE_DETAIL_DATA details;
-				SetupDiGetDeviceInterfaceDetail(usbDevices, &currentInterface, NULL, 0, &requiredSize, NULL);
-				details = (PSP_DEVICE_INTERFACE_DETAIL_DATA) malloc(requiredSize);
-				details->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
-				SP_DEVINFO_DATA devinfodata;
-				devinfodata.cbSize = sizeof(SP_DEVINFO_DATA);
-				if(!SetupDiGetDeviceInterfaceDetail(usbDevices, &currentInterface, details, requiredSize, NULL, &devinfodata)) {
-					free(details);
-					continue;
-				}
+	_irecv_win_hotplug_enum();
 
-				DWORD sz = REG_SZ;
-				char driver[256];
-				driver[0] = '\0';
-				if (!SetupDiGetDeviceRegistryProperty(usbDevices, &devinfodata, SPDRP_DRIVER, &sz, (PBYTE)driver, sizeof(driver), NULL)) {
-					debug("%s: ERROR: Failed to get driver key\n", __func__);
-					free(details);
-					continue;
-				}
+	DEV_BROADCAST_DEVICEINTERFACE_W		vFilterDFU;
+	memset(&vFilterDFU, 0, sizeof(DEV_BROADCAST_DEVICEINTERFACE_W));
+	vFilterDFU.dbcc_size = sizeof(DEV_BROADCAST_DEVICEINTERFACE_W);
+	vFilterDFU.dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
+	vFilterDFU.dbcc_classguid = GUID_DEVINTERFACE_DFU;
+	RegisterDeviceNotificationW(window_hwnd, &vFilterDFU, DEVICE_NOTIFY_WINDOW_HANDLE);
 
-				char *p = strrchr(driver, '\\');
-				if (!p) {
-					debug("%s: ERROR: Failed to parse device location\n", __func__);
-					free(details);
-					continue;
-				}
-				p++;
-				uint32_t location = 0;
-				if (!*p || strlen(p) < 4) {
-					debug("%s: ERROR: Driver location suffix too short\n", __func__);
-					free(details);
-					continue;
-				}
-				memcpy(&location, p, 4);
-				int found = 0;
+	DEV_BROADCAST_DEVICEINTERFACE_W		vFilterIBOOT;
+	memset(&vFilterIBOOT, 0, sizeof(DEV_BROADCAST_DEVICEINTERFACE_W));
+	vFilterIBOOT.dbcc_size = sizeof(DEV_BROADCAST_DEVICEINTERFACE_W);
+	vFilterIBOOT.dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
+	vFilterIBOOT.dbcc_classguid = GUID_DEVINTERFACE_IBOOT;
+	RegisterDeviceNotificationW(window_hwnd, &vFilterIBOOT, DEVICE_NOTIFY_WINDOW_HANDLE);
 
-				FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
-					if (devinfo->location == location) {
-						devinfo->alive = 1;
-						found = 1;
-						break;
-					}
-				} ENDFOREACH
+	ShowWindow(window_hwnd, SW_HIDE);
+	UpdateWindow(window_hwnd);
+	SetWindowTextW(window_hwnd, window_name);
 
-				if (!found) {
-					struct irecv_win_dev_ctx win_ctx;
-					win_ctx.details = details;
-					win_ctx.location = location;
-					_irecv_handle_device_add(&win_ctx);
-				}
-				free(details);
-			}
-			SetupDiDestroyDeviceInfoList(usbDevices);
-		}
-
-		FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
-			if (!devinfo->alive) {
-				_irecv_handle_device_remove(devinfo);
-			}
-		} ENDFOREACH
-
-		mutex_lock(&listener_mutex);
-		if (collection_count(&listeners) == 0) {
-			running = 0;
-		}
-		mutex_unlock(&listener_mutex);
-
-		Sleep(500);
-	} while (running);
+	while(GetMessageW(&message, NULL, 0U, 0U) > 0) {
+		TranslateMessage(&message);
+		DispatchMessageW(&message);
+	}
 
 #else /* !WIN32 */
 #ifdef HAVE_IOKIT
@@ -2489,6 +2554,12 @@ IRECV_API irecv_error_t irecv_device_event_unsubscribe(irecv_device_event_contex
 		if (iokit_runloop) {
 			CFRunLoopStop(iokit_runloop);
 			iokit_runloop = NULL;
+		}
+#endif
+#ifdef _WIN32
+		if(win_window_hotplug) {
+			PostMessageW(win_window_hotplug, WM_CLOSE, 0, 0);
+			win_window_hotplug = NULL;
 		}
 #endif
 		thread_join(th_event_handler);
