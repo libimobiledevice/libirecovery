@@ -2601,7 +2601,7 @@ IRECV_API void irecv_set_debug_level(int level) {
 static irecv_error_t irecv_send_command_raw(irecv_client_t client, const char* command, uint8_t b_request) {
 	unsigned int length = strlen(command);
 	if (length >= 0x100) {
-		length = 0xFF;
+		return IRECV_E_INVALID_INPUT;
 	}
 
 	if (length > 0) {
@@ -2623,7 +2623,7 @@ IRECV_API irecv_error_t irecv_send_command_breq(irecv_client_t client, const cha
 
 	unsigned int length = strlen(command);
 	if (length >= 0x100) {
-		length = 0xFF;
+		return IRECV_E_INVALID_INPUT;
 	}
 
 	irecv_event_t event;
