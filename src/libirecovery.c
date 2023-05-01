@@ -574,12 +574,12 @@ static int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc
 #else
 	irecv_error_t ret;
 	unsigned short langid = 0;
-	unsigned char data[255];
+	unsigned char data[256];
 	int di, si;
-	memset(data, 0, sizeof(data));
+	memset(data, 0, 256);
 	memset(buffer, 0, size);
 
-	ret = irecv_usb_control_transfer(client, 0x80, 0x06, (0x03 << 8) | desc_index, langid, data, sizeof(data), USB_TIMEOUT);
+	ret = irecv_usb_control_transfer(client, 0x80, 0x06, (0x03 << 8) | desc_index, langid, data, 255, USB_TIMEOUT);
 
 	if (ret < 0) return ret;
 	if (data[1] != 0x03) return IRECV_E_UNKNOWN_ERROR;
@@ -688,12 +688,13 @@ static void irecv_copy_nonce_with_tag(irecv_client_t client, const char* tag, un
 		return;
 	}
 
-	char buf[255];
+	char buf[256];
 	int len;
 
 	*nonce = NULL;
 	*nonce_size = 0;
 
+	memset(buf, 0, 256);
 	len = irecv_get_string_descriptor_ascii(client, 1, (unsigned char*) buf, 255);
 	if (len < 0) {
 		debug("%s: got length: %d\n", __func__, len);
@@ -834,7 +835,6 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, uint64_t ecid) {
 			}
 
 			char serial_str[256];
-
 			serial_str[0] = '\0';
 
 			char *p = result;
@@ -1495,6 +1495,7 @@ IRECV_API irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t e
 				client->mode = usb_descriptor.idProduct;
 
 				char serial_str[256];
+				memset(serial_str, 0, 256);
 				irecv_get_string_descriptor_ascii(client, usb_descriptor.iSerialNumber, (unsigned char*)serial_str, 255);
 
 				irecv_load_device_info_from_iboot_string(client, serial_str);
@@ -1939,7 +1940,7 @@ static void* _irecv_handle_device_add(void *userdata)
 	uint32_t location = 0;
 	uint16_t product_id = 0;
 
-	serial_str[0] = '\0';
+	memset(serial_str, 0, 256);
 #ifdef WIN32
 	struct irecv_win_dev_ctx *win_ctx = (struct irecv_win_dev_ctx*)userdata;
 	PSP_DEVICE_INTERFACE_DETAIL_DATA details = win_ctx->details;
