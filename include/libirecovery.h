@@ -2,7 +2,7 @@
  * libirecovery.h
  * Communication to iBoot/iBSS on Apple iOS devices via USB
  *
- * Copyright (c) 2012-2019 Nikias Bassen <nikias@gmx.li>
+ * Copyright (c) 2012-2023 Nikias Bassen <nikias@gmx.li>
  * Copyright (c) 2012-2013 Martin Szulecki <m.szulecki@libimobiledevice.org>
  * Copyright (c) 2010 Chronic-Dev Team
  * Copyright (c) 2010 Joshua Hill
@@ -27,14 +27,20 @@ extern "C" {
 
 #include <stdint.h>
 
-#ifdef WIN32
-#define IRECV_API __declspec( dllexport )
+#ifdef IRECV_STATIC
+  #define IRECV_API
+#elif defined(_WIN32)
+  #ifdef DLL_EXPORT
+    #define IRECV_API __declspec(dllexport)
+  #else
+    #define IRECV_API __declspec(dllimport)
+  #endif
 #else
-#ifdef HAVE_FVISIBILITY
-#define IRECV_API __attribute__((visibility("default")))
-#else
-#define IRECV_API
-#endif
+  #if __GNUC__ >= 4
+    #define IRECV_API __attribute__((visibility("default")))
+  #else
+    #define IRECV_API
+  #endif
 #endif
 
 enum irecv_mode {
