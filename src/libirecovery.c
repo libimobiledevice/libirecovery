@@ -2868,6 +2868,12 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 		}
 	}
 
+	if (recovery_mode && length % 512 == 0) {
+		/* send a ZLP */
+		bytes = 0;
+		irecv_usb_bulk_transfer(client, 0x04, buffer, 0, &bytes, USB_TIMEOUT);
+	}
+
 	if (dfu_notify_finished && !recovery_mode) {
 		irecv_usb_control_transfer(client, 0x21, 1, packets, 0, (unsigned char*) buffer, 0, USB_TIMEOUT);
 
