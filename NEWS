@@ -1,3 +1,44 @@
+Version 1.1.0
+~~~~~~~~~~~~~
+
+* Changes:
+  - Remove duplicated thread/collection code and use new libimobiledevice-glue instead
+  - Add new `irecv_send_command_breq` (for M1 restoring)
+  - Add new `setenvnp` command
+  - Add support for iPad 8 and iPad Air 4 models
+  - Add all current Apple Watch models (device lookup)
+  - Add support for HomePod and HomePod mini (device lookup)
+  - Add support for Apple Silicon/M1 Macs (device lookup) and remaining T2/iBridge devices
+  - Add iMac 24-inch M1 models
+  - Add iPad Pro 11-inch (3rd gen) and iPad Pro 12.9-inch (5th gen) devices
+  - Add Apple TV 4K (2nd gen)
+  - Add iPhone 13 family
+  - Add 9th gen iPad devices
+  - Add 6th gen iPad mini
+  - Add Apple Watch Series 7
+  - Add MacBook Pro 2021 models (device lookup)
+  - Add iPad Air (5th gen)
+  - Add iPhone SE (3rd gen)
+  - Add Mac Studio
+  - Add Studio Display (device lookup)
+  - Add device ID for macOS 12 Apple Silicon VMs
+  - Add M2 MacBook models
+  - Add iPhone 14 family
+  - Add Apple Watch SE 2, Series 8 and Ultra family
+  - Add iPad (10th gen)
+  - Add iPad Pro 11-inch (4th gen) and iPad Pro 12.9-inch (6th gen)
+  - Add Apple TV 4K 3rd gen
+  - Add January 2023 Macs and 2nd generation HomePod models
+  - [Windows] Add support for newer drivers
+  - irecovery: Add new "--devices" option to list internal device data
+  - irecovery: Output product, model and marketing name for device information
+
+* Bug Fixes:
+  - Send a ZLP in recovery mode if the buffer size is a multiple of 512
+  - Make sure DEVICE_ADD events are sent to additional event listeners
+  - [Windows] Use ANSI versions for SetupDI and CreateFile API to prevent errors when compiling with unicode support
+  - irecovery: Fix sending certain commands
+
 Version 1.0.0
 ~~~~~~~~~~~~~
 
