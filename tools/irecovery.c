@@ -17,6 +17,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
+ * Modified by @i-am-theKid June'2023
  */
 
 #ifdef HAVE_CONFIG_H
@@ -24,6 +25,7 @@
 #endif
 
 #define TOOL_NAME "irecovery"
+#define PACKAGE_VERSION "1.0.3-by-theKid"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,6 +36,8 @@
 #include <libirecovery.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+
+
 
 #ifdef WIN32
 #include <windows.h>
@@ -199,7 +203,7 @@ static void print_device_info(irecv_client_t client)
 	ret = irecv_get_mode(client, &mode);
 	if (ret == IRECV_E_SUCCESS)
 	{
-		printf("MODE: %s\n", mode_to_str(mode));
+		printf("MODE: %s\n", mode_to_str(mode) );
 	}
 
 	irecv_devices_get_device_by_client(client, &device);
@@ -485,18 +489,18 @@ static void print_usage(int argc, char **argv)
 	printf("  -h, --help\t\tprints this usage information\n");
 	printf("  -V, --version\t\tprints version information\n");
 	printf("\n");
-	printf("Homepage:    <" PACKAGE_URL ">\n");
-	printf("Bug Reports: <" PACKAGE_BUGREPORT ">\n");
+	//printf("Homepage:    <" PACKAGE_URL ">\n");
+	//printf("Bug Reports: <" PACKAGE_BUGREPORT ">\n");
 }
 
 static void print_iboot_info(irecv_client_t client)
 {
-	int ret, mode, modecheck;
-	irecv_device_t device = NULL;
+	int mode, modecheck;
+	//irecv_device_t device = NULL;
 	modecheck = irecv_get_mode(client, &mode);
 	if (modecheck == IRECV_E_SUCCESS){
-		if (mode_to_str(mode) == "Recovery"){
-	
+		//if (strcmp(mode_to_str(mode), "Recovery") == 0){
+		if (strcmp(mode_to_str(mode),"Recovery") == 0){
 			const struct irecv_device_info *devinfo = irecv_get_device_info(client);
 			if (devinfo)
 			{
@@ -504,8 +508,11 @@ static void print_iboot_info(irecv_client_t client)
 				irecv_error_t error = 0;
 
 				error = irecv_send_command(client, "getenv build-version");
-
 				char *response = (char *)malloc(256);
+				if (error != IRECV_E_SUCCESS)
+				{
+				debug("%s\n", irecv_strerror(error));
+				}
 				if (response == NULL)
 				{
 					printf("Could not get iboot response?!\n");
@@ -513,92 +520,100 @@ static void print_iboot_info(irecv_client_t client)
 
 				memset(response, '\0', 256);
 				irecv_usb_control_transfer(client, 0xC0, 0, 0, 0, (unsigned char *)response, 255 + 1, 10000);
+				//char *dugBaseIos = response;
+				char *baseIos = (char *)"NA";
 
-				char *baseIos;
-
-				if (strcasestr(response, "iBoot-6603.0") || strcasestr(response, "iBoot-6631.0") || strcasestr(response, "iBoot-6671.0") || strcasestr(response, "iBoot-6723.0") || strcasestr(response, "iBoot-6723.11"))
+				if (strstr(response, "iBoot-6603.0") != NULL || strstr(response, "iBoot-6631.0") != NULL || strstr(response, "iBoot-6671.0") != NULL || strstr(response, "iBoot-6723.0") != NULL || strstr(response, "iBoot-6723.11") != NULL )
 				{
-					baseIos = "14.0";
+					baseIos = (char *)"14.0";
 				}
-				else if (strcasestr(response, "iBoot-6723.11"))
+				else if (strstr(response, "iBoot-6723.11") != NULL )
 				{
-					baseIos = "14.1";
+					baseIos = (char *)"14.1";
 				}
-				else if (strcasestr(response, "iBoot-6723.40") || strcasestr(response, "iBoot-6723.42"))
+				else if (strstr(response, "iBoot-6723.40") != NULL || strstr(response, "iBoot-6723.42") != NULL )
 				{
-					baseIos = "14.2";
+					baseIos = (char *)"14.2";
 				}
-				else if (strcasestr(response, "iBoot-6723.60") || strcasestr(response, "iBoot-6723.62"))
+				else if (strstr(response, "iBoot-6723.60") != NULL || strstr(response, "iBoot-6723.62") != NULL )
 				{
-					baseIos = "14.3";
+					baseIos = (char *)"14.3";
 				}
-				else if (strcasestr(response, "iBoot-6723.80"))
+				else if (strstr(response, "iBoot-6723.80") != NULL )
 				{
-					baseIos = "14.4";
+					baseIos = (char *)"14.4";
 				}
-				else if (strcasestr(response, "iBoot-6723.100") || strcasestr(response, "iBoot-6723.102"))
+				else if (strstr(response, "iBoot-6723.100") != NULL || strstr(response, "iBoot-6723.102") != NULL )
 				{
-					baseIos = "14.5";
+					baseIos = (char *)"14.5";
 				}
-				else if (strcasestr(response, "iBoot-6723.120"))
+				else if (strstr(response, "iBoot-6723.120") != NULL )
 				{
-					baseIos = "14.6";
+					baseIos = (char *)"14.6";
 				}
-				else if (strcasestr(response, "iBoot-6723.140"))
+				else if (strstr(response, "iBoot-6723.140") != NULL )
 				{
-					baseIos = "14.7";
+					baseIos = (char *)"14.7";
 				}
-				else if (strcasestr(response,"iBoot-6723.140.2"))
+				else if (strstr(response,"iBoot-6723.140.2") != NULL )
 				{
-					baseIos = "14.8";
+					baseIos = (char *)"14.8";
 				}
-				else if (strcasestr(response, "iBoot-7429.0") || strcasestr(response, "iBoot-7429.10") || strcasestr(response, "iBoot-7429.12"))
+				else if (strstr(response, "iBoot-7429.0") != NULL || strstr(response, "iBoot-7429.10") != NULL || strstr(response, "iBoot-7429.12") != NULL )
 				{
-					baseIos = "15.0";
+					baseIos = (char *)"15.0";
 				}
-				else if (strcasestr(response, "iBoot-7429.40") || strcasestr(response, "iBoot-7429.42"))
+				else if (strstr(response, "iBoot-7429.40") != NULL || strstr(response, "iBoot-7429.42") != NULL )
 				{
-					baseIos = "15.1";
+					baseIos = (char *)"15.1";
 				}
-				else if (strcasestr(response, "iBoot-7429.60") || strcasestr(response, "iBoot-7429.62"))
+				else if (strstr(response, "iBoot-7429.60") != NULL || strstr(response, "iBoot-7429.62") != NULL )
 				{
-					baseIos = "15.2";
+					baseIos = (char *)"15.2";
 				}
-				else if (strcasestr(response, "iBoot-7429.80") || strcasestr(response, "iBoot-7429.82"))
+				else if (strstr(response, "iBoot-7429.80") != NULL || strstr(response, "iBoot-7429.82") != NULL )
 				{
-					baseIos = "15.3";
+					baseIos = (char *)"15.3";
 				}
-				else if (strcasestr(response, "iBoot-7459.100") || strcasestr(response, "iBoot-7459.102"))
+				else if (strstr(response, "iBoot-7459.100") != NULL || strstr(response, "iBoot-7459.102") != NULL )
 				{
-					baseIos = "15.4";
+					baseIos = (char *)"15.4";
 				}
-				else if (strcasestr(response, "iBoot-7459.120"))
+				else if (strstr(response, "iBoot-7459.120") != NULL )
 				{
-					baseIos = "15.5";
+					baseIos = (char *)"15.5";
 				}
-				else if (strcasestr(response, "iBoot-7459.140"))
+				else if (strstr(response, "iBoot-7459.140") != NULL )
 				{
-					baseIos = "15.6";
+					baseIos = (char *)"15.6";
 				}
-				else if (strcasestr(response, "iBoot-8419.0") || strcasestr(response, "iBoot-8419.2"))
+				else if (strstr(response, "iBoot-8419.0") != NULL || strstr(response, "iBoot-8419.2") != NULL )
 				{
-					baseIos = "16.0";
+					baseIos = (char *)"16.0";
 				}
-				else if (strcasestr(response, "iBoot-8419.40"))
+				else if (strstr(response, "iBoot-8419.40") != NULL )
 				{
-					baseIos = "16.1";
+					baseIos = (char *)"16.1";
 				}
-				else if (strcasestr(response, "iBoot-8419.60"))
+				else if (strstr(response, "iBoot-8419.60") != NULL )
 				{
-					baseIos = "16.2";
+					baseIos = (char *)"16.2";
 				}
-				else if (strcasestr(response, "iBoot-8419.82"))
+				else if (strstr(response, "iBoot-8419.80") != NULL || strstr(response, "iBoot-8419.82") != NULL )
 				{
-					baseIos = "16.3";
+					baseIos = (char *)"16.3";
 				}
-				else if (strcasestr(response, "iBoot-8422.100"))
+				else if (strstr(response, "iBoot-8422.100") != NULL )
 				{
-					baseIos = "16.4";
+					baseIos = (char *)"16.4";
+				}
+				else if (strstr(response, "iBoot-8422.120") != NULL )
+				{
+					baseIos = (char *)"16.5";
+				}
+				else 
+				{
+					baseIos = (char *)"NA";
 				}
 
 				printf("BUILD_VERSION: %s \n", response);
