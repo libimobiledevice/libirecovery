@@ -2,7 +2,7 @@
  * irecovery.c
  * Software frontend for iBoot/iBSS communication with iOS devices
  *
- * Copyright (c) 2012-2020 Nikias Bassen <nikias@gmx.li>
+ * Copyright (c) 2012-2023 Nikias Bassen <nikias@gmx.li>
  * Copyright (c) 2012-2015 Martin Szulecki <martin.szulecki@libimobiledevice.org>
  * Copyright (c) 2010-2011 Chronic-Dev Team
  * Copyright (c) 2010-2011 Joshua Hill

@@ -38,7 +38,7 @@ jobs:
           done
           sudo cp -r extract/* /
           sudo ldconfig
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: autogen
       run: ./autogen.sh PKG_CONFIG_PATH=/usr/local/lib/pkgconfig LDFLAGS="-Wl,-rpath=/usr/local/lib"
     - name: make
@@ -51,7 +51,7 @@ jobs:
           DESTDIR=`pwd`/dest make install
           tar -C dest -cf libirecovery.tar lib usr
     - name: publish artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: libirecovery-latest_${{env.target_triplet}}
         path: libirecovery.tar
@@ -87,7 +87,7 @@ jobs:
             tar -C extract -xvf $I
           done
           sudo cp -r extract/* /
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: autogen
       run: |
           SDKDIR=`xcrun --sdk macosx --show-sdk-path`
@@ -111,7 +111,7 @@ jobs:
           DESTDIR=`pwd`/dest make install
           tar -C dest -cf libirecovery.tar usr
     - name: publish artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: libirecovery-latest_macOS
         path: libirecovery.tar
@@ -167,7 +167,7 @@ jobs:
             tar -C extract -xvf $I
           done
           cp -r extract/* /
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: autogen
       run: ./autogen.sh CC=gcc CXX=g++
     - name: make
@@ -180,7 +180,7 @@ jobs:
           DESTDIR=`pwd`/dest make install
           tar -C dest -cf libirecovery.tar ${{ env.dest }}
     - name: publish artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: libirecovery-latest_${{ matrix.arch }}-${{ env.dest }}
         path: libirecovery.tar
