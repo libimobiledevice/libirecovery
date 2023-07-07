@@ -328,7 +328,7 @@ static struct irecv_device irecv_devices[] = {
 	{ "Mac14,12",       "j474sap", 0x02, 0x6020, "Mac mini (M2 Pro, 2023)" },
 	{ "Mac14,13",       "j475cap", 0x0A, 0x6021, "Mac Studio (M2 Max, 2023)" },
 	{ "Mac14,14",       "j475dap", 0x0A, 0x6022, "Mac Studio (M2 Ultra, 2023)" },
-	{ "Mac14,15",       "j415ap", 0x2E, 0x8112, "MacBook Air (M2, 15-inch, 2023)" },
+	{ "Mac14,15",       "j415ap",  0x2E, 0x8112, "MacBook Air (M2, 15-inch, 2023)" },
 	/* Apple Silicon VMs (supported by Virtualization.framework on macOS 12) */
 	{ "VirtualMac2,1",  "vma2macosap",  0x20, 0xFE00, "Apple Virtual Machine 1" },
 	/* Apple T2 Coprocessor */
