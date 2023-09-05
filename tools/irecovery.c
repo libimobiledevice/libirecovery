@@ -36,8 +36,6 @@
 #include <libirecovery.h>
 #include <readline/readline.h>
 #include <readline/history.h>
-#include <config.h>
-
 
 #ifdef WIN32
 #include <windows.h>
@@ -47,12 +45,9 @@
 #endif
 
 #define FILE_HISTORY_PATH ".irecovery"
-#define debug(...) \
-	if (verbose)   \
-	fprintf(stderr, __VA_ARGS__)
+#define debug(...) if (verbose) fprintf(stderr, __VA_ARGS__)
 
-enum
-{
+enum {
 	kNoAction,
 	kResetDevice,
 	kStartShell,
@@ -71,10 +66,10 @@ static unsigned int quit = 0;
 static unsigned int verbose = 0;
 
 void print_progress_bar(double progress);
-int received_cb(irecv_client_t client, const irecv_event_t *event);
-int progress_cb(irecv_client_t client, const irecv_event_t *event);
-int precommand_cb(irecv_client_t client, const irecv_event_t *event);
-int postcommand_cb(irecv_client_t client, const irecv_event_t *event);
+int received_cb(irecv_client_t client, const irecv_event_t* event);
+int progress_cb(irecv_client_t client, const irecv_event_t* event);
+int precommand_cb(irecv_client_t client, const irecv_event_t* event);
+int postcommand_cb(irecv_client_t client, const irecv_event_t* event);
 
 static void shell_usage()
 {
@@ -87,24 +82,24 @@ static void shell_usage()
 }
 
 static const char *mode_to_str(int mode)
+static const char *mode_to_str(int mode)
 {
-	switch (mode)
-	{
-	case IRECV_K_RECOVERY_MODE_1:
-	case IRECV_K_RECOVERY_MODE_2:
-	case IRECV_K_RECOVERY_MODE_3:
-	case IRECV_K_RECOVERY_MODE_4:
-		return "Recovery";
-		break;
-	case IRECV_K_DFU_MODE:
-		return "DFU";
-		break;
-	case IRECV_K_WTF_MODE:
-		return "WTF";
-		break;
-	default:
-		return "Unknown";
-		break;
+	switch (mode) {
+		case IRECV_K_RECOVERY_MODE_1:
+		case IRECV_K_RECOVERY_MODE_2:
+		case IRECV_K_RECOVERY_MODE_3:
+		case IRECV_K_RECOVERY_MODE_4:
+			return "Recovery";
+			break;
+		case IRECV_K_DFU_MODE:
+			return "DFU";
+			break;
+		case IRECV_K_WTF_MODE:
+			return "WTF";
+			break;
+		default:
+			return "Unknown";
+			break;
 	}
 }
 
@@ -116,8 +111,7 @@ static void buffer_read_from_filename(const char *filename, char **buffer, uint6
 	*length = 0;
 
 	f = fopen(filename, "rb");
-	if (!f)
-	{
+	if (!f) {
 		return;
 	}
 
@@ -125,12 +119,12 @@ static void buffer_read_from_filename(const char *filename, char **buffer, uint6
 	size = ftell(f);
 	rewind(f);
 
-	if (size == 0)
-	{
+	if (size == 0) {
 		fclose(f);
 		return;
 	}
 
+	*buffer = (char *)malloc(sizeof(char) * (size + 1));
 	*buffer = (char *)malloc(sizeof(char) * (size + 1));
 	fread(*buffer, sizeof(char), size, f);
 	fclose(f);
@@ -141,8 +135,7 @@ static void buffer_read_from_filename(const char *filename, char **buffer, uint6
 static void print_hex(unsigned char *buf, size_t len)
 {
 	size_t i;
-	for (i = 0; i < len; i++)
-	{
+	for (i = 0; i < len; i++) {
 		printf("%02x", buf[i]);
 	}
 }
@@ -152,8 +145,7 @@ static void print_device_info(irecv_client_t client)
 	int ret, mode;
 	irecv_device_t device = NULL;
 	const struct irecv_device_info *devinfo = irecv_get_device_info(client);
-	if (devinfo)
-	{
+	if (devinfo) {
 		printf("CPID: 0x%04x\n", devinfo->cpid);
 		printf("CPRV: 0x%02x\n", devinfo->cprv);
 		printf("BDID: 0x%02x\n", devinfo->bdid);
@@ -165,50 +157,38 @@ static void print_device_info(irecv_client_t client)
 		printf("SRNM: %s\n", (devinfo->srnm) ? devinfo->srnm : "N/A");
 		printf("IMEI: %s\n", (devinfo->imei) ? devinfo->imei : "N/A");
 		printf("NONC: ");
-		if (devinfo->ap_nonce)
-		{
+		if (devinfo->ap_nonce) {
 			print_hex(devinfo->ap_nonce, devinfo->ap_nonce_size);
-		}
-		else
-		{
+		} else {
 			printf("N/A");
 		}
 		printf("\n");
 		printf("SNON: ");
-		if (devinfo->sep_nonce)
-		{
+		if (devinfo->sep_nonce) {
 			print_hex(devinfo->sep_nonce, devinfo->sep_nonce_size);
-		}
-		else
-		{
+		} else {
 			printf("N/A");
 		}
 		printf("\n");
-		char *p = strstr(devinfo->serial_string, "PWND:[");
-		if (p)
-		{
-			p += 6;
-			char *pend = strchr(p, ']');
-			if (pend)
-			{
-				printf("PWND: %.*s\n", (int)(pend - p), p);
+		char* p = strstr(devinfo->serial_string, "PWND:[");
+		if (p) {
+			p+=6;
+			char* pend = strchr(p, ']');
+			if (pend) {
+				printf("PWND: %.*s\n", (int)(pend-p), p);
 			}
 		}
-	}
-	else
-	{
+	} else {
 		printf("Could not get device info?!\n");
 	}
 
 	ret = irecv_get_mode(client, &mode);
-	if (ret == IRECV_E_SUCCESS)
-	{
-		printf("MODE: %s\n", mode_to_str(mode) );
+	if (ret == IRECV_E_SUCCESS) {
+		printf("MODE: %s\n", mode_to_str(mode));
 	}
 
 	irecv_devices_get_device_by_client(client, &device);
-	if (device)
-	{
+	if (device) {
 		printf("PRODUCT: %s\n", device->product_type);
 		printf("MODEL: %s\n", device->hardware_model);
 		printf("NAME: %s\n", device->display_name);
@@ -221,8 +201,7 @@ static void print_devices()
 	struct irecv_device *device = NULL;
 	int i = 0;
 
-	for (i = 0; devices[i].product_type != NULL; i++)
-	{
+	for (i = 0; devices[i].product_type != NULL; i++) {
 		device = &devices[i];
 
 		printf("%s %s 0x%02x 0x%04x %s\n", device->product_type, device->hardware_model, device->board_id, device->chip_id, device->display_name);
@@ -230,70 +209,54 @@ static void print_devices()
 }
 
 static int _is_breq_command(const char *cmd)
+static int _is_breq_command(const char *cmd)
 {
 	return (
+		!strcmp(cmd, "go") || !strcmp(cmd, "bootx") || !strcmp(cmd, "reboot") || !strcmp(cmd, "memboot"));
 		!strcmp(cmd, "go") || !strcmp(cmd, "bootx") || !strcmp(cmd, "reboot") || !strcmp(cmd, "memboot"));
 }
 
 static void parse_command(irecv_client_t client, unsigned char *command, unsigned int size)
+static void parse_command(irecv_client_t client, unsigned char *command, unsigned int size)
 {
-	char *cmd = strdup((char *)command);
-	char *action = strtok(cmd, " ");
+	char* cmd = strdup((char*)command);
+	char* action = strtok(cmd, " ");
 
-	if (!strcmp(cmd, "/exit"))
-	{
+	if (!strcmp(cmd, "/exit")) {
 		quit = 1;
-	}
-	else if (!strcmp(cmd, "/help"))
-	{
+	} else if (!strcmp(cmd, "/help")) {
 		shell_usage();
-	}
-	else if (!strcmp(cmd, "/upload"))
-	{
-		char *filename = strtok(NULL, " ");
+	} else if (!strcmp(cmd, "/upload")) {
+		char* filename = strtok(NULL, " ");
 		debug("Uploading file %s\n", filename);
-		if (filename != NULL)
-		{
+		if (filename != NULL) {
 			irecv_send_file(client, filename, 0);
 		}
-	}
-	else if (!strcmp(cmd, "/deviceinfo"))
-	{
+	} else if (!strcmp(cmd, "/deviceinfo")) {
 		print_device_info(client);
-	}
-	else if (!strcmp(cmd, "/limera1n"))
-	{
-		char *filename = strtok(NULL, " ");
+	} else if (!strcmp(cmd, "/limera1n")) {
+		char* filename = strtok(NULL, " ");
 		debug("Sending limera1n payload %s\n", filename);
-		if (filename != NULL)
-		{
+		if (filename != NULL) {
 			irecv_send_file(client, filename, 0);
 		}
 		irecv_trigger_limera1n_exploit(client);
-	}
-	else if (!strcmp(cmd, "/execute"))
-	{
-		char *filename = strtok(NULL, " ");
+	} else if (!strcmp(cmd, "/execute")) {
+		char* filename = strtok(NULL, " ");
 		debug("Executing script %s\n", filename);
-		if (filename != NULL)
-		{
-			char *buffer = NULL;
+		if (filename != NULL) {
+			char* buffer = NULL;
 			uint64_t buffer_length = 0;
 			buffer_read_from_filename(filename, &buffer, &buffer_length);
-			if (buffer)
-			{
+			if (buffer) {
 				buffer[buffer_length] = '\0';
 				irecv_execute_script(client, buffer);
 				free(buffer);
-			}
-			else
-			{
+			} else {
 				printf("Could not read file '%s'\n", filename);
 			}
 		}
-	}
-	else
-	{
+	} else {
 		printf("Unsupported command %s. Use /help to get a list of available commands.\n", cmd);
 	}
 
@@ -305,6 +268,7 @@ static void load_command_history()
 	read_history(FILE_HISTORY_PATH);
 }
 
+static void append_command_to_history(char *cmd)
 static void append_command_to_history(char *cmd)
 {
 	add_history(cmd);
@@ -319,28 +283,21 @@ static void init_shell(irecv_client_t client)
 	irecv_event_subscribe(client, IRECV_RECEIVED, &received_cb, NULL);
 	irecv_event_subscribe(client, IRECV_PRECOMMAND, &precommand_cb, NULL);
 	irecv_event_subscribe(client, IRECV_POSTCOMMAND, &postcommand_cb, NULL);
-	while (!quit)
-	{
+	while (!quit) {
 		error = irecv_receive(client);
-		if (error != IRECV_E_SUCCESS)
-		{
+		if (error != IRECV_E_SUCCESS) {
 			debug("%s\n", irecv_strerror(error));
 			break;
 		}
 
-		char *cmd = readline("> ");
-		if (cmd && *cmd)
-		{
-			if (_is_breq_command(cmd))
-			{
+		char* cmd = readline("> ");
+		if (cmd && *cmd) {
+			if (_is_breq_command(cmd)) {
 				error = irecv_send_command_breq(client, cmd, 1);
-			}
-			else
-			{
+			} else {
 				error = irecv_send_command(client, cmd);
 			}
-			if (error != IRECV_E_SUCCESS)
-			{
+			if (error != IRECV_E_SUCCESS) {
 				quit = 1;
 			}
 
@@ -350,6 +307,7 @@ static void init_shell(irecv_client_t client)
 	}
 }
 
+int received_cb(irecv_client_t client, const irecv_event_t *event)
 int received_cb(irecv_client_t client, const irecv_event_t *event)
 {
 	if (event->type == IRECV_RECEIVED)
@@ -496,7 +454,6 @@ static void print_usage(int argc, char **argv)
 static void print_iboot_info(irecv_client_t client)
 {
 	int mode, modecheck;
-	//irecv_device_t device = NULL;
 	modecheck = irecv_get_mode(client, &mode);
 	if (modecheck == IRECV_E_SUCCESS){
 		//if (strcmp(mode_to_str(mode), "Recovery") == 0){
@@ -627,53 +584,9 @@ static void print_iboot_info(irecv_client_t client)
 				{
 					baseIos = (char *)"16.4";
 				}
-				else if (strstr(response, "iBoot-8422.120.33") != NULL )
-				{
-					baseIos = (char *)"16.5 Beta 1";
-				}
-				else if (strstr(response, "iBoot-8422.120.55") != NULL )
-				{
-					baseIos = (char *)"16.5 Beta 2";
-				}
-				else if (strstr(response, "iBoot-8422.120.65") != NULL )
-				{
-					baseIos = (char *)"16.5 Beta 3";
-				}
-				else if (strstr(response, "iBoot-8422.120.66") != NULL )
+				else if (strstr(response, "iBoot-8422.120") != NULL )
 				{
 					baseIos = (char *)"16.5";
-				}
-				else if (strstr(response, "iBoot-8422.122.1") != NULL )
-				{
-					baseIos = (char *)"16.5.1";
-				}
-				else if (strstr(response, "iBoot-8422.140.18") != NULL )
-				{
-					baseIos = (char *)"16.6 Beta 1";
-				}
-				else if (strstr(response, "iBoot-8422.140.32") != NULL )
-				{
-					baseIos = (char *)"16.6 Beta 2";
-				}
-				else if (strstr(response, "iBoot-8422.140.46") != NULL )
-				{
-					baseIos = (char *)"16.6 Beta 3";
-				}
-				else if (strstr(response, "iBoot-8422.140.50") != NULL )
-				{
-					baseIos = (char *)"16.6 Beta 4";
-				}
-				else if (strstr(response, "iBoot-8422.142.1") != NULL )
-				{
-					baseIos = (char *)"16.6 Beta 5";
-				}
-				else if (strstr(response, "iBoot-8422.142.2") != NULL )
-				{
-					baseIos = (char *)"16.6";
-				}
-				else if (strstr(response, "iBoot-10151") != NULL )
-				{
-					baseIos = (char *)"17.0 Beta";
 				}
 				else 
 				{
@@ -692,64 +605,62 @@ static void print_iboot_info(irecv_client_t client)
 }
 
 int main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	static struct option longopts[] = {
-		{"ecid", required_argument, NULL, 'i'},
-		{"command", required_argument, NULL, 'c'},
-		{"mode", no_argument, NULL, 'm'},
-		{"file", required_argument, NULL, 'f'},
-		{"payload", required_argument, NULL, 'k'},
-		{"reset", no_argument, NULL, 'r'},
-		{"normal", no_argument, NULL, 'n'},
-		{"script", required_argument, NULL, 'e'},
-		{"shell", no_argument, NULL, 's'},
-		{"query", no_argument, NULL, 'q'},
-		{"devices", no_argument, NULL, 'a'},
-		{"verbose", no_argument, NULL, 'v'},
-		{"help", no_argument, NULL, 'h'},
-		{"version", no_argument, NULL, 'V'},
-		{NULL, 0, NULL, 0}};
+		{ "ecid",    required_argument, NULL, 'i' },
+		{ "command", required_argument, NULL, 'c' },
+		{ "mode",    no_argument,       NULL, 'm' },
+		{ "file",    required_argument, NULL, 'f' },
+		{ "payload", required_argument, NULL, 'k' },
+		{ "reset",   no_argument,       NULL, 'r' },
+		{ "normal",  no_argument,       NULL, 'n' },
+		{ "script",  required_argument, NULL, 'e' },
+		{ "shell",   no_argument,       NULL, 's' },
+		{ "query",   no_argument,       NULL, 'q' },
+		{ "devices", no_argument,       NULL, 'a' },
+		{ "verbose", no_argument,       NULL, 'v' },
+		{ "help",    no_argument,       NULL, 'h' },
+		{ "version", no_argument,       NULL, 'V' },
+		{ NULL, 0, NULL, 0 }
+	};
 	int i = 0;
 	int opt = 0;
 	int action = kNoAction;
 	uint64_t ecid = 0;
 	int mode = -1;
 	char *argument = NULL;
+	char *argument = NULL;
 	irecv_error_t error = 0;
 
 	char *buffer = NULL;
+	char *buffer = NULL;
 	uint64_t buffer_length = 0;
 
-	if (argc == 1)
-	{
+	if (argc == 1) {
 		print_usage(argc, argv);
 		return 0;
 	}
 
-	while ((opt = getopt_long(argc, argv, "i:vVhrsmnc:f:e:k:qab", longopts, NULL)) > 0)
-	{
-		switch (opt)
-		{
-		case 'i':
-			if (optarg)
-			{
-				char *tail = NULL;
-				ecid = strtoull(optarg, &tail, 0);
-				if (tail && (tail[0] != '\0'))
-				{
-					ecid = 0;
+	while ((opt = getopt_long(argc, argv, "i:vVhrsmnc:f:e:k:qa", longopts, NULL)) > 0) {
+		switch (opt) {
+			case 'i':
+				if (optarg) {
+					char* tail = NULL;
+					ecid = strtoull(optarg, &tail, 0);
+					if (tail && (tail[0] != '\0')) {
+						ecid = 0;
+					}
+					if (ecid == 0) {
+						fprintf(stderr, "ERROR: Could not parse ECID from argument '%s'\n", optarg);
+						return -1;
+					}
 				}
-				if (ecid == 0)
-				{
-					fprintf(stderr, "ERROR: Could not parse ECID from argument '%s'\n", optarg);
-					return -1;
-				}
-			}
-			break;
+				break;
 
-		case 'v':
-			verbose += 1;
-			break;
+			case 'v':
+				verbose += 1;
+				break;
 
 		case 'h':
 			printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
@@ -800,15 +711,13 @@ int main(int argc, char *argv[])
 			argument = optarg;
 			break;
 
-		case 'q':
-			printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
-			action = kQueryInfo;
-			break;
-
-		case 'b':
-			printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
-			action = kQueryIboot;
-			break;
+			case 'q':
+				action = kQueryInfo;
+				break;
+			
+			case 'b':
+				action = kQueryIboot;
+				break;
 
 		case 'a':
 			printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
@@ -816,18 +725,17 @@ int main(int argc, char *argv[])
 			print_devices();
 			return 0;
 
-		case 'V':
-			printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
-			return 0;
+			case 'V':
+				printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+				return 0;
 
-		default:
-			fprintf(stderr, "Unknown argument\n");
-			return -1;
+			default:
+				fprintf(stderr, "Unknown argument\n");
+				return -1;
 		}
 	}
 
-	if (action == kNoAction)
-	{
+	if (action == kNoAction) {
 		fprintf(stderr, "ERROR: Missing action option\n");
 		print_usage(argc, argv);
 		return -1;
@@ -837,13 +745,11 @@ int main(int argc, char *argv[])
 		irecv_set_debug_level(verbose);
 
 	irecv_client_t client = NULL;
-	for (i = 0; i <= 5; i++)
-	{
+	for (i = 0; i <= 5; i++) {
 		debug("Attempting to connect... \n");
 
 		irecv_error_t err = irecv_open_with_ecid(&client, ecid);
-		if (err == IRECV_E_UNSUPPORTED)
-		{
+		if (err == IRECV_E_UNSUPPORTED) {
 			fprintf(stderr, "ERROR: %s\n", irecv_strerror(err));
 			return -1;
 		}
@@ -852,8 +758,7 @@ int main(int argc, char *argv[])
 		else
 			break;
 
-		if (i == 5)
-		{
+		if (i == 5) {
 			fprintf(stderr, "ERROR: %s\n", irecv_strerror(err));
 			return -1;
 		}
