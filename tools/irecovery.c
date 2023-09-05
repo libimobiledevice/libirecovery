@@ -25,7 +25,6 @@
 #endif
 
 #define TOOL_NAME "irecovery"
-//#define PACKAGE_VERSION "1.0.4-by-theKid"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,6 +35,7 @@
 #include <libirecovery.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include "config.h"
 
 #ifdef WIN32
 #include <windows.h>
@@ -81,7 +81,6 @@ static void shell_usage()
 	printf("  /exit\t\t\texit interactive shell\n");
 }
 
-static const char *mode_to_str(int mode)
 static const char *mode_to_str(int mode)
 {
 	switch (mode) {
@@ -209,14 +208,11 @@ static void print_devices()
 }
 
 static int _is_breq_command(const char *cmd)
-static int _is_breq_command(const char *cmd)
 {
 	return (
 		!strcmp(cmd, "go") || !strcmp(cmd, "bootx") || !strcmp(cmd, "reboot") || !strcmp(cmd, "memboot"));
-		!strcmp(cmd, "go") || !strcmp(cmd, "bootx") || !strcmp(cmd, "reboot") || !strcmp(cmd, "memboot"));
 }
 
-static void parse_command(irecv_client_t client, unsigned char *command, unsigned int size)
 static void parse_command(irecv_client_t client, unsigned char *command, unsigned int size)
 {
 	char* cmd = strdup((char*)command);
@@ -269,7 +265,6 @@ static void load_command_history()
 }
 
 static void append_command_to_history(char *cmd)
-static void append_command_to_history(char *cmd)
 {
 	add_history(cmd);
 	write_history(FILE_HISTORY_PATH);
@@ -307,7 +302,6 @@ static void init_shell(irecv_client_t client)
 	}
 }
 
-int received_cb(irecv_client_t client, const irecv_event_t *event)
 int received_cb(irecv_client_t client, const irecv_event_t *event)
 {
 	if (event->type == IRECV_RECEIVED)
@@ -584,9 +578,53 @@ static void print_iboot_info(irecv_client_t client)
 				{
 					baseIos = (char *)"16.4";
 				}
-				else if (strstr(response, "iBoot-8422.120") != NULL )
+				else if (strstr(response, "iBoot-8422.120.33") != NULL )
+				{
+					baseIos = (char *)"16.5 Beta 1";
+				}
+				else if (strstr(response, "iBoot-8422.120.55") != NULL )
+				{
+					baseIos = (char *)"16.5 Beta 2";
+				}
+				else if (strstr(response, "iBoot-8422.120.65") != NULL )
+				{
+					baseIos = (char *)"16.5 Beta 3";
+				}
+				else if (strstr(response, "iBoot-8422.120.66") != NULL )
 				{
 					baseIos = (char *)"16.5";
+				}
+				else if (strstr(response, "iBoot-8422.122.1") != NULL )
+				{
+					baseIos = (char *)"16.5.1";
+				}
+				else if (strstr(response, "iBoot-8422.140.18") != NULL )
+				{
+					baseIos = (char *)"16.6 Beta 1";
+				}
+				else if (strstr(response, "iBoot-8422.140.32") != NULL )
+				{
+					baseIos = (char *)"16.6 Beta 2";
+				}
+				else if (strstr(response, "iBoot-8422.140.46") != NULL )
+				{
+					baseIos = (char *)"16.6 Beta 3";
+				}
+				else if (strstr(response, "iBoot-8422.140.50") != NULL )
+				{
+					baseIos = (char *)"16.6 Beta 4";
+				}
+				else if (strstr(response, "iBoot-8422.142.1") != NULL )
+				{
+					baseIos = (char *)"16.6 Beta 5";
+				}
+				else if (strstr(response, "iBoot-8422.142.2") != NULL )
+				{
+					baseIos = (char *)"16.6";
+				}
+				else if (strstr(response, "iBoot-10151") != NULL )
+				{
+					baseIos = (char *)"17.0 Beta";
 				}
 				else 
 				{
@@ -604,7 +642,6 @@ static void print_iboot_info(irecv_client_t client)
 	}
 }
 
-int main(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
 	static struct option longopts[] = {
@@ -630,10 +667,8 @@ int main(int argc, char *argv[])
 	uint64_t ecid = 0;
 	int mode = -1;
 	char *argument = NULL;
-	char *argument = NULL;
 	irecv_error_t error = 0;
 
-	char *buffer = NULL;
 	char *buffer = NULL;
 	uint64_t buffer_length = 0;
 
@@ -663,70 +698,67 @@ int main(int argc, char *argv[])
 				break;
 
 		case 'h':
-			printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
 			print_usage(argc, argv);
 			return 0;
 
 		case 'm':
-			printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
 			action = kShowMode;
 			break;
 
 		case 'n':
-			printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
 			action = kRebootToNormalMode;
 			break;
 
 		case 'r':
-			printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
 			action = kResetDevice;
 			break;
 
 		case 's':
-			printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
 			action = kStartShell;
 			break;
 
 		case 'f':
-			printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
 			action = kSendFile;
 			argument = optarg;
 			break;
 
 		case 'c':
-			printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
 			action = kSendCommand;
 			argument = optarg;
 			break;
 
 		case 'k':
-			printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
 			action = kSendExploit;
 			argument = optarg;
 			break;
 
 		case 'e':
-			printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
 			action = kSendScript;
 			argument = optarg;
 			break;
 
 			case 'q':
+				printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
 				action = kQueryInfo;
-				break;
-			
-			case 'b':
-				action = kQueryIboot;
 				break;
 
 		case 'a':
-			printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
 			action = kListDevices;
 			print_devices();
 			return 0;
 
 			case 'V':
-				printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+				printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
 				return 0;
 
 			default:
@@ -736,6 +768,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (action == kNoAction) {
+		printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
 		fprintf(stderr, "ERROR: Missing action option\n");
 		print_usage(argc, argv);
 		return -1;
