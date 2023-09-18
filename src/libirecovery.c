@@ -308,6 +308,11 @@ static struct irecv_device irecv_devices[] = {
 	{ "Watch6,16",   "n198sap", 0x34, 0x8301, "Apple Watch Series 8 (41mm Cellular)" },
 	{ "Watch6,17",   "n198bap", 0x36, 0x8301, "Apple Watch Series 8 (45mm Cellular)" },
 	{ "Watch6,18",   "n199ap",  0x26, 0x8301, "Apple Watch Ultra" },
+	{ "Watch7,1",    "n207sap", 0x08, 0x8310, "Apple Watch Series 9 (41mm)" },
+	{ "Watch7,2",    "n207bap", 0x0A, 0x8310, "Apple Watch Series 9 (45mm)" },
+	{ "Watch7,3",    "n208sap", 0x0C, 0x8310, "Apple Watch Series 9 (41mm Cellular)" },
+	{ "Watch7,4",    "n208bap", 0x0E, 0x8310, "Apple Watch Series 9 (45mm Cellular)" },
+	{ "Watch7,5",    "n210ap",  0x02, 0x8310, "Apple Watch Ultra 2" },
 	/* Apple Silicon Macs */
 	{ "ADP3,2",         "j273aap", 0x42, 0x8027, "Developer Transition Kit (2020)" },
 	{ "Macmini9,1",	    "j274ap",  0x22, 0x8103, "Mac mini (M1, 2020)" },
