@@ -1048,6 +1048,7 @@ static int check_context(irecv_client_t client)
 }
 #endif
 
+#ifndef USE_DUMMY
 void irecv_init(void)
 {
 #ifndef USE_DUMMY
@@ -1062,7 +1063,6 @@ void irecv_exit(void)
 #endif
 }
 
-#ifndef USE_DUMMY
 #ifdef HAVE_IOKIT
 static int iokit_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, unsigned int timeout)
 {

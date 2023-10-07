@@ -47,11 +47,6 @@ AC_TYPE_UINT8_T
 # Checks for library functions.
 AC_CHECK_FUNCS([strdup strerror strcasecmp strndup malloc realloc calloc])
 
-# Checks for libraries.
-AC_CHECK_HEADERS([readline/readline.h], [],
-	[AC_MSG_ERROR([Please install readline development headers])]
-)
-
 # Check additional platform flags
 AC_MSG_CHECKING([for platform-specific build settings])
 case ${host_os} in
@@ -99,6 +94,19 @@ AC_CACHE_CHECK([wether the C compiler supports constructor/destructor attributes
 if test "$ac_cv_attribute_constructor" = "yes"; then
   AC_DEFINE(HAVE_ATTRIBUTE_CONSTRUCTOR, 1, [Define if the C compiler supports constructor/destructor attributes])
 fi
+
+AC_ARG_WITH([tools],
+	[AS_HELP_STRING([--with-tools], [Build irecovery tools. (requires readline) [default=yes]])],
+	[],
+	[with_tools=yes])
+
+AS_IF([test "x$with_tools" = "xyes"], [
+	AC_DEFINE(BUILD_TOOLS, 1, [Define if we are building irecovery tools])
+	AC_CHECK_HEADERS([readline/readline.h], [],
+		[AC_MSG_ERROR([Please install readline development headers])]
+	)]
+)
+AM_CONDITIONAL(BUILD_TOOLS, test "x$with_tools" = "xyes")
 
 AC_ARG_WITH([dummy],
 	[AS_HELP_STRING([--with-dummy], [Use no USB driver at all [default=no]. This is only useful if you just want to query the device list by product type or hardware model. All other operations are no-ops or will return IRECV_E_UNSUPPORTED.])],
