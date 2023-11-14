@@ -65,6 +65,7 @@ struct irecv_client_private {
 	int usb_interface;
 	int usb_alt_interface;
 	unsigned int mode;
+	int isKIS;
 	struct irecv_device_info device_info;
 #ifndef USE_DUMMY
 #ifndef WIN32
@@ -92,6 +93,21 @@ struct irecv_client_private {
 
 #define USB_TIMEOUT 10000
 #define APPLE_VENDOR_ID 0x05AC
+
+// KIS
+#define KIS_PRODUCT_ID 0x1881
+
+#define KIS_PORTAL_CONFIG 0x01
+#define KIS_PORTAL_RSM    0x10
+
+#define KIS_INDEX_UPLOAD   0x0D
+#define KIS_INDEX_ENABLE_A 0x0A // macOS writes to this
+#define KIS_INDEX_ENABLE_B 0x14 // macOS writes to this
+#define KIS_INDEX_GET_INFO 0x100
+#define KIS_INDEX_BOOT_IMG 0x103
+
+#define KIS_ENABLE_A_VAL   0x21 // Value to write to KIS_INDEX_ENABLE_A
+#define KIS_ENABLE_B_VAL   0x01 // Value to write to KIS_INDEX_ENABLE_B
 
 #define BUFFER_SIZE 0x1000
 #define debug(...) if (libirecovery_debug) fprintf(stderr, __VA_ARGS__)
@@ -442,6 +458,78 @@ static unsigned int crc32_lookup_t1[256] = {
 #define crc32_step(a,b) \
 	a = (crc32_lookup_t1[(a & 0xFF) ^ ((unsigned char)b)] ^ (a >> 8))
 
+#pragma pack(1)
+typedef struct {
+	uint16_t sequence;         // A sequence number
+	uint8_t  version;          // Protocol version
+	uint8_t  portal;           // The "portal" to connect to
+	uint8_t  argCount;         // Number of arguments
+	uint8_t  indexLo;          // An index
+	uint8_t  indexHiRplSizeLo; // High 2 bits of index + low 6 bytes of reply size
+	uint8_t  rplSizeHi;        // Reply size high bits, number of words the device should send
+	uint32_t reqSize;          // Size of the complete request, including the arguments and payload, excluding the header
+	// Followed by arguments and payload data
+} KIS_req_header;
+
+typedef struct {
+	KIS_req_header hdr;
+	uint32_t value;
+} KIS_config_wr32;
+
+typedef struct {
+  uint8_t  bLength            ; ///< Size of this descriptor in bytes.
+  uint8_t  bDescriptorType    ; ///< DEVICE Descriptor Type.
+  uint16_t bcdUSB             ; ///< BUSB Specification Release Number in Binary-Coded Decimal (i.e., 2.10 is 210H). This field identifies the release of the USB Specification with which the device and its descriptors are compliant.
+
+  uint8_t  bDeviceClass       ; ///< Class code (assigned by the USB-IF). \li If this field is reset to zero, each interface within a configuration specifies its own class information and the various interfaces operate independently. \li If this field is set to a value between 1 and FEH, the device supports different class specifications on different interfaces and the interfaces may not operate independently. This value identifies the class definition used for the aggregate interfaces. \li If this field is set to FFH, the device class is vendor-specific.
+  uint8_t  bDeviceSubClass    ; ///< Subclass code (assigned by the USB-IF). These codes are qualified by the value of the bDeviceClass field. \li If the bDeviceClass field is reset to zero, this field must also be reset to zero. \li If the bDeviceClass field is not set to FFH, all values are reserved for assignment by the USB-IF.
+  uint8_t  bDeviceProtocol    ; ///< Protocol code (assigned by the USB-IF). These codes are qualified by the value of the bDeviceClass and the bDeviceSubClass fields. If a device supports class-specific protocols on a device basis as opposed to an interface basis, this code identifies the protocols that the device uses as defined by the specification of the device class. \li If this field is reset to zero, the device does not use class-specific protocols on a device basis. However, it may use classspecific protocols on an interface basis. \li If this field is set to FFH, the device uses a vendor-specific protocol on a device basis.
+  uint8_t  bMaxPacketSize0    ; ///< Maximum packet size for endpoint zero (only 8, 16, 32, or 64 are valid). For HS devices is fixed to 64.
+
+  uint16_t idVendor           ; ///< Vendor ID (assigned by the USB-IF).
+  uint16_t idProduct          ; ///< Product ID (assigned by the manufacturer).
+  uint16_t bcdDevice          ; ///< Device release number in binary-coded decimal.
+  uint8_t  iManufacturer      ; ///< Index of string descriptor describing manufacturer.
+  uint8_t  iProduct           ; ///< Index of string descriptor describing product.
+  uint8_t  iSerialNumber      ; ///< Index of string descriptor describing the device's serial number.
+
+  uint8_t  bNumConfigurations ; ///< Number of possible configurations.
+} usb_device_descriptor;
+
+typedef struct {
+	KIS_req_header hdr;
+	union {
+		struct {
+			uint32_t              tag;
+			uint32_t              unk1;
+			uint32_t              maxUploadSize;
+			uint32_t              maxDownloadSize; // maybe???
+			uint64_t              rambase;
+			uint32_t              nonceOffset;
+			uint32_t              pad;
+			uint8_t               unkpad[0x20];
+			usb_device_descriptor deviceDescriptor;
+		};
+		uint8_t deviceInfo[0x300];
+	};
+	uint32_t rspsize;
+	uint32_t statuscode;
+} KIS_device_info;
+
+typedef struct {
+	KIS_req_header hdr;
+	uint64_t address;
+	uint32_t size;
+	uint8_t data[0x4000];
+} KIS_upload_chunk;
+
+typedef struct {
+	KIS_req_header hdr;
+	uint32_t size; // Number of bytes read/written
+	uint32_t status;
+} KIS_generic_reply;
+#pragma pack()
+
 static THREAD_T th_event_handler = THREAD_T_NULL;
 struct collection listeners;
 static mutex_t listener_mutex;
@@ -695,31 +783,12 @@ static void irecv_load_device_info_from_iboot_string(irecv_client_t client, cons
 	}
 }
 
-static void irecv_copy_nonce_with_tag(irecv_client_t client, const char* tag, unsigned char** nonce, unsigned int* nonce_size)
+static void irecv_copy_nonce_with_tag_from_buffer(const char* tag, unsigned char** nonce, unsigned int* nonce_size, const char *buf)
 {
-	if (!client || !tag) {
-		return;
-	}
-
-	char buf[256];
-	int len;
-
-	*nonce = NULL;
-	*nonce_size = 0;
-
-	memset(buf, 0, 256);
-	len = irecv_get_string_descriptor_ascii(client, 1, (unsigned char*) buf, 255);
-	if (len < 0) {
-		debug("%s: got length: %d\n", __func__, len);
-		return;
-	}
-
-	buf[len] = 0;
-
 	int taglen = strlen(tag);
 	int nlen = 0;
-	char* nonce_string = NULL;
-	char* p = buf;
+	const char* nonce_string = NULL;
+	const char* p = buf;
 	char* colon = NULL;
 	do {
 		colon = strchr(p, ':');
@@ -777,6 +846,233 @@ static void irecv_copy_nonce_with_tag(irecv_client_t client, const char* tag, un
 
 	*nonce = nn;
 	*nonce_size = nlen;
+}
+
+static void irecv_copy_nonce_with_tag(irecv_client_t client, const char* tag, unsigned char** nonce, unsigned int* nonce_size)
+{
+	if (!client || !tag) {
+		return;
+	}
+
+	char buf[256];
+	int len = 0;
+
+	*nonce = NULL;
+	*nonce_size = 0;
+
+	memset(buf, 0, 256);
+	len = irecv_get_string_descriptor_ascii(client, 1, (unsigned char*) buf, 255);
+	if (len < 0) {
+		debug("%s: got length: %d\n", __func__, len);
+		return;
+	}
+
+	buf[len] = 0;
+
+	irecv_copy_nonce_with_tag_from_buffer(tag,nonce,nonce_size,buf);
+}
+
+static irecv_error_t irecv_kis_request_init(KIS_req_header *hdr, uint8_t portal, uint16_t index, size_t argCount, size_t payloadSize, size_t rplWords)
+{
+	if (argCount > UINT8_MAX) {
+		return IRECV_E_INVALID_INPUT;
+	}
+
+	if (index >= (1 << 10)) {
+		return IRECV_E_INVALID_INPUT;
+	}
+
+	if (rplWords >= (1 << 14)) {
+		return IRECV_E_INVALID_INPUT;
+	}
+
+	size_t reqSize = payloadSize + (argCount << 2);
+	if (reqSize > UINT32_MAX) {
+		return IRECV_E_INVALID_INPUT;
+	}
+
+	hdr->sequence         = 0; // Doesn't matter
+	hdr->version          = 0xA0;
+	hdr->portal           = portal;
+	hdr->argCount         = (uint8_t) argCount;
+	hdr->indexLo          = (uint8_t) (index & 0xFF);
+	hdr->indexHiRplSizeLo = (uint8_t) (((index >> 8) & 0x3) | ((rplWords << 2) & 0xFC));
+	hdr->rplSizeHi        = (uint8_t) ((rplWords >> 6) & 0xFF);
+	hdr->reqSize          = (uint32_t) reqSize;
+
+	return IRECV_E_SUCCESS;
+}
+
+static irecv_error_t irecv_kis_request(irecv_client_t client, KIS_req_header *req, size_t reqSize, KIS_req_header *rpl, size_t *rplSize)
+{
+	int endpoint = 0;
+	switch (req->portal) {
+		case KIS_PORTAL_CONFIG:
+			endpoint = 1;
+			break;
+		case KIS_PORTAL_RSM:
+			endpoint = 3;
+			break;
+		default:
+			debug("Don't know which endpoint to use for portal %d\n", req->portal);
+			return IRECV_E_INVALID_INPUT;
+	}
+
+	int sent = 0;
+	irecv_error_t err = irecv_usb_bulk_transfer(client, endpoint, (unsigned char *) req, reqSize, &sent, USB_TIMEOUT);
+	if (err != IRECV_E_SUCCESS) {
+		debug("[send] irecv_usb_bulk_transfer failed, error %d\n", err);
+		return err;
+	}
+
+	if ((size_t) sent != reqSize) {
+		debug("sent != reqSize\n");
+		return IRECV_E_USB_UPLOAD;
+	}
+
+	int rcvd = 0;
+	err = irecv_usb_bulk_transfer(client, endpoint | 0x80, (unsigned char *) rpl, *rplSize, &rcvd, USB_TIMEOUT);
+	if (err != IRECV_E_SUCCESS) {
+		debug("[rcv] irecv_usb_bulk_transfer failed, error %d\n", err);
+		return err;
+	}
+
+	*rplSize = rcvd;
+
+	return IRECV_E_SUCCESS;
+}
+
+static irecv_error_t irecv_kis_config_write32(irecv_client_t client, uint8_t portal, uint16_t index, uint32_t value)
+{
+	KIS_config_wr32   req  = {};
+	KIS_generic_reply rpl = {};
+	irecv_error_t err = irecv_kis_request_init(&req.hdr, portal, index, 1, 0, 1);
+	if (err != IRECV_E_SUCCESS) {
+		debug("Failed to init KIS request, error %d\n", err);
+		return err;
+	}
+
+	req.value = value;
+
+	size_t rplSize = sizeof(rpl);
+	err = irecv_kis_request(client, &req.hdr, sizeof(req), &rpl.hdr, &rplSize);
+	if (err != IRECV_E_SUCCESS) {
+		debug("Failed to send KIS request, error %d\n", err);
+		return err;
+	}
+
+	if (rpl.size != 4) {
+		debug("Failed to write config, %d bytes written, status %d\n", rpl.size, rpl.status);
+		return err;
+	}
+
+	return IRECV_E_SUCCESS;
+}
+
+static int irecv_kis_read_string(KIS_device_info *di, size_t off, char *buf, size_t buf_size)
+{
+	off *= 4;
+
+	size_t inputSize = sizeof(KIS_device_info) - sizeof(KIS_req_header);
+
+	if ((off + 2) > inputSize)
+		return 0;
+
+	uint8_t len = di->deviceInfo[off];
+	uint8_t type = di->deviceInfo[off + 1];
+
+	if (len & 1)
+		return 0;
+
+	if (len/2 >= buf_size)
+		return 0;
+
+	if ((off + 2 + len) > inputSize)
+		return 0;
+
+	if (type != 3)
+		return 0;
+
+	buf[len >> 1] = 0;
+	for (size_t i = 0; i < len; i += 2) {
+		buf[i >> 1] = di->deviceInfo[i + off + 2];
+	}
+
+	return len/2;
+}
+
+static irecv_error_t irecv_kis_init(irecv_client_t client)
+{
+	irecv_error_t err = irecv_kis_config_write32(client, KIS_PORTAL_CONFIG, KIS_INDEX_ENABLE_A, KIS_ENABLE_A_VAL);
+	if (err != IRECV_E_SUCCESS) {
+		debug("Failed to write to KIS_INDEX_ENABLE_A, error %d\n", err);
+		return err;
+	}
+
+	err = irecv_kis_config_write32(client, KIS_PORTAL_CONFIG, KIS_INDEX_ENABLE_B, KIS_ENABLE_B_VAL);
+	if (err != IRECV_E_SUCCESS) {
+		debug("Failed to write to KIS_INDEX_ENABLE_B, error %d\n", err);
+		return err;
+	}
+
+	client->isKIS = 1;
+
+	return IRECV_E_SUCCESS;
+}
+
+static irecv_error_t irecv_kis_load_device_info(irecv_client_t client)
+{
+	debug("Loading device info in KIS mode...\n");
+
+	KIS_req_header req = {};
+	KIS_device_info di = {};
+	irecv_error_t err = irecv_kis_request_init(&req, KIS_PORTAL_RSM, KIS_INDEX_GET_INFO, 0, 0, sizeof(di.deviceInfo)/4);
+	if (err != IRECV_E_SUCCESS) {
+		debug("Failed to init KIS request, error %d\n", err);
+		return err;
+	}
+
+	size_t rcvSize = sizeof(di);
+	err = irecv_kis_request(client, &req, sizeof(req), &di.hdr, &rcvSize);
+	if (err != IRECV_E_SUCCESS) {
+		debug("Failed to send KIS request, error %d\n", err);
+		return err;
+	}
+
+	char buf[0x100];
+	int len = 0;
+
+	len = irecv_kis_read_string(&di, di.deviceDescriptor.iSerialNumber, buf, sizeof(buf));
+	if (len == 0)
+		return IRECV_E_INVALID_INPUT;
+	debug("Serial: %s\n", buf);
+
+	irecv_load_device_info_from_iboot_string(client, buf);
+
+	len = irecv_kis_read_string(&di, di.deviceDescriptor.iManufacturer, buf, sizeof(buf));
+	if (len == 0)
+		return IRECV_E_INVALID_INPUT;
+	debug("Manufacturer: %s\n", buf);
+
+	len = irecv_kis_read_string(&di, di.deviceDescriptor.iProduct, buf, sizeof(buf));
+	if (len == 0)
+		return IRECV_E_INVALID_INPUT;
+	debug("Product: %s\n", buf);
+
+	len = irecv_kis_read_string(&di, di.nonceOffset, buf, sizeof(buf));
+	if (len == 0)
+		return IRECV_E_INVALID_INPUT;
+	debug("Nonces: %s\n", buf);
+
+	irecv_copy_nonce_with_tag_from_buffer("NONC", &client->device_info.ap_nonce, &client->device_info.ap_nonce_size, buf);
+	irecv_copy_nonce_with_tag_from_buffer("SNON", &client->device_info.sep_nonce, &client->device_info.sep_nonce_size, buf);
+
+	debug("VID: 0x%04x\n", di.deviceDescriptor.idVendor);
+	debug("PID: 0x%04x\n", di.deviceDescriptor.idProduct);
+
+	client->mode  = di.deviceDescriptor.idProduct;
+
+	return IRECV_E_SUCCESS;
 }
 
 #ifdef WIN32
@@ -1173,43 +1469,60 @@ static int iokit_usb_bulk_transfer(irecv_client_t client,
 	IOReturn result;
 	IOUSBInterfaceInterface300 **intf = client->usbInterface;
 	UInt32 size = length;
-	UInt8 transferDirection = endpoint & kUSBbEndpointDirectionMask;
+	UInt8 isUSBIn = (endpoint & kUSBbEndpointDirectionMask) != 0;
 	UInt8 numEndpoints;
-	UInt8 pipeRef = 1;
 
 	if (!intf) return IRECV_E_USB_INTERFACE;
 
 	result = (*intf)->GetNumEndpoints(intf, &numEndpoints);
 
-	if (result != kIOReturnSuccess || pipeRef > numEndpoints)
+	if (result != kIOReturnSuccess)
 		return IRECV_E_USB_INTERFACE;
 
-	// Just because
-	result = (*intf)->GetPipeStatus(intf, pipeRef);
-	switch (result) {
-		case kIOReturnSuccess:  break;
-		case kIOReturnNoDevice: return IRECV_E_NO_DEVICE;
-		case kIOReturnNotOpen:  return IRECV_E_UNABLE_TO_CONNECT;
-		default:                return IRECV_E_USB_STATUS;
-	}
+	for (UInt8 pipeRef = 0; pipeRef <= numEndpoints; pipeRef++) {
+		UInt8 direction = 0;
+		UInt8 number = 0;
+		UInt8 transferType = 0;
+		UInt16 maxPacketSize = 0;
+		UInt8 interval = 0;
 
-	// Do the transfer
-	if (transferDirection == kUSBEndpointDirectionIn) {
-		result = (*intf)->ReadPipeTO(intf, pipeRef, data, &size, timeout, timeout);
+		result = (*intf)->GetPipeProperties(intf, pipeRef, &direction, &number, &transferType, &maxPacketSize, &interval);
 		if (result != kIOReturnSuccess)
-			return IRECV_E_PIPE;
-		*transferred = size;
+			continue;
 
-		return IRECV_E_SUCCESS;
-	}
-	else {
-		// IOUSBInterfaceClass::interfaceWritePipe (intf?, pipeRef==1, data, size=0x8000)
-		result = (*intf)->WritePipeTO(intf, pipeRef, data, size, timeout, timeout);
-		if (result != kIOReturnSuccess)
-			return IRECV_E_PIPE;
-		*transferred = size;
+		if (direction == 3)
+			direction = isUSBIn;
 
-		return IRECV_E_SUCCESS;
+		if (number != (endpoint & ~kUSBbEndpointDirectionMask) || direction != isUSBIn)
+			continue;
+
+		// Just because
+		result = (*intf)->GetPipeStatus(intf, pipeRef);
+		switch (result) {
+			case kIOReturnSuccess:  break;
+			case kIOReturnNoDevice: return IRECV_E_NO_DEVICE;
+			case kIOReturnNotOpen:  return IRECV_E_UNABLE_TO_CONNECT;
+			default:                return IRECV_E_USB_STATUS;
+		}
+
+		// Do the transfer
+		if (isUSBIn) {
+			result = (*intf)->ReadPipeTO(intf, pipeRef, data, &size, timeout, timeout);
+			if (result != kIOReturnSuccess)
+				return IRECV_E_PIPE;
+			*transferred = size;
+
+			return IRECV_E_SUCCESS;
+		}
+		else {
+			// IOUSBInterfaceClass::interfaceWritePipe (intf?, pipeRef==1, data, size=0x8000)
+			result = (*intf)->WritePipeTO(intf, pipeRef, data, size, timeout, timeout);
+			if (result != kIOReturnSuccess)
+				return IRECV_E_PIPE;
+			*transferred = size;
+
+			return IRECV_E_SUCCESS;
+		}
 	}
 
 	return IRECV_E_USB_INTERFACE;
@@ -1307,9 +1620,6 @@ static irecv_error_t iokit_usb_open_service(irecv_client_t *pclient, io_service_
 		return IRECV_E_UNABLE_TO_CONNECT;
 	}
 
-	irecv_copy_nonce_with_tag(client, "NONC", &client->device_info.ap_nonce, &client->device_info.ap_nonce_size);
-	irecv_copy_nonce_with_tag(client, "SNON", &client->device_info.sep_nonce, &client->device_info.sep_nonce_size);
-
 	error = irecv_usb_set_configuration(client, 1);
 	if (error != IRECV_E_SUCCESS) {
 		free(client);
@@ -1317,8 +1627,7 @@ static irecv_error_t iokit_usb_open_service(irecv_client_t *pclient, io_service_
 	}
 
 	// DFU mode has no endpoints, so no need to open the interface
-	if (client->mode == IRECV_K_DFU_MODE || client->mode == IRECV_K_WTF_MODE) {
-
+	if (client->mode == IRECV_K_DFU_MODE || client->mode == IRECV_K_WTF_MODE || client->mode == KIS_PRODUCT_ID) {
 		error = irecv_usb_set_interface(client, 0, 0);
 		if (error != IRECV_E_SUCCESS) {
 			free(client);
@@ -1338,6 +1647,23 @@ static irecv_error_t iokit_usb_open_service(irecv_client_t *pclient, io_service_
 				return error;
 			}
 		}
+	}
+
+	if (client->mode == KIS_PRODUCT_ID) {
+		error = irecv_kis_init(client);
+		if (error != IRECV_E_SUCCESS) {
+			debug("irecv_kis_init failed, error %d\n", error);
+			return error;
+		}
+
+		error = irecv_kis_load_device_info(client);
+		if (error != IRECV_E_SUCCESS) {
+			debug("irecv_kis_load_device_info failed, error %d\n", error);
+			return error;
+		}
+	} else {
+		irecv_copy_nonce_with_tag(client, "NONC", &client->device_info.ap_nonce, &client->device_info.ap_nonce_size);
+		irecv_copy_nonce_with_tag(client, "SNON", &client->device_info.sep_nonce, &client->device_info.sep_nonce_size);
 	}
 
 	*pclient = client;
@@ -1370,7 +1696,7 @@ static irecv_error_t iokit_open_with_ecid(irecv_client_t* pclient, uint64_t ecid
 	CFRange range;
 
 	UInt16 wtf_pids[] = { IRECV_K_WTF_MODE, 0};
-	UInt16 all_pids[] = { IRECV_K_WTF_MODE, IRECV_K_DFU_MODE, IRECV_K_RECOVERY_MODE_1, IRECV_K_RECOVERY_MODE_2, IRECV_K_RECOVERY_MODE_3, IRECV_K_RECOVERY_MODE_4, 0 };
+	UInt16 all_pids[] = { IRECV_K_WTF_MODE, IRECV_K_DFU_MODE, IRECV_K_RECOVERY_MODE_1, IRECV_K_RECOVERY_MODE_2, IRECV_K_RECOVERY_MODE_3, IRECV_K_RECOVERY_MODE_4, KIS_PRODUCT_ID, 0 };
 	UInt16 *pids = all_pids;
 	int i;
 
@@ -1405,6 +1731,28 @@ static irecv_error_t iokit_open_with_ecid(irecv_client_t* pclient, uint64_t ecid
 					ret_service = service;
 					break;
 				}
+
+				if (pids[i] == KIS_PRODUCT_ID) {
+					// In KIS Mode, we have to open the device in order to get
+					// it's ECID
+					irecv_error_t err = iokit_usb_open_service(pclient, service);
+					if (err != IRECV_E_SUCCESS) {
+						debug("%s: failed to open KIS device\n", __func__);
+						continue;
+					}
+
+					if ((*pclient)->device_info.ecid != ecid) {
+						irecv_close(*pclient);
+						*pclient = NULL;
+						continue;
+					}
+
+					if (ecidString)
+						CFRelease(ecidString);
+
+					return IRECV_E_SUCCESS;
+				}
+
 				usbSerial = IORegistryEntryCreateCFProperty(service, CFSTR(kUSBSerialNumberString), kCFAllocatorDefault, 0);
 				if (usbSerial == NULL) {
 					debug("%s: failed to create USB serial string property\n", __func__);
@@ -1954,6 +2302,7 @@ static int _irecv_is_recovery_device(void *device)
 		case IRECV_K_RECOVERY_MODE_2:
 		case IRECV_K_RECOVERY_MODE_3:
 		case IRECV_K_RECOVERY_MODE_4:
+		case KIS_PRODUCT_ID:
 			break;
 		default:
 			return 0;
@@ -2008,6 +2357,11 @@ static void* _irecv_handle_device_add(void *userdata)
 	}
 	product_id = (uint16_t)pid;
 
+	if (product_id == KIS_PRODUCT_ID) {
+		debug("%s: ERROR: KIS currently not supported with this backend!\n", __func__);
+		return NULL;
+	}
+
 #else /* !WIN32 */
 #ifdef HAVE_IOKIT
 	struct irecv_iokit_dev_ctx* iokit_ctx = (struct irecv_iokit_dev_ctx*)userdata;
@@ -2037,10 +2391,27 @@ static void* _irecv_handle_device_add(void *userdata)
 		debug("%s: ERROR: could not get locationID?!\n", __func__);
 		return NULL;
 	}
-	CFStringRef serialString = (CFStringRef)IORegistryEntryCreateCFProperty(device, CFSTR(kUSBSerialNumberString), kCFAllocatorDefault, 0);
-	if (serialString) {
-		CFStringGetCString(serialString, serial_str, sizeof(serial_str), kCFStringEncodingUTF8);
-		CFRelease(serialString);
+
+	if (product_id == KIS_PRODUCT_ID) {
+		IOObjectRetain(device);
+		irecv_client_t client;
+
+		irecv_error_t error = iokit_usb_open_service(&client, device);
+		if (error != IRECV_E_SUCCESS) {
+			debug("%s: ERROR: could not open KIS device!\n", __func__);
+			return NULL;
+		}
+
+		strcpy(serial_str, client->device_info.serial_string);
+		product_id = client->mode;
+
+		irecv_close(client);
+	} else {
+		CFStringRef serialString = (CFStringRef)IORegistryEntryCreateCFProperty(device, CFSTR(kUSBSerialNumberString), kCFAllocatorDefault, 0);
+		if (serialString) {
+			CFStringGetCString(serialString, serial_str, sizeof(serial_str), kCFStringEncodingUTF8);
+			CFRelease(serialString);
+		}
 	}
 #else /* !HAVE_IOKIT */
 	libusb_device *device = (libusb_device*)userdata;
@@ -2064,6 +2435,11 @@ static void* _irecv_handle_device_add(void *userdata)
 		debug("%s: ERROR: can't connect to device: %s\n", __func__, libusb_error_name(libusb_error));
 		libusb_close(usb_handle);
 		return 0;
+	}
+
+	if (product_id == KIS_PRODUCT_ID) {
+		debug("%s: ERROR: KIS currently not supported with this backend!\n", __func__);
+		return NULL;
 	}
 
 	libusb_error = libusb_get_string_descriptor_ascii(usb_handle, devdesc.iSerialNumber, (unsigned char*)serial_str, 255);
@@ -2340,7 +2716,7 @@ static void *_irecv_event_handler(void* data)
 	iokit_runloop = CFRunLoopGetCurrent();
 	CFRunLoopAddSource(iokit_runloop, runLoopSource, kCFRunLoopDefaultMode);
 
-	uint16_t pids[7] = { IRECV_K_WTF_MODE, IRECV_K_DFU_MODE, IRECV_K_RECOVERY_MODE_1, IRECV_K_RECOVERY_MODE_2, IRECV_K_RECOVERY_MODE_3, IRECV_K_RECOVERY_MODE_4, 0 };
+	uint16_t pids[8] = { IRECV_K_WTF_MODE, IRECV_K_DFU_MODE, IRECV_K_RECOVERY_MODE_1, IRECV_K_RECOVERY_MODE_2, IRECV_K_RECOVERY_MODE_3, IRECV_K_RECOVERY_MODE_4, KIS_PRODUCT_ID, 0 };
 	int i = 0;
 	while (pids[i] > 0) {
 		CFMutableDictionaryRef matchingDict = IOServiceMatching(kIOUSBDeviceClassName);
@@ -2767,11 +3143,77 @@ static irecv_error_t irecv_get_status(irecv_client_t client, unsigned int* statu
 }
 #endif
 
+irecv_error_t irecv_kis_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfu_notify_finished)
+{
+	if (client->mode != IRECV_K_DFU_MODE) {
+		return IRECV_E_UNSUPPORTED;
+	}
+
+	size_t origLen = length;
+
+	KIS_upload_chunk *chunk = calloc(1, sizeof(KIS_upload_chunk));
+	uint64_t address = 0;
+	while (length) {
+		unsigned long toUpload = length;
+		if (toUpload > 0x4000)
+			toUpload = 0x4000;
+
+		irecv_error_t error = irecv_kis_request_init(&chunk->hdr, KIS_PORTAL_RSM, KIS_INDEX_UPLOAD, 3, toUpload, 0);
+		if (error != IRECV_E_SUCCESS) {
+			free(chunk);
+			debug("Failed to init chunk header, error %d\n", error);
+			return error;
+		}
+
+		chunk->address = address;
+		chunk->size    = toUpload;
+		memcpy(chunk->data, buffer, toUpload);
+
+		KIS_generic_reply reply;
+		size_t rcvSize = sizeof(reply);
+		error = irecv_kis_request(client, &chunk->hdr, sizeof(*chunk) - (0x4000 - toUpload), &reply.hdr, &rcvSize);
+		if (error != IRECV_E_SUCCESS) {
+			free(chunk);
+			debug("Failed to upload chunk, error %d\n", error);
+			return error;
+		}
+
+		address += toUpload;
+		buffer  += toUpload;
+		length  -= toUpload;
+
+		if (client->progress_callback != NULL) {
+			irecv_event_t event;
+			event.progress = ((double) (origLen - length) / (double) origLen) * 100.0;
+			event.type = IRECV_PROGRESS;
+			event.data = (char*)"Uploading";
+			event.size = origLen - length;
+			client->progress_callback(client, &event);
+		} else {
+			debug("Sent: %lu bytes - %lu of %lu\n", toUpload, origLen - length, origLen);
+		}
+	}
+	free(chunk);
+
+	if (dfu_notify_finished) {
+		irecv_error_t error = irecv_kis_config_write32(client, KIS_PORTAL_RSM, KIS_INDEX_BOOT_IMG, origLen);
+		if (error != IRECV_E_SUCCESS) {
+			debug("Failed to boot image, error %d\n", error);
+			return error;
+		}
+	}
+
+	return IRECV_E_SUCCESS;
+}
+
 irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfu_notify_finished)
 {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
+	if (client->isKIS)
+		return irecv_kis_send_buffer(client, buffer, length, dfu_notify_finished);
+
 	irecv_error_t error = 0;
 	int recovery_mode = ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE));
 
