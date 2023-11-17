@@ -2258,7 +2258,15 @@ static int _irecv_is_recovery_device(void *device)
 	kern_return_t kr;
 	IOUSBDeviceInterface **dev = device;
 	kr = (*dev)->GetDeviceVendor(dev, &vendor_id);
+	if (kr != kIOReturnSuccess) {
+		debug("%s: Failed to get vendor id\n", __func__);
+		return 0;
+	}
 	kr = (*dev)->GetDeviceProduct(dev, &product_id);
+	if (kr != kIOReturnSuccess) {
+		debug("%s: Failed to get product id\n", __func__);
+		return 0;
+	}
 #else
 	libusb_device *device_ = (libusb_device*)device;
 	struct libusb_device_descriptor devdesc;
@@ -2507,7 +2515,7 @@ static void iokit_device_added(void *refcon, io_iterator_t iterator)
 		kr = IOCreatePlugInInterfaceForService(device, kIOUSBDeviceUserClientTypeID, kIOCFPlugInInterfaceID, &plugInInterface, &score);
 		if ((kIOReturnSuccess != kr) || !plugInInterface) {
 			debug("%s: ERROR: Unable to create a plug-in (%08x)\n", __func__, kr);
-			kr = IOObjectRelease(device);
+			IOObjectRelease(device);
 			continue;
 		}
 		result = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID320), (LPVOID *)&dev);
@@ -2515,13 +2523,13 @@ static void iokit_device_added(void *refcon, io_iterator_t iterator)
 
 		if (result || !dev) {
 			debug("%s: ERROR: Couldn't create a device interface (%08x)\n", __func__, (int)result);
-			kr = IOObjectRelease(device);
+			IOObjectRelease(device);
 			continue;
 		}
 
 		if (!_irecv_is_recovery_device(dev)) {
 			(void) (*dev)->Release(dev);
-			kr = IOObjectRelease(device);
+			IOObjectRelease(device);
 			continue;
 		}
 
@@ -2530,7 +2538,7 @@ static void iokit_device_added(void *refcon, io_iterator_t iterator)
 		idev.dev = dev;
 		_irecv_handle_device_add(&idev);
 		(void) (*dev)->Release(dev);
-		kr = IOObjectRelease(device);
+		IOObjectRelease(device);
 	}
 }
 
@@ -2719,10 +2727,16 @@ static void *_irecv_event_handler(void* data)
 
 		io_iterator_t devAddedIter;
 		kr = IOServiceAddMatchingNotification(notifyPort, kIOFirstMatchNotification, matchingDict, iokit_device_added, NULL, &devAddedIter);
+		if (kr != kIOReturnSuccess) {
+			debug("%s: Failed to register device add notification callback\n", __func__);
+		}
 		iokit_device_added(NULL, devAddedIter);
 
 		io_iterator_t devRemovedIter;
 		kr = IOServiceAddMatchingNotification(notifyPort, kIOTerminatedNotification, matchingDict, iokit_device_removed, NULL, &devRemovedIter);
+		if (kr != kIOReturnSuccess) {
+			debug("%s: Failed to register device remove notification callback\n", __func__);
+		}
 		iokit_device_removed(NULL, devRemovedIter);
 
 		i++;
