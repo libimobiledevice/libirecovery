@@ -3135,13 +3135,13 @@ static irecv_error_t irecv_get_status(irecv_client_t client, unsigned int* statu
 }
 #endif
 
-irecv_error_t irecv_kis_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfu_notify_finished)
+static irecv_error_t irecv_kis_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfu_notify_finished)
 {
 	if (client->mode != IRECV_K_DFU_MODE) {
 		return IRECV_E_UNSUPPORTED;
 	}
 
-	size_t origLen = length;
+	unsigned long origLen = length;
 
 	KIS_upload_chunk *chunk = calloc(1, sizeof(KIS_upload_chunk));
 	uint64_t address = 0;
