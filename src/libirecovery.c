@@ -1174,8 +1174,6 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, uint64_t ecid)
 			}
 
 			irecv_load_device_info_from_iboot_string(_client, serial_str);
-			irecv_copy_nonce_with_tag(_client, "NONC", &_client->device_info.ap_nonce, &_client->device_info.ap_nonce_size);
-			irecv_copy_nonce_with_tag(_client, "SNON", &_client->device_info.sep_nonce, &_client->device_info.sep_nonce_size);
 
 			if (ecid != 0) {
 				if (_client->device_info.ecid != ecid) {
@@ -1258,8 +1256,6 @@ irecv_error_t mobiledevice_connect(irecv_client_t* client, uint64_t ecid)
 			}
 
 			irecv_load_device_info_from_iboot_string(_client, serial_str);
-			irecv_copy_nonce_with_tag(_client, "NONC", &_client->device_info.ap_nonce, &_client->device_info.ap_nonce_size);
-			irecv_copy_nonce_with_tag(_client, "SNON", &_client->device_info.sep_nonce, &_client->device_info.sep_nonce_size);
 
 			if (ecid != 0) {
 				if (_client->device_info.ecid != ecid) {
@@ -1569,7 +1565,6 @@ int irecv_usb_bulk_transfer(irecv_client_t client,
 static irecv_error_t iokit_usb_open_service(irecv_client_t *pclient, io_service_t service)
 {
 	IOReturn result;
-	irecv_error_t error;
 	irecv_client_t client;
 	SInt32 score;
 	UInt16 mode;
@@ -1618,52 +1613,6 @@ static irecv_error_t iokit_usb_open_service(irecv_client_t *pclient, io_service_
 		(*client->handle)->Release(client->handle);
 		free(client);
 		return IRECV_E_UNABLE_TO_CONNECT;
-	}
-
-	error = irecv_usb_set_configuration(client, 1);
-	if (error != IRECV_E_SUCCESS) {
-		free(client);
-		return error;
-	}
-
-	// DFU mode has no endpoints, so no need to open the interface
-	if (client->mode == IRECV_K_DFU_MODE || client->mode == IRECV_K_WTF_MODE || client->mode == KIS_PRODUCT_ID) {
-		error = irecv_usb_set_interface(client, 0, 0);
-		if (error != IRECV_E_SUCCESS) {
-			free(client);
-			return error;
-		}
-	}
-	else {
-		error = irecv_usb_set_interface(client, 0, 0);
-		if (error != IRECV_E_SUCCESS) {
-			free(client);
-			return error;
-		}
-		if (client->mode > IRECV_K_RECOVERY_MODE_2) {
-			error = irecv_usb_set_interface(client, 1, 1);
-			if (error != IRECV_E_SUCCESS) {
-				free(client);
-				return error;
-			}
-		}
-	}
-
-	if (client->mode == KIS_PRODUCT_ID) {
-		error = irecv_kis_init(client);
-		if (error != IRECV_E_SUCCESS) {
-			debug("irecv_kis_init failed, error %d\n", error);
-			return error;
-		}
-
-		error = irecv_kis_load_device_info(client);
-		if (error != IRECV_E_SUCCESS) {
-			debug("irecv_kis_load_device_info failed, error %d\n", error);
-			return error;
-		}
-	} else {
-		irecv_copy_nonce_with_tag(client, "NONC", &client->device_info.ap_nonce, &client->device_info.ap_nonce_size);
-		irecv_copy_nonce_with_tag(client, "SNON", &client->device_info.sep_nonce, &client->device_info.sep_nonce_size);
 	}
 
 	*pclient = client;
@@ -1789,7 +1738,8 @@ static irecv_error_t iokit_open_with_ecid(irecv_client_t* pclient, uint64_t ecid
 
 #ifndef WIN32
 #ifndef HAVE_IOKIT
-static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid(irecv_client_t *pclient, struct libusb_device_handle *usb_handle, struct libusb_device_descriptor *usb_descriptor, uint64_t ecid){
+static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid(irecv_client_t *pclient, struct libusb_device_handle *usb_handle, struct libusb_device_descriptor *usb_descriptor, uint64_t ecid)
+{
 	irecv_error_t ret = IRECV_E_UNABLE_TO_CONNECT;
 	irecv_error_t error = IRECV_E_UNABLE_TO_CONNECT;
 
@@ -1817,48 +1767,6 @@ static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid(irecv_clien
 			return IRECV_E_NO_DEVICE; //wrong device
 		}
 		debug("found device with ECID %016" PRIx64 "\n", (uint64_t)ecid);
-	}
-
-	error = irecv_usb_set_configuration(client, 1);
-	if (error != IRECV_E_SUCCESS) {
-		irecv_close(client);
-		return error;
-	}
-
-	if ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE) && (client->mode != KIS_PRODUCT_ID)) {
-		error = irecv_usb_set_interface(client, 0, 0);
-		if (client->mode > IRECV_K_RECOVERY_MODE_2) {
-			error = irecv_usb_set_interface(client, 1, 1);
-		}
-	} else {
-		error = irecv_usb_set_interface(client, 0, 0);
-	}
-
-	if (error != IRECV_E_SUCCESS) {
-		irecv_close(client);
-		return error;
-	}
-
-	if (client->mode == KIS_PRODUCT_ID) {
-		error = irecv_kis_init(client);
-		if (error != IRECV_E_SUCCESS) {
-			debug("irecv_kis_init failed, error %d\n", error);
-			return error;
-		}
-
-		error = irecv_kis_load_device_info(client);
-		if (error != IRECV_E_SUCCESS) {
-			debug("irecv_kis_load_device_info failed, error %d\n", error);
-			return error;
-		}
-		if (ecid != 0 && client->device_info.ecid != ecid) {
-			irecv_close(client);
-			return IRECV_E_NO_DEVICE; //wrong device
-		}
-		debug("found device with ECID %016" PRIx64 "\n", (uint64_t)ecid);
-	} else {
-		irecv_copy_nonce_with_tag(client, "NONC", &client->device_info.ap_nonce, &client->device_info.ap_nonce_size);
-		irecv_copy_nonce_with_tag(client, "SNON", &client->device_info.sep_nonce, &client->device_info.sep_nonce_size);
 	}
 
 	ret = IRECV_E_SUCCESS;
@@ -1936,36 +1844,73 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t ecid)
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
-	int ret = IRECV_E_UNABLE_TO_CONNECT;
+	irecv_error_t error = IRECV_E_UNABLE_TO_CONNECT;
 
 	if (libirecovery_debug) {
 		irecv_set_debug_level(libirecovery_debug);
 	}
 #ifndef WIN32
 #ifdef HAVE_IOKIT
-	ret = iokit_open_with_ecid(pclient, ecid);
+	error = iokit_open_with_ecid(pclient, ecid);
 #else
-	ret = libusb_open_with_ecid(pclient, ecid);
+	error = libusb_open_with_ecid(pclient, ecid);
 #endif
 #else
-	ret = mobiledevice_connect(pclient, ecid);
-	if (ret == IRECV_E_SUCCESS) {
-		irecv_client_t client = *pclient;
-		int error = IRECV_E_SUCCESS;
-		if ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE)) {
-			error = irecv_usb_set_interface(client, 0, 0);
-			if (client->mode > IRECV_K_RECOVERY_MODE_2) {
-				error = irecv_usb_set_interface(client, 1, 1);
-			}
-		} else {
-			error = irecv_usb_set_interface(client, 0, 0);
-		}
-		if (error != IRECV_E_SUCCESS) {
-			debug("WARNING: set interface failed, error %d\n", error);
+	error = mobiledevice_connect(pclient, ecid);
+#endif
+	irecv_client_t client = *pclient;
+	if (error != IRECV_E_SUCCESS) {
+		irecv_close(client);
+		return error;
+	}
+
+	error = irecv_usb_set_configuration(client, 1);
+	if (error != IRECV_E_SUCCESS) {
+		debug("Failed to set configuration, error %d\n", error);
+		irecv_close(client);
+		return error;
+	}
+
+	if (client->mode == IRECV_K_DFU_MODE || client->mode == IRECV_K_WTF_MODE || client->mode == KIS_PRODUCT_ID) {
+		error = irecv_usb_set_interface(client, 0, 0);
+	} else {
+		error = irecv_usb_set_interface(client, 0, 0);
+		if (error == IRECV_E_SUCCESS && client->mode > IRECV_K_RECOVERY_MODE_2) {
+			error = irecv_usb_set_interface(client, 1, 1);
 		}
 	}
-#endif
-	if (ret == IRECV_E_SUCCESS) {
+
+	if (error != IRECV_E_SUCCESS) {
+		debug("Failed to set interface, error %d\n", error);
+		irecv_close(client);
+		return error;
+	}
+
+	if (client->mode == KIS_PRODUCT_ID) {
+		error = irecv_kis_init(client);
+		if (error != IRECV_E_SUCCESS) {
+			debug("irecv_kis_init failed, error %d\n", error);
+			irecv_close(client);
+			return error;
+		}
+
+		error = irecv_kis_load_device_info(client);
+		if (error != IRECV_E_SUCCESS) {
+			debug("irecv_kis_load_device_info failed, error %d\n", error);
+			irecv_close(client);
+			return error;
+		}
+		if (ecid != 0 && client->device_info.ecid != ecid) {
+			irecv_close(client);
+			return IRECV_E_NO_DEVICE; //wrong device
+		}
+		debug("found device with ECID %016" PRIx64 "\n", (uint64_t)ecid);
+	} else {
+		irecv_copy_nonce_with_tag(client, "NONC", &client->device_info.ap_nonce, &client->device_info.ap_nonce_size);
+		irecv_copy_nonce_with_tag(client, "SNON", &client->device_info.sep_nonce, &client->device_info.sep_nonce_size);
+	}
+
+	if (error == IRECV_E_SUCCESS) {
 		if ((*pclient)->connected_callback != NULL) {
 			irecv_event_t event;
 			event.size = 0;
@@ -1975,7 +1920,7 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t ecid)
 			(*pclient)->connected_callback(*pclient, &event);
 		}
 	}
-	return ret;
+	return error;
 #endif
 }
 
