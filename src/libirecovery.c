@@ -2064,8 +2064,10 @@ irecv_error_t irecv_usb_set_interface(irecv_client_t client, int usb_interface, 
 	}
 #endif
 #else
-	if (irecv_usb_control_transfer(client, 0, 0x0B, usb_alt_interface, usb_interface, NULL, 0, USB_TIMEOUT) < 0) {
-		return IRECV_E_USB_INTERFACE;
+	if (usb_interface == 1) {
+		if (irecv_usb_control_transfer(client, 0, 0x0B, usb_alt_interface, usb_interface, NULL, 0, USB_TIMEOUT) < 0) {
+			return IRECV_E_USB_INTERFACE;
+		}
 	}
 #endif
 	client->usb_interface = usb_interface;
