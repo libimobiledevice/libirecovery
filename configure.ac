@@ -223,6 +223,7 @@ Configuration for $PACKAGE $VERSION:
 
   Install prefix: .........: $prefix
   USB backend: ............: $USB_BACKEND
+  with tools: .............: $with_tools
 
   Now type 'make' to build $PACKAGE $VERSION,
   and then 'make install' for installation.
