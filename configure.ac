@@ -59,7 +59,7 @@ case ${host_os} in
 			], [])
 		], [])
 	;;
-	mingw32*)
+	mingw32*|*msys*)
 		AC_MSG_RESULT([${host_os}])
 		GLOBAL_LDFLAGS+=" -static-libgcc -lkernel32 -lsetupapi"
 		win32=true
