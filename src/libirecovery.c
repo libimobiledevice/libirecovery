@@ -677,10 +677,10 @@ static int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc
 	unsigned short langid = 0;
 	unsigned char data[256];
 	int di, si;
-	memset(data, 0, 256);
+	memset(data, 0, sizeof(data));
 	memset(buffer, 0, size);
 
-	ret = irecv_usb_control_transfer(client, 0x80, 0x06, (0x03 << 8) | desc_index, langid, data, 255, USB_TIMEOUT);
+	ret = irecv_usb_control_transfer(client, 0x80, 0x06, (0x03 << 8) | desc_index, langid, data, sizeof(data)-1, USB_TIMEOUT);
 
 	if (ret < 0) return ret;
 	if (data[1] != 0x03) return IRECV_E_UNKNOWN_ERROR;
