@@ -733,6 +733,7 @@ static void irecv_load_device_info_from_iboot_string(irecv_client_t client, cons
 	ptr = strstr(iboot_string, "CPID:");
 	if (ptr != NULL) {
 		sscanf(ptr, "CPID:%x", &client->device_info.cpid);
+		client->device_info.have_cpid = 1;
 	}else{
 		//early iOS 1 doesn't identify itself
 		client->device_info.cpid = 0x8900;
@@ -741,31 +742,37 @@ static void irecv_load_device_info_from_iboot_string(irecv_client_t client, cons
 	ptr = strstr(iboot_string, "CPRV:");
 	if (ptr != NULL) {
 		sscanf(ptr, "CPRV:%x", &client->device_info.cprv);
+		client->device_info.have_cprv = 1;
 	}
 
 	ptr = strstr(iboot_string, "CPFM:");
 	if (ptr != NULL) {
 		sscanf(ptr, "CPFM:%x", &client->device_info.cpfm);
+		client->device_info.have_cpfm = 1;
 	}
 
 	ptr = strstr(iboot_string, "SCEP:");
 	if (ptr != NULL) {
 		sscanf(ptr, "SCEP:%x", &client->device_info.scep);
+		client->device_info.have_scep = 1;
 	}
 
 	ptr = strstr(iboot_string, "BDID:");
 	if (ptr != NULL) {
 		sscanf(ptr, "BDID:%x", &client->device_info.bdid);
+		client->device_info.have_bdid = 1;
 	}
 
 	ptr = strstr(iboot_string, "ECID:");
 	if (ptr != NULL) {
 		sscanf(ptr, "ECID:%" SCNx64, &client->device_info.ecid);
+		client->device_info.have_ecid = 1;
 	}
 
 	ptr = strstr(iboot_string, "IBFL:");
 	if (ptr != NULL) {
 		sscanf(ptr, "IBFL:%x", &client->device_info.ibfl);
+		client->device_info.have_ibfl = 1;
 	}
 
 	char tmp[256];
@@ -3059,7 +3066,7 @@ irecv_error_t irecv_device_event_unsubscribe(irecv_device_event_context_t contex
 #endif
 }
 
-irecv_error_t irecv_close(irecv_client_t client)
+irecv_error_t irecv_close_members(irecv_client_t client)
 {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
@@ -3107,13 +3114,20 @@ irecv_error_t irecv_close(irecv_client_t client)
 		free(client->device_info.serial_string);
 		free(client->device_info.ap_nonce);
 		free(client->device_info.sep_nonce);
-
-		free(client);
-		client = NULL;
 	}
 
 	return IRECV_E_SUCCESS;
 #endif
+}
+
+irecv_error_t irecv_close(irecv_client_t client){
+	irecv_error_t ret = IRECV_E_SUCCESS;
+	if (client){
+		ret = irecv_close_members(client);
+		free(client);
+		client = NULL;
+	}
+	return ret;
 }
 
 void irecv_set_debug_level(int level)
@@ -3363,6 +3377,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 	irecv_error_t error = 0;
 	int recovery_mode = ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE));
 	int legacyiBootCommandSize = 0;
+	int isiOS2 = 0;
 
 	if (recovery_mode && client->device_info.cpid == 0x8900 && !client->device_info.ecid){
 			uint8_t buf[0x100] = {0x00, 0x00, 0x34, 0x12}; //ask how large commands should be
@@ -3370,6 +3385,19 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 			if ((error = irecv_usb_interrupt_transfer(client, 0x04, &buf[0], 4, &bytes))) return error;
 			if ((error = irecv_usb_interrupt_transfer(client, 0x83, &buf[0], sizeof(buf), &bytes))) return error;
 			legacyiBootCommandSize = bytes;
+	}
+
+	if (recovery_mode && legacyiBootCommandSize == 0){
+		//we are in recovery mode and we are not dealing with iOS 1.x
+		if ((client->device_info.cpid == 0x8900 || client->device_info.cpid == 0x8720) && !client->device_info.have_ibfl){
+			/*
+				iOS 2.x doesn't have IBFL tag, but iOS 3 does
+				Also, to avoid false activation of this codepath, restrict it to the only two CPID which can run iOS 2
+			*/
+			recovery_mode = 0; //iOS 2 recovery mode works same as DFU mode
+			isiOS2 = 1;
+			dfu_notify_finished = 1;
+		}
 	}
 
 	if (check_context(client) != IRECV_E_SUCCESS)
@@ -3422,6 +3450,16 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 		case 2:
 			/* DFU IDLE */
 			break;
+
+		case 8:
+			/* DFU WAIT RESET */
+			if (!isiOS2){
+				debug("Unexpected state %d in non-iOS2 mode!, issuing ABORT\n", state);
+				irecv_usb_control_transfer(client, 0x21, 6, 0, 0, NULL, 0, USB_TIMEOUT);
+				error = IRECV_E_USB_UPLOAD;
+			}
+			break;
+
 		case 10:
 			debug("DFU ERROR, issuing CLRSTATUS\n");
 			irecv_usb_control_transfer(client, 0x21, 4, 0, 0, NULL, 0, USB_TIMEOUT);
@@ -3557,6 +3595,10 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 		}
 
 		irecv_reset(client);
+
+		if (isiOS2){
+			irecv_reconnect(client, 0);
+		}
 	}
 
 	if (legacyiBootCommandSize == sizeof(legacyCMD)){
@@ -4103,7 +4145,7 @@ irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause)
 	uint64_t ecid = client->device_info.ecid;
 
 	if (check_context(client) == IRECV_E_SUCCESS) {
-		irecv_close(client);
+		irecv_close_members(client);
 	}
 
 	if (initial_pause > 0) {
@@ -4122,6 +4164,11 @@ irecv_client_t irecv_reconnect(irecv_client_t client, int initial_pause)
 	new_client->precommand_callback = precommand_callback;
 	new_client->postcommand_callback = postcommand_callback;
 	new_client->disconnected_callback = disconnected_callback;
+
+	//keep old handle valid
+	memcpy(client, new_client, sizeof(*client));
+	free(new_client);
+	new_client = client;
 
 	if (new_client->connected_callback != NULL) {
 		irecv_event_t event;
