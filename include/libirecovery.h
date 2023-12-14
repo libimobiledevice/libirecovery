@@ -106,6 +106,13 @@ struct irecv_device_info {
 	unsigned char* sep_nonce;
 	unsigned int sep_nonce_size;
 	uint16_t pid;
+	unsigned int have_cpid : 1;
+	unsigned int have_cprv : 1;
+	unsigned int have_cpfm : 1;
+	unsigned int have_scep : 1;
+	unsigned int have_bdid : 1;
+	unsigned int have_ecid : 1;
+	unsigned int have_ibfl : 1;
 };
 
 typedef enum {
