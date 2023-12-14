@@ -3030,6 +3030,7 @@ irecv_error_t irecv_device_event_unsubscribe(irecv_device_event_context_t contex
 	if (num == 0 && th_event_handler != THREAD_T_NULL && thread_alive(th_event_handler)) {
 #ifdef HAVE_IOKIT
 		if (iokit_runloop) {
+			while (!CFRunLoopIsWaiting(iokit_runloop)) usleep(420);
 			CFRunLoopStop(iokit_runloop);
 			iokit_runloop = NULL;
 		}
