@@ -77,10 +77,6 @@ struct irecv_client_private {
 #endif
 #else
 	HANDLE handle;
-	HANDLE hDFU;
-	HANDLE hIB;
-	LPSTR iBootPath;
-	LPSTR DfuPath;
 #endif
 	irecv_event_cb_t progress_callback;
 	irecv_event_cb_t received_callback;
@@ -1089,90 +1085,59 @@ typedef struct usb_control_request {
 	char data[];
 } usb_control_request;
 
-static irecv_error_t win32_openpipes(irecv_client_t client)
-{
-	if (client->iBootPath && !(client->hIB = CreateFileA(client->iBootPath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL))) {
-		irecv_close(client);
-		return IRECV_E_UNABLE_TO_CONNECT;
-	}
-
-	if (client->DfuPath && !(client->hDFU = CreateFileA(client->DfuPath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL))) {
-		irecv_close(client);
-		return IRECV_E_UNABLE_TO_CONNECT;
-	}
-
-	client->mode = 0;
-	if (client->iBootPath == NULL) {
-		if (strncmp(client->DfuPath, "\\\\?\\usb#vid_05ac&pid_", 21) == 0) {
-			sscanf(client->DfuPath+21, "%x#", &client->mode);
-		}
-		client->handle = client->hDFU;
-	} else {
-		if (strncmp(client->iBootPath, "\\\\?\\usb#vid_05ac&pid_", 21) == 0) {
-			sscanf(client->iBootPath+21, "%x#", &client->mode);
-		}
-		client->handle = client->hIB;
-	}
-
-	if (client->mode == 0) {
-		irecv_close(client);
-		return IRECV_E_UNABLE_TO_CONNECT;
-	}
-
-	return IRECV_E_SUCCESS;
-}
-
-static void win32_closepipes(irecv_client_t client)
-{
-	if (client->hDFU!=NULL) {
-		CloseHandle(client->hDFU);
-		client->hDFU = NULL;
-	}
-	if (client->hIB!=NULL) {
-		CloseHandle(client->hIB);
-		client->hIB = NULL;
-	}
-}
-
 static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 {
 	int found = 0;
+	const GUID *guids[] = { &GUID_DEVINTERFACE_DFU, &GUID_DEVINTERFACE_IBOOT, NULL };
 	SP_DEVICE_INTERFACE_DATA currentInterface;
 	HDEVINFO usbDevices;
 	DWORD i;
 	irecv_client_t _client = (irecv_client_t) malloc(sizeof(struct irecv_client_private));
 	memset(_client, 0, sizeof(struct irecv_client_private));
 
-	/* get DFU paths */
-	usbDevices = SetupDiGetClassDevs(&GUID_DEVINTERFACE_DFU, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
-	memset(&currentInterface, '\0', sizeof(SP_DEVICE_INTERFACE_DATA));
-	currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
-	for (i = 0; usbDevices && SetupDiEnumDeviceInterfaces(usbDevices, NULL, &GUID_DEVINTERFACE_DFU, i, &currentInterface); i++) {
-		free(_client->DfuPath);
-		_client->DfuPath = NULL;
-		_client->handle = NULL;
-		DWORD requiredSize = 0;
-		PSP_DEVICE_INTERFACE_DETAIL_DATA_A details;
-		SetupDiGetDeviceInterfaceDetailA(usbDevices, &currentInterface, NULL, 0, &requiredSize, NULL);
-		details = (PSP_DEVICE_INTERFACE_DETAIL_DATA_A) malloc(requiredSize);
-		details->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A);
-		if (!SetupDiGetDeviceInterfaceDetailA(usbDevices, &currentInterface, details, requiredSize, NULL, NULL)) {
-			free(details);
-			continue;
-		} else {
-			LPSTR result = (LPSTR) malloc(requiredSize - sizeof(DWORD));
-			memcpy((void*) result, details->DevicePath, requiredSize - sizeof(DWORD));
-			free(details);
-
-			_client->DfuPath = result;
-			if (win32_openpipes(_client) != IRECV_E_SUCCESS) {
-				win32_closepipes(_client);
+	int k;
+	for (k = 0; !found && guids[k]; k++) {
+		usbDevices = SetupDiGetClassDevs(guids[k], NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+		memset(&currentInterface, '\0', sizeof(SP_DEVICE_INTERFACE_DATA));
+		currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+		for (i = 0; usbDevices && SetupDiEnumDeviceInterfaces(usbDevices, NULL, guids[k], i, &currentInterface); i++) {
+			_client->handle = INVALID_HANDLE_VALUE;
+			DWORD requiredSize = 0;
+			PSP_DEVICE_INTERFACE_DETAIL_DATA_A details;
+			SetupDiGetDeviceInterfaceDetailA(usbDevices, &currentInterface, NULL, 0, &requiredSize, NULL);
+			details = (PSP_DEVICE_INTERFACE_DETAIL_DATA_A) malloc(requiredSize);
+			details->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A);
+			if (!SetupDiGetDeviceInterfaceDetailA(usbDevices, &currentInterface, details, requiredSize, NULL, NULL)) {
+				free(details);
 				continue;
 			}
+
+			unsigned int pid = 0;
+			if (sscanf(details->DevicePath, "\\\\?\\usb#vid_05ac&pid_%04x", &pid)!= 1) {
+				debug("%s: ERROR: failed to parse PID! path: %s\n", __func__, details->DevicePath);
+				free(details);
+				continue;
+			}
+			// make sure the current device is actually in the right mode for the given driver interface
+			if ((guids[k] == &GUID_DEVINTERFACE_DFU && pid != IRECV_K_DFU_MODE && pid != IRECV_K_WTF_MODE)
+			    || (guids[k] == &GUID_DEVINTERFACE_IBOOT && (pid < IRECV_K_RECOVERY_MODE_1 || pid > IRECV_K_RECOVERY_MODE_4))
+			) {
+				free(details);
+				continue;
+			}
+
+			_client->handle = CreateFileA(details->DevicePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+			if (_client->handle == INVALID_HANDLE_VALUE) {
+				free(details);
+				continue;
+			}
+			_client->mode = pid;
 
 			if (ecid == IRECV_K_WTF_MODE) {
 				if (_client->mode != IRECV_K_WTF_MODE) {
 					/* special ecid case, ignore !IRECV_K_WTF_MODE */
+					CloseHandle(_client->handle);
+					free(details);
 					continue;
 				} else {
 					ecid = 0;
@@ -1181,22 +1146,24 @@ static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 
 			if ((ecid != 0) && (_client->mode == IRECV_K_WTF_MODE)) {
 				/* we can't get ecid in WTF mode */
-				win32_closepipes(_client);
+				CloseHandle(_client->handle);
+				free(details);
 				continue;
 			}
 
 			char serial_str[256];
 			serial_str[0] = '\0';
 
-			char *p = result;
+			char *p = (char*)details->DevicePath;
 			while ((p = strstr(p, "\\usb"))) {
-				if (sscanf(p, "\\usb#vid_%*04x&pid_%*04x#%s", serial_str) == 1)
+				if (sscanf(p, "\\usb#vid_05ac&pid_%*04x#%s", serial_str) == 1)
 					break;
 				p += 4;
 			}
+			free(details);
 
 			if (serial_str[0] == '\0') {
-				win32_closepipes(_client);
+				CloseHandle(_client->handle);
 				continue;
 			}
 
@@ -1218,89 +1185,7 @@ static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 
 			if (ecid != 0) {
 				if (_client->device_info.ecid != ecid) {
-					win32_closepipes(_client);
-					continue;
-				}
-				debug("found device with ECID %016" PRIx64 "\n", (uint64_t)ecid);
-			}
-			found = 1;
-			break;
-		}
-	}
-	SetupDiDestroyDeviceInfoList(usbDevices);
-
-	if (found) {
-		*client = _client;
-		return IRECV_E_SUCCESS;
-	}
-
-	/* get iBoot path */
-	usbDevices = SetupDiGetClassDevs(&GUID_DEVINTERFACE_IBOOT, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
-	memset(&currentInterface, '\0', sizeof(SP_DEVICE_INTERFACE_DATA));
-	currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
-	for (i = 0; usbDevices && SetupDiEnumDeviceInterfaces(usbDevices, NULL, &GUID_DEVINTERFACE_IBOOT, i, &currentInterface); i++) {
-		free(_client->iBootPath);
-		_client->iBootPath = NULL;
-		_client->handle = NULL;
-		DWORD requiredSize = 0;
-		PSP_DEVICE_INTERFACE_DETAIL_DATA_A details;
-		SetupDiGetDeviceInterfaceDetailA(usbDevices, &currentInterface, NULL, 0, &requiredSize, NULL);
-		details = (PSP_DEVICE_INTERFACE_DETAIL_DATA_A) malloc(requiredSize);
-		details->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A);
-		if (!SetupDiGetDeviceInterfaceDetailA(usbDevices, &currentInterface, details, requiredSize, NULL, NULL)) {
-			free(details);
-			continue;
-		} else {
-			LPSTR result = (LPSTR) malloc(requiredSize - sizeof(DWORD));
-			memcpy((void*) result, details->DevicePath, requiredSize - sizeof(DWORD));
-			free(details);
-
-			_client->iBootPath = result;
-			if (win32_openpipes(_client) != IRECV_E_SUCCESS) {
-				win32_closepipes(_client);
-				continue;
-			}
-
-			if ((ecid != 0) && (_client->mode == IRECV_K_WTF_MODE)) {
-				/* we can't get ecid in WTF mode */
-				win32_closepipes(_client);
-				continue;
-			}
-
-			char serial_str[256];
-			serial_str[0] = '\0';
-
-			char *p = result;
-			while ((p = strstr(p, "\\usb"))) {
-				if (sscanf(p, "\\usb#vid_%*04x&pid_%*04x#%s", serial_str) == 1)
-					break;
-				p += 4;
-			}
-
-			if (serial_str[0] == '\0') {
-				win32_closepipes(_client);
-				continue;
-			}
-
-			p = strchr(serial_str, '#');
-			if (p) {
-				*p = '\0';
-			}
-
-			unsigned int j;
-			for (j = 0; j < strlen(serial_str); j++) {
-				if (serial_str[j] == '_') {
-					serial_str[j] = ' ';
-				} else {
-					serial_str[j] = toupper(serial_str[j]);
-				}
-			}
-
-			irecv_load_device_info_from_iboot_string(_client, serial_str);
-
-			if (ecid != 0) {
-				if (_client->device_info.ecid != ecid) {
-					win32_closepipes(_client);
+					CloseHandle(_client->handle);
 					continue;
 				}
 				debug("found device with ECID %016" PRIx64 "\n", (uint64_t)ecid);
@@ -2317,7 +2202,7 @@ static void* _irecv_handle_device_add(void *userdata)
 
 	char *p = result;
 	while ((p = strstr(p, "\\usb"))) {
-		if (sscanf(p, "\\usb#vid_%*04x&pid_%04x#%s", &pid, serial_str) == 2)
+		if (sscanf(p, "\\usb#vid_05ac&pid_%04x#%s", &pid, serial_str) == 2)
 			break;
 		p += 4;
 	}
@@ -2981,11 +2866,7 @@ irecv_error_t irecv_close(irecv_client_t client)
 		}
 #endif
 #else
-		free(client->iBootPath);
-		client->iBootPath = NULL;
-		free(client->DfuPath);
-		client->DfuPath = NULL;
-		win32_closepipes(client);
+		CloseHandle(client->handle);
 #endif
 		free(client->device_info.srnm);
 		free(client->device_info.imei);
