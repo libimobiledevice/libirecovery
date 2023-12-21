@@ -2491,8 +2491,11 @@ static void *_irecv_event_handler(void* data)
 {
 	struct _irecv_event_handler_info* info = (struct _irecv_event_handler_info*)data;
 #ifdef WIN32
+	struct collection newDevices;
 	const GUID *guids[] = { &GUID_DEVINTERFACE_DFU, &GUID_DEVINTERFACE_IBOOT, NULL };
 	int running = 1;
+
+	collection_init(&newDevices);
 
 	mutex_lock(&(info->startup_mutex));
 	cond_signal(&(info->startup_cond));
@@ -2512,6 +2515,13 @@ static void *_irecv_event_handler(void* data)
 			usbDevices = SetupDiGetClassDevs(guids[k], NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
 			if (!usbDevices) {
 				debug("%s: ERROR: SetupDiGetClassDevs failed\n", __func__);
+				// cleanup/free newDevices
+				FOREACH(struct irecv_win_dev_ctx *win_ctx, &newDevices) {
+					free(win_ctx->details);
+					collection_remove(&newDevices, win_ctx);
+					free(win_ctx);
+				} ENDFOREACH
+				collection_free(&newDevices);
 				return NULL;
 			}
 
@@ -2564,11 +2574,27 @@ static void *_irecv_event_handler(void* data)
 					}
 				} ENDFOREACH
 
-				if (!found) {
-					struct irecv_win_dev_ctx win_ctx;
-					win_ctx.details = details;
-					win_ctx.location = location;
-					_irecv_handle_device_add(&win_ctx);
+				unsigned int pid = 0;
+				if (sscanf(details->DevicePath, "\\\\?\\usb#vid_05ac&pid_%04x", &pid)!= 1) {
+					debug("%s: ERROR: failed to parse PID! path: %s\n", __func__, details->DevicePath);
+					free(details);
+					continue;
+				}
+				// make sure the current device is actually in the right mode for the given driver interface
+				int skip = 0;
+				if ((guids[k] == &GUID_DEVINTERFACE_DFU && pid != IRECV_K_DFU_MODE && pid != IRECV_K_WTF_MODE)
+				    || (guids[k] == &GUID_DEVINTERFACE_IBOOT && (pid < IRECV_K_RECOVERY_MODE_1 || pid > IRECV_K_RECOVERY_MODE_4))
+				) {
+					skip = 1;
+				}
+
+				if (!found && !skip) {
+					// Add device to newDevices list, and deliver the notification later, when removed devices are first handled.
+					struct irecv_win_dev_ctx *win_ctx = (struct irecv_win_dev_ctx*)malloc(sizeof(struct irecv_win_dev_ctx));
+					win_ctx->details = details;
+					win_ctx->location = location;
+					collection_add(&newDevices, win_ctx);
+					details = NULL;
 				}
 				free(details);
 			}
@@ -2577,19 +2603,29 @@ static void *_irecv_event_handler(void* data)
 
 		FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
 			if (!devinfo->alive) {
+				debug("%s: removed ecid: %016" PRIx64 ", location: %d\n",__func__, (uint64_t)devinfo->device_info.ecid, devinfo->location);
 				_irecv_handle_device_remove(devinfo);
 			}
 		} ENDFOREACH
 
+		// handle newly added devices and remove from local list
+		FOREACH(struct irecv_win_dev_ctx *win_ctx, &newDevices) {
+			debug("%s: found new: %s, location: %d\n", __func__, win_ctx->details->DevicePath, win_ctx->location);
+			_irecv_handle_device_add(win_ctx);
+			free(win_ctx->details);
+			collection_remove(&newDevices, win_ctx);
+			free(win_ctx);
+		} ENDFOREACH
+
+		Sleep(500);
 		mutex_lock(&listener_mutex);
 		if (collection_count(&listeners) == 0) {
 			running = 0;
 		}
 		mutex_unlock(&listener_mutex);
-
-		Sleep(500);
 	} while (running);
 
+	collection_free(&newDevices);
 #else /* !WIN32 */
 #ifdef HAVE_IOKIT
 	kern_return_t kr;
