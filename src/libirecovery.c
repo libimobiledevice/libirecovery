@@ -1615,15 +1615,11 @@ static irecv_error_t iokit_open_with_ecid(irecv_client_t* pclient, uint64_t ecid
 	return iokit_usb_open_service(pclient, ret_service);
 }
 #endif
-#endif
 
 #ifndef WIN32
 #ifndef HAVE_IOKIT
 static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid(irecv_client_t *pclient, struct libusb_device_handle *usb_handle, struct libusb_device_descriptor *usb_descriptor, uint64_t ecid)
 {
-	irecv_error_t ret = IRECV_E_UNABLE_TO_CONNECT;
-	irecv_error_t error = IRECV_E_UNABLE_TO_CONNECT;
-
 	irecv_client_t client = (irecv_client_t) malloc(sizeof(struct irecv_client_private));
 	if (client == NULL) {
 		libusb_close(usb_handle);
@@ -1650,9 +1646,8 @@ static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid(irecv_clien
 		debug("found device with ECID %016" PRIx64 "\n", (uint64_t)ecid);
 	}
 
-	ret = IRECV_E_SUCCESS;
 	*pclient = client;
-	return ret;
+	return IRECV_E_SUCCESS;
 }
 
 static irecv_error_t libusb_open_with_ecid(irecv_client_t* pclient, uint64_t ecid)
@@ -1717,6 +1712,7 @@ static irecv_error_t libusb_open_with_ecid(irecv_client_t* pclient, uint64_t eci
 	libusb_free_device_list(usb_device_list, 1);
 	return ret;
 }
+#endif
 #endif
 #endif
 
@@ -3062,7 +3058,6 @@ static irecv_error_t irecv_get_status(irecv_client_t client, unsigned int* statu
 
 	return IRECV_E_SUCCESS;
 }
-#endif
 
 static irecv_error_t irecv_kis_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfu_notify_finished)
 {
@@ -3126,6 +3121,7 @@ static irecv_error_t irecv_kis_send_buffer(irecv_client_t client, unsigned char*
 
 	return IRECV_E_SUCCESS;
 }
+#endif
 
 irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfu_notify_finished)
 {
