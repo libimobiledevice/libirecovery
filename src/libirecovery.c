@@ -1089,15 +1089,14 @@ static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 {
 	int found = 0;
 	const GUID *guids[] = { &GUID_DEVINTERFACE_DFU, &GUID_DEVINTERFACE_IBOOT, NULL };
-	SP_DEVICE_INTERFACE_DATA currentInterface;
-	HDEVINFO usbDevices;
-	DWORD i;
 	irecv_client_t _client = (irecv_client_t) malloc(sizeof(struct irecv_client_private));
 	memset(_client, 0, sizeof(struct irecv_client_private));
 
 	int k;
 	for (k = 0; !found && guids[k]; k++) {
-		usbDevices = SetupDiGetClassDevs(guids[k], NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+		DWORD i;
+		SP_DEVICE_INTERFACE_DATA currentInterface;
+		HDEVINFO usbDevices = SetupDiGetClassDevs(guids[k], NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
 		memset(&currentInterface, '\0', sizeof(SP_DEVICE_INTERFACE_DATA));
 		currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
 		for (i = 0; usbDevices && SetupDiEnumDeviceInterfaces(usbDevices, NULL, guids[k], i, &currentInterface); i++) {
@@ -1193,8 +1192,8 @@ static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 			found = 1;
 			break;
 		}
+		SetupDiDestroyDeviceInfoList(usbDevices);
 	}
-	SetupDiDestroyDeviceInfoList(usbDevices);
 
 	if (!found) {
 		irecv_close(_client);
