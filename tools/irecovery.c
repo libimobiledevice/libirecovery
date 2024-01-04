@@ -2,7 +2,7 @@
  * irecovery.c
  * Software frontend for iBoot/iBSS communication with iOS devices
  *
- * Copyright (c) 2012-2023 Nikias Bassen <nikias@gmx.li>
+ * Copyright (c) 2012-2020 Nikias Bassen <nikias@gmx.li>
  * Copyright (c) 2012-2015 Martin Szulecki <martin.szulecki@libimobiledevice.org>
  * Copyright (c) 2010-2011 Chronic-Dev Team
  * Copyright (c) 2010-2011 Joshua Hill
@@ -17,6 +17,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
+ * Modified by @i-am-theKid September'2023
  */
 
 #ifdef HAVE_CONFIG_H
@@ -34,6 +35,7 @@
 #include <libirecovery.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include "config.h"
 
 #ifdef WIN32
 #include <windows.h>
@@ -56,6 +58,7 @@ enum {
 	kShowMode,
 	kRebootToNormalMode,
 	kQueryInfo,
+	kQueryIboot,
 	kListDevices
 };
 
@@ -78,7 +81,7 @@ static void shell_usage()
 	printf("  /exit\t\t\texit interactive shell\n");
 }
 
-static const char* mode_to_str(int mode)
+static const char *mode_to_str(int mode)
 {
 	switch (mode) {
 		case IRECV_K_RECOVERY_MODE_1:
@@ -120,7 +123,8 @@ static void buffer_read_from_filename(const char *filename, char **buffer, uint6
 		return;
 	}
 
-	*buffer = (char*)malloc(sizeof(char)*(size+1));
+	*buffer = (char *)malloc(sizeof(char) * (size + 1));
+	*buffer = (char *)malloc(sizeof(char) * (size + 1));
 	fread(*buffer, sizeof(char), size, f);
 	fclose(f);
 
@@ -203,17 +207,13 @@ static void print_devices()
 	}
 }
 
-static int _is_breq_command(const char* cmd)
+static int _is_breq_command(const char *cmd)
 {
 	return (
-		!strcmp(cmd, "go")
-		|| !strcmp(cmd, "bootx")
-		|| !strcmp(cmd, "reboot")
-		|| !strcmp(cmd, "memboot")
-	);
+		!strcmp(cmd, "go") || !strcmp(cmd, "bootx") || !strcmp(cmd, "reboot") || !strcmp(cmd, "memboot"));
 }
 
-static void parse_command(irecv_client_t client, unsigned char* command, unsigned int size)
+static void parse_command(irecv_client_t client, unsigned char *command, unsigned int size)
 {
 	char* cmd = strdup((char*)command);
 	char* action = strtok(cmd, " ");
@@ -264,7 +264,7 @@ static void load_command_history()
 	read_history(FILE_HISTORY_PATH);
 }
 
-static void append_command_to_history(char* cmd)
+static void append_command_to_history(char *cmd)
 {
 	add_history(cmd);
 	write_history(FILE_HISTORY_PATH);
@@ -302,13 +302,15 @@ static void init_shell(irecv_client_t client)
 	}
 }
 
-int received_cb(irecv_client_t client, const irecv_event_t* event)
+int received_cb(irecv_client_t client, const irecv_event_t *event)
 {
-	if (event->type == IRECV_RECEIVED) {
+	if (event->type == IRECV_RECEIVED)
+	{
 		int i = 0;
 		int size = event->size;
-		const char* data = event->data;
-		for (i = 0; i < size; i++) {
+		const char *data = event->data;
+		for (i = 0; i < size; i++)
+		{
 			printf("%c", data[i]);
 		}
 	}
@@ -316,11 +318,13 @@ int received_cb(irecv_client_t client, const irecv_event_t* event)
 	return 0;
 }
 
-int precommand_cb(irecv_client_t client, const irecv_event_t* event)
+int precommand_cb(irecv_client_t client, const irecv_event_t *event)
 {
-	if (event->type == IRECV_PRECOMMAND) {
-		if (event->data[0] == '/') {
-			parse_command(client, (unsigned char*)event->data, event->size);
+	if (event->type == IRECV_PRECOMMAND)
+	{
+		if (event->data[0] == '/')
+		{
+			parse_command(client, (unsigned char *)event->data, event->size);
 			return -1;
 		}
 	}
@@ -328,21 +332,24 @@ int precommand_cb(irecv_client_t client, const irecv_event_t* event)
 	return 0;
 }
 
-int postcommand_cb(irecv_client_t client, const irecv_event_t* event)
+int postcommand_cb(irecv_client_t client, const irecv_event_t *event)
 {
-	char* value = NULL;
-	char* action = NULL;
-	char* command = NULL;
-	char* argument = NULL;
+	char *value = NULL;
+	char *action = NULL;
+	char *command = NULL;
+	char *argument = NULL;
 	irecv_error_t error = IRECV_E_SUCCESS;
 
-	if (event->type == IRECV_POSTCOMMAND) {
+	if (event->type == IRECV_POSTCOMMAND)
+	{
 		command = strdup(event->data);
 		action = strtok(command, " ");
-		if (!strcmp(action, "getenv")) {
+		if (!strcmp(action, "getenv"))
+		{
 			argument = strtok(NULL, " ");
 			error = irecv_getenv(client, argument, &value);
-			if (error != IRECV_E_SUCCESS) {
+			if (error != IRECV_E_SUCCESS)
+			{
 				debug("%s\n", irecv_strerror(error));
 				free(command);
 				return error;
@@ -351,7 +358,8 @@ int postcommand_cb(irecv_client_t client, const irecv_event_t* event)
 			free(value);
 		}
 
-		if (!strcmp(action, "reboot")) {
+		if (!strcmp(action, "reboot"))
+		{
 			quit = 1;
 		}
 	}
@@ -361,9 +369,10 @@ int postcommand_cb(irecv_client_t client, const irecv_event_t* event)
 	return 0;
 }
 
-int progress_cb(irecv_client_t client, const irecv_event_t* event)
+int progress_cb(irecv_client_t client, const irecv_event_t *event)
 {
-	if (event->type == IRECV_PROGRESS) {
+	if (event->type == IRECV_PROGRESS)
+	{
 		print_progress_bar(event->progress);
 	}
 
@@ -374,20 +383,26 @@ void print_progress_bar(double progress)
 {
 	int i = 0;
 
-	if (progress < 0) {
+	if (progress < 0)
+	{
 		return;
 	}
 
-	if (progress > 100) {
+	if (progress > 100)
+	{
 		progress = 100;
 	}
 
 	printf("\r[");
 
-	for (i = 0; i < 50; i++) {
-		if (i < progress / 2) {
+	for (i = 0; i < 50; i++)
+	{
+		if (i < progress / 2)
+		{
 			printf("=");
-		} else {
+		}
+		else
+		{
 			printf(" ");
 		}
 	}
@@ -396,7 +411,8 @@ void print_progress_bar(double progress)
 
 	fflush(stdout);
 
-	if (progress == 100) {
+	if (progress == 100)
+	{
 		printf("\n");
 	}
 }
@@ -405,7 +421,7 @@ static void print_usage(int argc, char **argv)
 {
 	char *name = NULL;
 	name = strrchr(argv[0], '/');
-	printf("Usage: %s [OPTIONS]\n", (name ? name + 1: argv[0]));
+	printf("Usage: %s [OPTIONS]\n", (name ? name + 1 : argv[0]));
 	printf("\n");
 	printf("Interact with an iOS device in DFU or recovery mode.\n");
 	printf("\n");
@@ -425,11 +441,208 @@ static void print_usage(int argc, char **argv)
 	printf("  -h, --help\t\tprints this usage information\n");
 	printf("  -V, --version\t\tprints version information\n");
 	printf("\n");
-	printf("Homepage:    <" PACKAGE_URL ">\n");
+	printf("Homepage: <" PACKAGE_URL ">\n");
 	printf("Bug Reports: <" PACKAGE_BUGREPORT ">\n");
 }
 
-int main(int argc, char* argv[])
+static void print_iboot_info(irecv_client_t client)
+{
+	int mode, modecheck;
+	modecheck = irecv_get_mode(client, &mode);
+	if (modecheck == IRECV_E_SUCCESS){
+		//if (strcmp(mode_to_str(mode), "Recovery") == 0){
+		if (strcmp(mode_to_str(mode),"Recovery") == 0){
+			const struct irecv_device_info *devinfo = irecv_get_device_info(client);
+			if (devinfo)
+			{
+				// printf("serial_string: %s", devinfo->serial_string);
+				irecv_error_t error = 0;
+
+				error = irecv_send_command(client, "getenv build-version");
+				char *response = (char *)malloc(256);
+				if (error != IRECV_E_SUCCESS)
+				{
+				debug("%s\n", irecv_strerror(error));
+				}
+				if (response == NULL)
+				{
+					printf("Could not get iboot response?!\n");
+				}
+
+				memset(response, '\0', 256);
+				irecv_usb_control_transfer(client, 0xC0, 0, 0, 0, (unsigned char *)response, 255 + 1, 10000);
+				//char *dugBaseIos = response;
+				char *baseIos = (char *)"NA";
+
+				if (strstr(response, "iBoot-6603.0") != NULL || strstr(response, "iBoot-6631.0") != NULL || strstr(response, "iBoot-6671.0") != NULL || strstr(response, "iBoot-6723.0") != NULL || strstr(response, "iBoot-6723.11") != NULL )
+				{
+					baseIos = (char *)"14.0";
+				}
+				else if (strstr(response, "iBoot-6723.11") != NULL )
+				{
+					baseIos = (char *)"14.1";
+				}
+				else if (strstr(response, "iBoot-6723.40") != NULL || strstr(response, "iBoot-6723.42") != NULL )
+				{
+					baseIos = (char *)"14.2";
+				}
+				else if (strstr(response, "iBoot-6723.60") != NULL || strstr(response, "iBoot-6723.62") != NULL )
+				{
+					baseIos = (char *)"14.3";
+				}
+				else if (strstr(response, "iBoot-6723.80") != NULL )
+				{
+					baseIos = (char *)"14.4";
+				}
+				else if (strstr(response, "iBoot-6723.100") != NULL || strstr(response, "iBoot-6723.102") != NULL )
+				{
+					baseIos = (char *)"14.5";
+				}
+				else if (strstr(response, "iBoot-6723.120") != NULL )
+				{
+					baseIos = (char *)"14.6";
+				}
+				else if (strstr(response, "iBoot-6723.140") != NULL )
+				{
+					baseIos = (char *)"14.7";
+				}
+				else if (strstr(response,"iBoot-6723.140.2") != NULL )
+				{
+					baseIos = (char *)"14.8";
+				}
+				else if (strstr(response, "iBoot-7429.0") != NULL || strstr(response, "iBoot-7429.10") != NULL || strstr(response, "iBoot-7429.12") != NULL )
+				{
+					baseIos = (char *)"15.0";
+				}
+				else if (strstr(response, "iBoot-7429.40") != NULL || strstr(response, "iBoot-7429.42") != NULL )
+				{
+					baseIos = (char *)"15.1";
+				}
+				else if (strstr(response, "iBoot-7429.60") != NULL || strstr(response, "iBoot-7429.62") != NULL )
+				{
+					baseIos = (char *)"15.2";
+				}
+				else if (strstr(response, "iBoot-7429.80") != NULL || strstr(response, "iBoot-7429.82") != NULL )
+				{
+					baseIos = (char *)"15.3";
+				}
+				else if (strstr(response, "iBoot-7459.100") != NULL || strstr(response, "iBoot-7459.102") != NULL )
+				{
+					baseIos = (char *)"15.4";
+				}
+				else if (strstr(response, "iBoot-7459.120") != NULL )
+				{
+					baseIos = (char *)"15.5";
+				}
+				else if (strstr(response, "iBoot-7459.140") != NULL )
+				{
+					baseIos = (char *)"15.6/15.7";
+				}
+				else if (strstr(response, "iBoot-8419.0.42") != NULL ) 
+				{
+					baseIos = (char *)"16.0 Beta 1";
+				}
+				else if (strstr(response, "iBoot-8419.0.79") != NULL ) 
+				{
+					baseIos = (char *)"16.0 Beta 2";
+				}
+				else if (strstr(response, "iBoot-8419.0.113") != NULL ) 
+				{
+					baseIos = (char *)"16.0 Beta 3";
+				}
+				else if (strstr(response, "iBoot-8419.0.151") != NULL ) 
+				{
+					baseIos = (char *)"16.0 Beta 4";
+				}
+				else if (strstr(response, "iBoot-8419.2.3") != NULL ) 
+				{
+					baseIos = (char *)"16.0 Beta 5";
+				}
+				else if (strstr(response, "iBoot-8419.2.4") != NULL ) 
+				{
+					baseIos = (char *)"16.0";
+				}
+				else if (strstr(response, "iBoot-8419.40") != NULL )
+				{
+					baseIos = (char *)"16.1";
+				}
+				else if (strstr(response, "iBoot-8419.60") != NULL )
+				{
+					baseIos = (char *)"16.2";
+				}
+				else if (strstr(response, "iBoot-8419.80") != NULL || strstr(response, "iBoot-8419.82") != NULL )
+				{
+					baseIos = (char *)"16.3";
+				}
+					else if (strstr(response, "iBoot-8422.100") != NULL )
+				{
+					baseIos = (char *)"16.4";
+				}
+				else if (strstr(response, "iBoot-8422.120.33") != NULL )
+				{
+					baseIos = (char *)"16.5 Beta 1";
+				}
+				else if (strstr(response, "iBoot-8422.120.55") != NULL )
+				{
+					baseIos = (char *)"16.5 Beta 2";
+				}
+				else if (strstr(response, "iBoot-8422.120.65") != NULL )
+				{
+					baseIos = (char *)"16.5 Beta 3";
+				}
+				else if (strstr(response, "iBoot-8422.120.66") != NULL )
+				{
+					baseIos = (char *)"16.5";
+				}
+				else if (strstr(response, "iBoot-8422.122.1") != NULL )
+				{
+					baseIos = (char *)"16.5.1";
+				}
+				else if (strstr(response, "iBoot-8422.140.18") != NULL )
+				{
+					baseIos = (char *)"16.6 Beta 1";
+				}
+				else if (strstr(response, "iBoot-8422.140.32") != NULL )
+				{
+					baseIos = (char *)"16.6 Beta 2";
+				}
+				else if (strstr(response, "iBoot-8422.140.46") != NULL )
+				{
+					baseIos = (char *)"16.6 Beta 3";
+				}
+				else if (strstr(response, "iBoot-8422.140.50") != NULL )
+				{
+					baseIos = (char *)"16.6 Beta 4";
+				}
+				else if (strstr(response, "iBoot-8422.142.1") != NULL )
+				{
+					baseIos = (char *)"16.6 Beta 5";
+				}
+				else if (strstr(response, "iBoot-8422.142.2") != NULL )
+				{
+					baseIos = (char *)"16.6";
+				}
+				else if (strstr(response, "iBoot-10151") != NULL )
+				{
+					baseIos = (char *)"17.0 Beta";
+				}
+				else 
+				{
+					baseIos = (char *)"NA";
+				}
+
+				printf("BUILD_VERSION: %s \n", response);
+				printf("BASE_IOS: %s \n", baseIos);
+			}
+			else
+				{
+					printf("Could not get iboot info?!\n");
+				}
+		}
+	}
+}
+
+int main(int argc, char *argv[])
 {
 	static struct option longopts[] = {
 		{ "ecid",    required_argument, NULL, 'i' },
@@ -453,10 +666,10 @@ int main(int argc, char* argv[])
 	int action = kNoAction;
 	uint64_t ecid = 0;
 	int mode = -1;
-	char* argument = NULL;
+	char *argument = NULL;
 	irecv_error_t error = 0;
 
-	char* buffer = NULL;
+	char *buffer = NULL;
 	uint64_t buffer_length = 0;
 
 	if (argc == 1) {
@@ -484,57 +697,68 @@ int main(int argc, char* argv[])
 				verbose += 1;
 				break;
 
-			case 'h':
-				print_usage(argc, argv);
-				return 0;
+		case 'h':
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			print_usage(argc, argv);
+			return 0;
 
-			case 'm':
-				action = kShowMode;
-				break;
+		case 'm':
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			action = kShowMode;
+			break;
 
-			case 'n':
-				action = kRebootToNormalMode;
-				break;
+		case 'n':
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			action = kRebootToNormalMode;
+			break;
 
-			case 'r':
-				action = kResetDevice;
-				break;
+		case 'r':
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			action = kResetDevice;
+			break;
 
-			case 's':
-				action = kStartShell;
-				break;
+		case 's':
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			action = kStartShell;
+			break;
 
-			case 'f':
-				action = kSendFile;
-				argument = optarg;
-				break;
+		case 'f':
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			action = kSendFile;
+			argument = optarg;
+			break;
 
-			case 'c':
-				action = kSendCommand;
-				argument = optarg;
-				break;
+		case 'c':
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			action = kSendCommand;
+			argument = optarg;
+			break;
 
-			case 'k':
-				action = kSendExploit;
-				argument = optarg;
-				break;
+		case 'k':
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			action = kSendExploit;
+			argument = optarg;
+			break;
 
-			case 'e':
-				action = kSendScript;
-				argument = optarg;
-				break;
+		case 'e':
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			action = kSendScript;
+			argument = optarg;
+			break;
 
 			case 'q':
+				printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
 				action = kQueryInfo;
 				break;
 
-			case 'a':
-				action = kListDevices;
-				print_devices();
-				return 0;
+		case 'a':
+			printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+			action = kListDevices;
+			print_devices();
+			return 0;
 
 			case 'V':
-				printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+				printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
 				return 0;
 
 			default:
@@ -544,6 +768,7 @@ int main(int argc, char* argv[])
 	}
 
 	if (action == kNoAction) {
+		printf("\n%s %s\n", TOOL_NAME, PACKAGE_VERSION);
 		fprintf(stderr, "ERROR: Missing action option\n");
 		print_usage(argc, argv);
 		return -1;
@@ -577,92 +802,111 @@ int main(int argc, char* argv[])
 	if (device)
 		debug("Connected to %s, model %s, cpid 0x%04x, bdid 0x%02x\n", device->product_type, device->hardware_model, device->chip_id, device->board_id);
 
-	switch (action) {
-		case kResetDevice:
-			irecv_reset(client);
-			break;
+	switch (action)
+	{
+	case kResetDevice:
+		irecv_reset(client);
+		break;
 
-		case kSendFile:
+	case kSendFile:
+		irecv_event_subscribe(client, IRECV_PROGRESS, &progress_cb, NULL);
+		error = irecv_send_file(client, argument, 1);
+		debug("%s\n", irecv_strerror(error));
+		break;
+
+	case kSendCommand:
+		if (_is_breq_command(argument))
+		{
+			error = irecv_send_command_breq(client, argument, 1);
+		}
+		else
+		{
+			error = irecv_send_command(client, argument);
+		}
+		debug("%s\n", irecv_strerror(error));
+		break;
+
+	case kSendExploit:
+		if (argument != NULL)
+		{
 			irecv_event_subscribe(client, IRECV_PROGRESS, &progress_cb, NULL);
-			error = irecv_send_file(client, argument, 1);
-			debug("%s\n", irecv_strerror(error));
-			break;
-
-		case kSendCommand:
-			if (_is_breq_command(argument)) {
-				error = irecv_send_command_breq(client, argument, 1);
-			} else {
-				error = irecv_send_command(client, argument);
-			}
-			debug("%s\n", irecv_strerror(error));
-			break;
-
-		case kSendExploit:
-			if (argument != NULL) {
-				irecv_event_subscribe(client, IRECV_PROGRESS, &progress_cb, NULL);
-				error = irecv_send_file(client, argument, 0);
-				if (error != IRECV_E_SUCCESS) {
-					debug("%s\n", irecv_strerror(error));
-					break;
-				}
-			}
-			error = irecv_trigger_limera1n_exploit(client);
-			debug("%s\n", irecv_strerror(error));
-			break;
-
-		case kStartShell:
-			init_shell(client);
-			break;
-
-		case kSendScript:
-			buffer_read_from_filename(argument, &buffer, &buffer_length);
-			if (buffer) {
-				buffer[buffer_length] = '\0';
-
-				error = irecv_execute_script(client, buffer);
-				if (error != IRECV_E_SUCCESS) {
-					debug("%s\n", irecv_strerror(error));
-				}
-
-				free(buffer);
-			} else {
-				fprintf(stderr, "Could not read file '%s'\n", argument);
-			}
-			break;
-
-		case kShowMode:
-			irecv_get_mode(client, &mode);
-			printf("%s Mode\n", mode_to_str(mode));
-			break;
-
-		case kRebootToNormalMode:
-			error = irecv_setenv(client, "auto-boot", "true");
-			if (error != IRECV_E_SUCCESS) {
+			error = irecv_send_file(client, argument, 0);
+			if (error != IRECV_E_SUCCESS)
+			{
 				debug("%s\n", irecv_strerror(error));
 				break;
 			}
+		}
+		error = irecv_trigger_limera1n_exploit(client);
+		debug("%s\n", irecv_strerror(error));
+		break;
 
-			error = irecv_saveenv(client);
-			if (error != IRECV_E_SUCCESS) {
+	case kStartShell:
+		init_shell(client);
+		break;
+
+	case kSendScript:
+		buffer_read_from_filename(argument, &buffer, &buffer_length);
+		if (buffer)
+		{
+			buffer[buffer_length] = '\0';
+
+			error = irecv_execute_script(client, buffer);
+			if (error != IRECV_E_SUCCESS)
+			{
 				debug("%s\n", irecv_strerror(error));
-				break;
 			}
 
-			error = irecv_reboot(client);
-			if (error != IRECV_E_SUCCESS) {
-				debug("%s\n", irecv_strerror(error));
-			} else {
-				debug("%s\n", irecv_strerror(error));
-			}
-			break;
+			free(buffer);
+		}
+		else
+		{
+			fprintf(stderr, "Could not read file '%s'\n", argument);
+		}
+		break;
 
-		case kQueryInfo:
-			print_device_info(client);
-			break;
+	case kShowMode:
+		irecv_get_mode(client, &mode);
+		printf("%s Mode\n", mode_to_str(mode));
+		break;
 
-		default:
-			fprintf(stderr, "Unknown action\n");
+	case kRebootToNormalMode:
+		error = irecv_setenv(client, "auto-boot", "true");
+		if (error != IRECV_E_SUCCESS)
+		{
+			debug("%s\n", irecv_strerror(error));
 			break;
+		}
+
+		error = irecv_saveenv(client);
+		if (error != IRECV_E_SUCCESS)
+		{
+			debug("%s\n", irecv_strerror(error));
+			break;
+		}
+
+		error = irecv_reboot(client);
+		if (error != IRECV_E_SUCCESS)
+		{
+			debug("%s\n", irecv_strerror(error));
+		}
+		else
+		{
+			debug("%s\n", irecv_strerror(error));
+		}
+		break;
+
+	case kQueryInfo:
+		print_device_info(client);
+		print_iboot_info(client);
+		break;
+	case kQueryIboot:
+		print_iboot_info(client);
+		break;
+
+	default:
+		fprintf(stderr, "Unknown action\n");
+		break;
 	}
 
 	irecv_close(client);

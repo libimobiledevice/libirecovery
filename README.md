@@ -5,6 +5,8 @@ via USB.*
 
 ![](https://github.com/libimobiledevice/libirecovery/workflows/build/badge.svg)
 
+![image](https://user-images.githubusercontent.com/72942240/230722095-a1ec83fe-2577-4f7f-8e49-46321fd5ff19.png)
+
 ## Features
 
 libirecovery is a cross-platform library which implements communication to
