@@ -777,6 +777,11 @@ static void irecv_load_device_info_from_iboot_string(irecv_client_t client, cons
 		}
 		client->device_info.srtg = strdup(tmp);
 	}
+
+	client->device_info.pid = client->mode;
+	if (client->isKIS) {
+		client->device_info.pid = KIS_PRODUCT_ID;
+	}
 }
 
 static void irecv_copy_nonce_with_tag_from_buffer(const char* tag, unsigned char** nonce, unsigned int* nonce_size, const char *buf)
@@ -2185,6 +2190,8 @@ static void* _irecv_handle_device_add(void *userdata)
 	char serial_str[256];
 	uint32_t location = 0;
 	uint16_t product_id = 0;
+	irecv_error_t error = 0;
+	irecv_client_t client = NULL;
 
 	memset(serial_str, 0, 256);
 #ifdef WIN32
@@ -2263,18 +2270,14 @@ static void* _irecv_handle_device_add(void *userdata)
 
 	if (product_id == KIS_PRODUCT_ID) {
 		IOObjectRetain(device);
-		irecv_client_t client;
 
-		irecv_error_t error = iokit_usb_open_service(&client, device);
+		error = iokit_usb_open_service(&client, device);
 		if (error != IRECV_E_SUCCESS) {
 			debug("%s: ERROR: could not open KIS device!\n", __func__);
 			return NULL;
 		}
 
-		strcpy(serial_str, client->device_info.serial_string);
 		product_id = client->mode;
-
-		irecv_close(client);
 	} else {
 		CFStringRef serialString = (CFStringRef)IORegistryEntryCreateCFProperty(device, CFSTR(kUSBSerialNumberString), kCFAllocatorDefault, 0);
 		if (serialString) {
@@ -2307,17 +2310,13 @@ static void* _irecv_handle_device_add(void *userdata)
 	}
 
 	if (product_id == KIS_PRODUCT_ID) {
-		irecv_client_t client;
-		irecv_error_t error = libusb_usb_open_handle_with_descriptor_and_ecid(&client, usb_handle, &devdesc, 0);
+		error = libusb_usb_open_handle_with_descriptor_and_ecid(&client, usb_handle, &devdesc, 0);
 		if (error != IRECV_E_SUCCESS) {
 			debug("%s: ERROR: could not open KIS device!\n", __func__);
 			return NULL;
 		}
 
-		strcpy(serial_str, client->device_info.serial_string);
 		product_id = client->mode;
-
-		irecv_close(client);
 	} else {
 		libusb_error = libusb_get_string_descriptor_ascii(usb_handle, devdesc.iSerialNumber, (unsigned char*)serial_str, 255);
 		if (libusb_error < 0) {
@@ -2329,8 +2328,45 @@ static void* _irecv_handle_device_add(void *userdata)
 #endif /* !HAVE_IOKIT */
 #endif /* !WIN32 */
 	memset(&client_loc, '\0', sizeof(client_loc));
-	irecv_load_device_info_from_iboot_string(&client_loc, serial_str);
+	if (product_id == KIS_PRODUCT_ID) {
+		error = irecv_usb_set_configuration(client, 1);
+		if (error != IRECV_E_SUCCESS) {
+			debug("Failed to set configuration, error %d\n", error);
+			irecv_close(client);
+			return NULL;
+		}
+
+		error = irecv_usb_set_interface(client, 0, 0);
+		if (error != IRECV_E_SUCCESS) {
+			debug("Failed to set interface, error %d\n", error);
+			irecv_close(client);
+			return NULL;
+		}
+
+		error = irecv_kis_init(client);
+		if (error != IRECV_E_SUCCESS) {
+			debug("irecv_kis_init failed, error %d\n", error);
+			irecv_close(client);
+			return NULL;
+		}
+
+		error = irecv_kis_load_device_info(client);
+		if (error != IRECV_E_SUCCESS) {
+			debug("irecv_kis_load_device_info failed, error %d\n", error);
+			irecv_close(client);
+			return NULL;
+		}
+		debug("found device with ECID %016" PRIx64 "\n", (uint64_t)client->device_info.ecid);
+		strncpy(serial_str, client->device_info.serial_string, 256);
+		product_id = client->mode;
+		client_loc.isKIS = 1;
+	}
+	if (client) {
+		irecv_close(client);
+	}
+
 	client_loc.mode = product_id;
+	irecv_load_device_info_from_iboot_string(&client_loc, serial_str);
 
 	struct irecv_usb_device_info *usb_dev_info = (struct irecv_usb_device_info*)malloc(sizeof(struct irecv_usb_device_info));
 	memcpy(&(usb_dev_info->device_info), &(client_loc.device_info), sizeof(struct irecv_device_info));

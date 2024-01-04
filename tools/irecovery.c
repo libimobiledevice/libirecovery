@@ -179,7 +179,14 @@ static void print_device_info(irecv_client_t client)
 
 	ret = irecv_get_mode(client, &mode);
 	if (ret == IRECV_E_SUCCESS) {
-		printf("MODE: %s\n", mode_to_str(mode));
+		switch (devinfo->pid) {
+			case 0x1881:
+				printf("MODE: DFU via Debug USB (KIS)\n");
+				break;
+			default:
+				printf("MODE: %s\n", mode_to_str(mode));
+				break;
+		}
 	}
 
 	irecv_devices_get_device_by_client(client, &device);
@@ -630,11 +637,16 @@ int main(int argc, char* argv[])
 			}
 			break;
 
-		case kShowMode:
+		case kShowMode: {
+			const struct irecv_device_info *devinfo = irecv_get_device_info(client);
 			irecv_get_mode(client, &mode);
-			printf("%s Mode\n", mode_to_str(mode));
+			printf("%s Mode", mode_to_str(mode));
+			if (devinfo->pid == 0x1881) {
+				printf(" via Debug USB (KIS)");
+			}
+			printf("\n");
 			break;
-
+		}
 		case kRebootToNormalMode:
 			error = irecv_setenv(client, "auto-boot", "true");
 			if (error != IRECV_E_SUCCESS) {
