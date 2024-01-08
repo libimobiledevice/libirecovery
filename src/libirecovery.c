@@ -2357,7 +2357,7 @@ static void* _irecv_handle_device_add(void *userdata)
 			return NULL;
 		}
 		debug("found device with ECID %016" PRIx64 "\n", (uint64_t)client->device_info.ecid);
-		strncpy(serial_str, client->device_info.serial_string, 256);
+		strncpy(serial_str, client->device_info.serial_string, 255);
 		product_id = client->mode;
 		client_loc.isKIS = 1;
 	}
