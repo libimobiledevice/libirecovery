@@ -584,6 +584,8 @@ int main(int argc, char* argv[])
 	if (device)
 		debug("Connected to %s, model %s, cpid 0x%04x, bdid 0x%02x\n", device->product_type, device->hardware_model, device->chip_id, device->board_id);
 
+	const struct irecv_device_info *devinfo = irecv_get_device_info(client);
+
 	switch (action) {
 		case kResetDevice:
 			irecv_reset(client);
@@ -596,6 +598,10 @@ int main(int argc, char* argv[])
 			break;
 
 		case kSendCommand:
+			if (devinfo->pid == 0x1881) {
+				printf("Shell is not available in Debug USB (KIS) mode.\n");
+				break;
+			}
 			if (_is_breq_command(argument)) {
 				error = irecv_send_command_breq(client, argument, 1);
 			} else {
@@ -605,6 +611,10 @@ int main(int argc, char* argv[])
 			break;
 
 		case kSendExploit:
+			if (devinfo->pid == 0x1881) {
+				printf("Shell is not available in Debug USB (KIS) mode.\n");
+				break;
+			}
 			if (argument != NULL) {
 				irecv_event_subscribe(client, IRECV_PROGRESS, &progress_cb, NULL);
 				error = irecv_send_file(client, argument, 0);
@@ -618,10 +628,18 @@ int main(int argc, char* argv[])
 			break;
 
 		case kStartShell:
+			if (devinfo->pid == 0x1881) {
+				printf("This feature is not supported in Debug USB (KIS) mode.\n");
+				break;
+			}
 			init_shell(client);
 			break;
 
 		case kSendScript:
+			if (devinfo->pid == 0x1881) {
+				printf("This feature is not supported in Debug USB (KIS) mode.\n");
+				break;
+			}
 			buffer_read_from_filename(argument, &buffer, &buffer_length);
 			if (buffer) {
 				buffer[buffer_length] = '\0';
@@ -638,7 +656,6 @@ int main(int argc, char* argv[])
 			break;
 
 		case kShowMode: {
-			const struct irecv_device_info *devinfo = irecv_get_device_info(client);
 			irecv_get_mode(client, &mode);
 			printf("%s Mode", mode_to_str(mode));
 			if (devinfo->pid == 0x1881) {
@@ -648,6 +665,10 @@ int main(int argc, char* argv[])
 			break;
 		}
 		case kRebootToNormalMode:
+			if (devinfo->pid == 0x1881) {
+				printf("This feature is not supported in Debug USB (KIS) mode.\n");
+				break;
+			}
 			error = irecv_setenv(client, "auto-boot", "true");
 			if (error != IRECV_E_SUCCESS) {
 				debug("%s\n", irecv_strerror(error));
