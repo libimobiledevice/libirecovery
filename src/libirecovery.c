@@ -1785,7 +1785,7 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t ecid)
 			irecv_close(client);
 			return IRECV_E_NO_DEVICE; //wrong device
 		}
-		debug("found device with ECID %016" PRIx64 "\n", (uint64_t)ecid);
+		debug("found device with ECID %016" PRIx64 "\n", (uint64_t)client->device_info.ecid);
 	} else {
 		irecv_copy_nonce_with_tag(client, "NONC", &client->device_info.ap_nonce, &client->device_info.ap_nonce_size);
 		irecv_copy_nonce_with_tag(client, "SNON", &client->device_info.sep_nonce, &client->device_info.sep_nonce_size);
