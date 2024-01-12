@@ -454,6 +454,26 @@ static unsigned int crc32_lookup_t1[256] = {
 #define crc32_step(a,b) \
 	a = (crc32_lookup_t1[(a & 0xFF) ^ ((unsigned char)b)] ^ (a >> 8))
 
+#ifdef WIN32
+#pragma pack(1)
+typedef struct {
+	uint16_t vid;
+	uint16_t pid;
+	uint32_t unk;
+	char nonces[255];
+	char serial[255];
+	char manufacturer[255];
+	char product[255];
+} KIS_device_info;
+
+typedef struct {
+	uint8_t data[0x4000];
+	uint32_t size;
+	uint32_t unused;
+	uint64_t address;
+} KIS_upload_chunk;
+#pragma pack()
+#else
 #pragma pack(1)
 typedef struct {
 	uint16_t sequence;         // A sequence number
@@ -525,6 +545,7 @@ typedef struct {
 	uint32_t status;
 } KIS_generic_reply;
 #pragma pack()
+#endif
 
 static THREAD_T th_event_handler = THREAD_T_NULL;
 struct collection listeners;
@@ -873,6 +894,7 @@ static void irecv_copy_nonce_with_tag(irecv_client_t client, const char* tag, un
 	irecv_copy_nonce_with_tag_from_buffer(tag,nonce,nonce_size,buf);
 }
 
+#ifndef WIN32
 static irecv_error_t irecv_kis_request_init(KIS_req_header *hdr, uint8_t portal, uint16_t index, size_t argCount, size_t payloadSize, size_t rplWords)
 {
 	if (argCount > UINT8_MAX) {
@@ -1001,9 +1023,11 @@ static int irecv_kis_read_string(KIS_device_info *di, size_t off, char *buf, siz
 
 	return len/2;
 }
+#endif
 
 static irecv_error_t irecv_kis_init(irecv_client_t client)
 {
+#ifndef WIN32
 	irecv_error_t err = irecv_kis_config_write32(client, KIS_PORTAL_CONFIG, KIS_INDEX_ENABLE_A, KIS_ENABLE_A_VAL);
 	if (err != IRECV_E_SUCCESS) {
 		debug("Failed to write to KIS_INDEX_ENABLE_A, error %d\n", err);
@@ -1015,7 +1039,7 @@ static irecv_error_t irecv_kis_init(irecv_client_t client)
 		debug("Failed to write to KIS_INDEX_ENABLE_B, error %d\n", err);
 		return err;
 	}
-
+#endif
 	client->isKIS = 1;
 
 	return IRECV_E_SUCCESS;
@@ -1024,7 +1048,23 @@ static irecv_error_t irecv_kis_init(irecv_client_t client)
 static irecv_error_t irecv_kis_load_device_info(irecv_client_t client)
 {
 	debug("Loading device info in KIS mode...\n");
-
+#ifdef WIN32
+	KIS_device_info kisInfo;
+	DWORD transferred = 0;
+	int ret = DeviceIoControl(client->handle, 0x220004, NULL, 0, &kisInfo, sizeof(kisInfo), (PDWORD)&transferred, NULL);
+	if (ret) {
+		debug("Serial: %s\n", kisInfo.serial);
+		irecv_load_device_info_from_iboot_string(client, kisInfo.serial);
+		debug("Manufacturer: %s\n", kisInfo.manufacturer);
+		debug("Product: %s\n", kisInfo.product);
+		debug("Nonces: %s\n", kisInfo.nonces);
+		irecv_copy_nonce_with_tag_from_buffer("NONC", &client->device_info.ap_nonce, &client->device_info.ap_nonce_size, kisInfo.nonces);
+		irecv_copy_nonce_with_tag_from_buffer("SNON", &client->device_info.sep_nonce, &client->device_info.sep_nonce_size, kisInfo.nonces);
+		debug("VID: 0x%04x\n", kisInfo.vid);
+		debug("PID: 0x%04x\n", kisInfo.pid);
+	}
+	client->mode = kisInfo.pid;
+#else
 	KIS_req_header req = {};
 	KIS_device_info di = {};
 	irecv_error_t err = irecv_kis_request_init(&req, KIS_PORTAL_RSM, KIS_INDEX_GET_INFO, 0, 0, sizeof(di.deviceInfo)/4);
@@ -1072,13 +1112,14 @@ static irecv_error_t irecv_kis_load_device_info(irecv_client_t client)
 	debug("PID: 0x%04x\n", di.deviceDescriptor.idProduct);
 
 	client->mode  = di.deviceDescriptor.idProduct;
-
+#endif
 	return IRECV_E_SUCCESS;
 }
 
 #ifdef WIN32
 static const GUID GUID_DEVINTERFACE_IBOOT = {0xED82A167L, 0xD61A, 0x4AF6, {0x9A, 0xB6, 0x11, 0xE5, 0x22, 0x36, 0xC5, 0x76}};
 static const GUID GUID_DEVINTERFACE_DFU = {0xB8085869L, 0xFEB9, 0x404B, {0x8C, 0xB1, 0x1E, 0x5C, 0x14, 0xFA, 0x8C, 0x54}};
+static const GUID GUID_DEVINTERFACE_KIS = {0xB36F4137L, 0xF4EF, 0x4BFC, {0xA2, 0x5A, 0xC2, 0x41, 0x07, 0x68, 0xEE, 0x37}};
 
 typedef struct usb_control_request {
 	uint8_t bmRequestType;
@@ -1093,7 +1134,7 @@ typedef struct usb_control_request {
 static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 {
 	int found = 0;
-	const GUID *guids[] = { &GUID_DEVINTERFACE_DFU, &GUID_DEVINTERFACE_IBOOT, NULL };
+	const GUID *guids[] = { &GUID_DEVINTERFACE_KIS, &GUID_DEVINTERFACE_DFU, &GUID_DEVINTERFACE_IBOOT, NULL };
 	irecv_client_t _client = (irecv_client_t) malloc(sizeof(struct irecv_client_private));
 	memset(_client, 0, sizeof(struct irecv_client_private));
 
@@ -1117,21 +1158,32 @@ static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 			}
 
 			unsigned int pid = 0;
-			if (sscanf(details->DevicePath, "\\\\?\\usb#vid_05ac&pid_%04x", &pid)!= 1) {
-				debug("%s: ERROR: failed to parse PID! path: %s\n", __func__, details->DevicePath);
+			unsigned int vid = 0;
+			if (sscanf(details->DevicePath, "\\\\?\\%*3s#vid_%04x&pid_%04x", &vid, &pid) != 2) {
+				debug("%s: ERROR: failed to parse VID/PID! path: %s\n", __func__, details->DevicePath);
 				free(details);
 				continue;
 			}
-			// make sure the current device is actually in the right mode for the given driver interface
-			if ((guids[k] == &GUID_DEVINTERFACE_DFU && pid != IRECV_K_DFU_MODE && pid != IRECV_K_WTF_MODE)
-			    || (guids[k] == &GUID_DEVINTERFACE_IBOOT && (pid < IRECV_K_RECOVERY_MODE_1 || pid > IRECV_K_RECOVERY_MODE_4))
-			) {
+			if (vid != APPLE_VENDOR_ID) {
 				free(details);
 				continue;
 			}
 
+			// make sure the current device is actually in the right mode for the given driver interface
+			if ((guids[k] == &GUID_DEVINTERFACE_DFU && pid != IRECV_K_DFU_MODE && pid != IRECV_K_WTF_MODE)
+			    || (guids[k] == &GUID_DEVINTERFACE_IBOOT && (pid < IRECV_K_RECOVERY_MODE_1 || pid > IRECV_K_RECOVERY_MODE_4))
+			    || (guids[k] == &GUID_DEVINTERFACE_KIS && pid != 1)
+			) {
+				free(details);
+				continue;
+			}
+			if (guids[k] == &GUID_DEVINTERFACE_KIS) {
+				pid = KIS_PRODUCT_ID;
+			}
+
 			_client->handle = CreateFileA(details->DevicePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 			if (_client->handle == INVALID_HANDLE_VALUE) {
+				debug("%s: Failed to open device path %s: %d\n", __func__, details->DevicePath, (int)GetLastError());
 				free(details);
 				continue;
 			}
@@ -1158,34 +1210,35 @@ static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 			char serial_str[256];
 			serial_str[0] = '\0';
 
-			char *p = (char*)details->DevicePath;
-			while ((p = strstr(p, "\\usb"))) {
-				if (sscanf(p, "\\usb#vid_05ac&pid_%*04x#%s", serial_str) == 1)
-					break;
-				p += 4;
-			}
-			free(details);
-
-			if (serial_str[0] == '\0') {
-				CloseHandle(_client->handle);
-				continue;
-			}
-
-			p = strchr(serial_str, '#');
-			if (p) {
-				*p = '\0';
-			}
-
-			unsigned int j;
-			for (j = 0; j < strlen(serial_str); j++) {
-				if (serial_str[j] == '_') {
-					serial_str[j] = ' ';
-				} else {
-					serial_str[j] = toupper(serial_str[j]);
+			if (_client->mode != KIS_PRODUCT_ID) {
+				char *p = (char*)details->DevicePath;
+				while ((p = strstr(p, "\\usb"))) {
+					if (sscanf(p, "\\usb#vid_05ac&pid_%*04x#%s", serial_str) == 1)
+						break;
+					p += 4;
 				}
-			}
+				free(details);
 
-			irecv_load_device_info_from_iboot_string(_client, serial_str);
+				if (serial_str[0] == '\0') {
+					CloseHandle(_client->handle);
+					continue;
+				}
+				p = strchr(serial_str, '#');
+				if (p) {
+					*p = '\0';
+				}
+
+				unsigned int j;
+				for (j = 0; j < strlen(serial_str); j++) {
+					if (serial_str[j] == '_') {
+						serial_str[j] = ' ';
+					} else {
+						serial_str[j] = toupper(serial_str[j]);
+					}
+				}
+
+				irecv_load_device_info_from_iboot_string(_client, serial_str);
+			}
 
 			if (ecid != 0) {
 				if (_client->device_info.ecid != ecid) {
@@ -1434,7 +1487,7 @@ int irecv_usb_bulk_transfer(irecv_client_t client,
 #endif
 #else
 	if (endpoint==0x4) {
-		ret = DeviceIoControl(client->handle, 0x220195, data, length, data, length, (PDWORD) transferred, NULL);
+		ret = DeviceIoControl(client->handle, 0x2201B6, data, length, data, length, (PDWORD) transferred, NULL);
 	} else {
 		ret = 0;
 	}
@@ -2202,40 +2255,51 @@ static void* _irecv_handle_device_add(void *userdata)
 
 	unsigned int pid = 0;
 
-	char *p = result;
-	while ((p = strstr(p, "\\usb"))) {
-		if (sscanf(p, "\\usb#vid_05ac&pid_%04x#%s", &pid, serial_str) == 2)
-			break;
-		p += 4;
-	}
+	if (strncmp(result, "\\\\?\\kis#", 8) == 0) {
+		pid = KIS_PRODUCT_ID;
+	} else {
+		char *p = result;
+		while ((p = strstr(p, "\\usb"))) {
+			if (sscanf(p, "\\usb#vid_05ac&pid_%04x#%s", &pid, serial_str) == 2)
+				break;
+			p += 4;
+		}
 
-	if (serial_str[0] == '\0') {
-		debug("%s: ERROR: failed to parse DevicePath?!\n", __func__);
-		return NULL;
-	}
+		if (serial_str[0] == '\0') {
+			debug("%s: ERROR: failed to parse DevicePath?!\n", __func__);
+			return NULL;
+		}
 
-	if (!_irecv_is_recovery_device(p)) {
-		return NULL;
-	}
-
-	p = strchr(serial_str, '#');
-	if (p) {
-		*p = '\0';
-	}
-
-	unsigned int j;
-	for (j = 0; j < strlen(serial_str); j++) {
-		if (serial_str[j] == '_') {
-			serial_str[j] = ' ';
-		} else {
-			serial_str[j] = toupper(serial_str[j]);
+		if (!_irecv_is_recovery_device(p)) {
+			return NULL;
 		}
 	}
+
 	product_id = (uint16_t)pid;
 
 	if (product_id == KIS_PRODUCT_ID) {
-		debug("%s: ERROR: KIS currently not supported with this backend!\n", __func__);
-		return NULL;
+		client = (irecv_client_t)malloc(sizeof(struct irecv_client_private));
+		client->handle = CreateFileA(result, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+		if (client->handle == INVALID_HANDLE_VALUE) {
+			debug("%s: Failed to open device path %s\n", __func__, result);
+			free(client);
+			return NULL;
+		}
+		client->mode = pid;
+	} else {
+		char* p = strchr(serial_str, '#');
+		if (p) {
+			*p = '\0';
+		}
+
+		unsigned int j;
+		for (j = 0; j < strlen(serial_str); j++) {
+			if (serial_str[j] == '_') {
+				serial_str[j] = ' ';
+			} else {
+				serial_str[j] = toupper(serial_str[j]);
+			}
+		}
 	}
 
 #else /* !WIN32 */
@@ -2523,7 +2587,7 @@ static void *_irecv_event_handler(void* data)
 	struct _irecv_event_handler_info* info = (struct _irecv_event_handler_info*)data;
 #ifdef WIN32
 	struct collection newDevices;
-	const GUID *guids[] = { &GUID_DEVINTERFACE_DFU, &GUID_DEVINTERFACE_IBOOT, NULL };
+	const GUID *guids[] = { &GUID_DEVINTERFACE_KIS, &GUID_DEVINTERFACE_DFU, &GUID_DEVINTERFACE_IBOOT, NULL };
 	int running = 1;
 
 	collection_init(&newDevices);
@@ -2606,15 +2670,22 @@ static void *_irecv_event_handler(void* data)
 				} ENDFOREACH
 
 				unsigned int pid = 0;
-				if (sscanf(details->DevicePath, "\\\\?\\usb#vid_05ac&pid_%04x", &pid)!= 1) {
-					debug("%s: ERROR: failed to parse PID! path: %s\n", __func__, details->DevicePath);
+				unsigned int vid = 0;
+				if (sscanf(details->DevicePath, "\\\\?\\%*3s#vid_%04x&pid_%04x", &vid, &pid)!= 2) {
+					debug("%s: ERROR: failed to parse VID/PID! path: %s\n", __func__, details->DevicePath);
 					free(details);
 					continue;
 				}
+				if (vid != APPLE_VENDOR_ID) {
+					free(details);
+					continue;
+				}
+
 				// make sure the current device is actually in the right mode for the given driver interface
 				int skip = 0;
 				if ((guids[k] == &GUID_DEVINTERFACE_DFU && pid != IRECV_K_DFU_MODE && pid != IRECV_K_WTF_MODE)
 				    || (guids[k] == &GUID_DEVINTERFACE_IBOOT && (pid < IRECV_K_RECOVERY_MODE_1 || pid > IRECV_K_RECOVERY_MODE_4))
+				    || (guids[k] == &GUID_DEVINTERFACE_KIS && pid != 1)
 				) {
 					skip = 1;
 				}
@@ -3109,6 +3180,11 @@ static irecv_error_t irecv_kis_send_buffer(irecv_client_t client, unsigned char*
 		if (toUpload > 0x4000)
 			toUpload = 0x4000;
 
+#ifdef WIN32
+		memcpy(chunk->data, buffer, toUpload);
+		chunk->size    = toUpload;
+		chunk->address = address;
+#else
 		irecv_error_t error = irecv_kis_request_init(&chunk->hdr, KIS_PORTAL_RSM, KIS_INDEX_UPLOAD, 3, toUpload, 0);
 		if (error != IRECV_E_SUCCESS) {
 			free(chunk);
@@ -3119,10 +3195,17 @@ static irecv_error_t irecv_kis_send_buffer(irecv_client_t client, unsigned char*
 		chunk->address = address;
 		chunk->size    = toUpload;
 		memcpy(chunk->data, buffer, toUpload);
+#endif
 
+#ifdef WIN32
+		DWORD transferred = 0;
+		int ret = DeviceIoControl(client->handle, 0x220008, chunk, sizeof(*chunk), NULL, 0, (PDWORD)&transferred, NULL);
+		irecv_error_t error = (ret) ? IRECV_E_SUCCESS : IRECV_E_USB_UPLOAD;
+#else
 		KIS_generic_reply reply;
 		size_t rcvSize = sizeof(reply);
 		error = irecv_kis_request(client, &chunk->hdr, sizeof(*chunk) - (0x4000 - toUpload), &reply.hdr, &rcvSize);
+#endif
 		if (error != IRECV_E_SUCCESS) {
 			free(chunk);
 			debug("Failed to upload chunk, error %d\n", error);
@@ -3147,7 +3230,14 @@ static irecv_error_t irecv_kis_send_buffer(irecv_client_t client, unsigned char*
 	free(chunk);
 
 	if (dfu_notify_finished) {
+#ifdef WIN32
+		DWORD amount = (DWORD)origLen;
+		DWORD transferred = 0;
+		int ret = DeviceIoControl(client->handle, 0x22000C, &amount, 4, NULL, 0, (PDWORD)&transferred, NULL);
+		irecv_error_t error = (ret) ? IRECV_E_SUCCESS : IRECV_E_USB_UPLOAD;
+#else
 		irecv_error_t error = irecv_kis_config_write32(client, KIS_PORTAL_RSM, KIS_INDEX_BOOT_IMG, origLen);
+#endif
 		if (error != IRECV_E_SUCCESS) {
 			debug("Failed to boot image, error %d\n", error);
 			return error;
