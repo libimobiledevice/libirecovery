@@ -57,6 +57,18 @@
 #endif
 #endif
 
+#ifdef IRECV_STATIC
+  #define IRECV_API
+#elif defined(_WIN32)
+  #define IRECV_API __declspec( dllexport )
+#else
+  #if __GNUC__ >= 4
+    #define IRECV_API __attribute__((visibility("default")))
+  #else
+    #define IRECV_API
+  #endif
+#endif
+
 #include "libirecovery.h"
 
 struct irecv_client_private {

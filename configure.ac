@@ -141,6 +141,11 @@ AS_IF([test "x$with_dummy" = "xyes"], [
 ])
 
 AS_COMPILER_FLAGS(GLOBAL_CFLAGS, "-Wall -Wextra -Wmissing-declarations -Wredundant-decls -Wshadow -Wpointer-arith -Wwrite-strings -Wswitch-default -Wno-unused-parameter -fvisibility=hidden")
+
+if test "x$enable_static" = "xyes" -a "x$enable_shared" = "xno"; then
+	GLOBAL_CFLAGS+=" -DIRECV_STATIC"
+fi
+
 AC_SUBST(GLOBAL_CFLAGS)
 AC_SUBST(GLOBAL_LDFLAGS)
 
