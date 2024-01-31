@@ -149,11 +149,6 @@ fi
 AC_SUBST(GLOBAL_CFLAGS)
 AC_SUBST(GLOBAL_LDFLAGS)
 
-case "$GLOBAL_CFLAGS" in
-	*-fvisibility=hidden*)
-		AC_DEFINE([HAVE_FVISIBILITY], [1], [Define if compiled with -fvisibility=hidden])
-esac
-
 # check for large file support
 AC_SYS_LARGEFILE
 
