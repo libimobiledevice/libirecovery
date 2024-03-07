@@ -3053,6 +3053,15 @@ void irecv_set_debug_level(int level)
 #endif
 }
 
+const char* irecv_version()
+{
+#ifndef PACKAGE_VERSION
+#error PACKAGE_VERSION is not defined!
+#endif
+    return PACKAGE_VERSION;
+}
+
+
 #ifndef USE_DUMMY
 static irecv_error_t irecv_send_command_raw(irecv_client_t client, const char* command, uint8_t b_request)
 {

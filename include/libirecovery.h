@@ -127,6 +127,8 @@ IRECV_API const char* irecv_strerror(irecv_error_t error);
 IRECV_API void irecv_init(void); /* deprecated: libirecovery has constructor now */
 IRECV_API void irecv_exit(void); /* deprecated: libirecovery has destructor now */
 
+IRECV_API const char* irecv_version();
+
 /* device connectivity */
 IRECV_API irecv_error_t irecv_open_with_ecid(irecv_client_t* client, uint64_t ecid);
 IRECV_API irecv_error_t irecv_open_with_ecid_and_attempts(irecv_client_t* pclient, uint64_t ecid, int attempts);
