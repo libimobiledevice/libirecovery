@@ -1612,7 +1612,6 @@ static irecv_error_t iokit_open_with_ecid(irecv_client_t* pclient, uint64_t ecid
 		pids = wtf_pids;
 		ecid = 0;
 	}
-
 	if (ecid > 0) {
 		ecidString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%llX"), ecid);
 		if (ecidString == NULL) {
@@ -1641,12 +1640,6 @@ static irecv_error_t iokit_open_with_ecid(irecv_client_t* pclient, uint64_t ecid
 					irecv_error_t err = iokit_usb_open_service(pclient, service);
 					if (err != IRECV_E_SUCCESS) {
 						debug("%s: failed to open KIS device\n", __func__);
-						continue;
-					}
-
-					if ((*pclient)->device_info.ecid != ecid) {
-						irecv_close(*pclient);
-						*pclient = NULL;
 						continue;
 					}
 
