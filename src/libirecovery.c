@@ -1256,7 +1256,7 @@ static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 				irecv_load_device_info_from_iboot_string(_client, serial_str);
 			}
 
-			if (ecid != 0) {
+			if (ecid != 0 && _client->mode != KIS_PRODUCT_ID) {
 				if (_client->device_info.ecid != ecid) {
 					CloseHandle(_client->handle);
 					continue;
