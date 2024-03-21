@@ -768,7 +768,9 @@ static void irecv_load_device_info_from_iboot_string(irecv_client_t client, cons
 
 	ptr = strstr(iboot_string, "BDID:");
 	if (ptr != NULL) {
-		sscanf(ptr, "BDID:%x", &client->device_info.bdid);
+		uint64_t bdid = 0;
+		sscanf(ptr, "BDID:%" SCNx64, &bdid);
+		client->device_info.bdid = (unsigned int)bdid;
 	}
 
 	ptr = strstr(iboot_string, "ECID:");
@@ -1136,6 +1138,7 @@ static irecv_error_t irecv_kis_load_device_info(irecv_client_t client)
 static const GUID GUID_DEVINTERFACE_IBOOT = {0xED82A167L, 0xD61A, 0x4AF6, {0x9A, 0xB6, 0x11, 0xE5, 0x22, 0x36, 0xC5, 0x76}};
 static const GUID GUID_DEVINTERFACE_DFU = {0xB8085869L, 0xFEB9, 0x404B, {0x8C, 0xB1, 0x1E, 0x5C, 0x14, 0xFA, 0x8C, 0x54}};
 static const GUID GUID_DEVINTERFACE_KIS = {0xB36F4137L, 0xF4EF, 0x4BFC, {0xA2, 0x5A, 0xC2, 0x41, 0x07, 0x68, 0xEE, 0x37}};
+static const GUID GUID_DEVINTERFACE_PORTDFU = {0xAF633FF1L, 0x1170, 0x4CA6, {0xAE, 0x9E, 0x08, 0xD0, 0x01, 0x42, 0x1E, 0xAA}};
 
 typedef struct usb_control_request {
 	uint8_t bmRequestType;
@@ -1150,7 +1153,7 @@ typedef struct usb_control_request {
 static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 {
 	int found = 0;
-	const GUID *guids[] = { &GUID_DEVINTERFACE_KIS, &GUID_DEVINTERFACE_DFU, &GUID_DEVINTERFACE_IBOOT, NULL };
+	const GUID *guids[] = { &GUID_DEVINTERFACE_KIS, &GUID_DEVINTERFACE_PORTDFU, &GUID_DEVINTERFACE_DFU, &GUID_DEVINTERFACE_IBOOT, NULL };
 	irecv_client_t _client = (irecv_client_t) malloc(sizeof(struct irecv_client_private));
 	memset(_client, 0, sizeof(struct irecv_client_private));
 
@@ -1187,6 +1190,7 @@ static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 
 			// make sure the current device is actually in the right mode for the given driver interface
 			if ((guids[k] == &GUID_DEVINTERFACE_DFU && pid != IRECV_K_DFU_MODE && pid != IRECV_K_WTF_MODE)
+			    || (guids[k] == &GUID_DEVINTERFACE_PORTDFU && pid != IRECV_K_PORT_DFU_MODE)
 			    || (guids[k] == &GUID_DEVINTERFACE_IBOOT && (pid < IRECV_K_RECOVERY_MODE_1 || pid > IRECV_K_RECOVERY_MODE_4))
 			    || (guids[k] == &GUID_DEVINTERFACE_KIS && pid != 1)
 			) {
@@ -1599,7 +1603,7 @@ static irecv_error_t iokit_open_with_ecid(irecv_client_t* pclient, uint64_t ecid
 	CFRange range;
 
 	UInt16 wtf_pids[] = { IRECV_K_WTF_MODE, 0};
-	UInt16 all_pids[] = { IRECV_K_WTF_MODE, IRECV_K_DFU_MODE, IRECV_K_RECOVERY_MODE_1, IRECV_K_RECOVERY_MODE_2, IRECV_K_RECOVERY_MODE_3, IRECV_K_RECOVERY_MODE_4, KIS_PRODUCT_ID, 0 };
+	UInt16 all_pids[] = { IRECV_K_WTF_MODE, IRECV_K_DFU_MODE, IRECV_K_PORT_DFU_MODE, IRECV_K_RECOVERY_MODE_1, IRECV_K_RECOVERY_MODE_2, IRECV_K_RECOVERY_MODE_3, IRECV_K_RECOVERY_MODE_4, KIS_PRODUCT_ID, 0 };
 	UInt16 *pids = all_pids;
 	int i;
 
@@ -1737,6 +1741,7 @@ static irecv_error_t libusb_open_with_ecid(irecv_client_t* pclient, uint64_t eci
 				usb_descriptor.idProduct == IRECV_K_RECOVERY_MODE_4 ||
 				usb_descriptor.idProduct == IRECV_K_WTF_MODE ||
 				usb_descriptor.idProduct == IRECV_K_DFU_MODE ||
+				usb_descriptor.idProduct == IRECV_K_PORT_DFU_MODE ||
 				usb_descriptor.idProduct == KIS_PRODUCT_ID) {
 
 				if (ecid == IRECV_K_WTF_MODE) {
@@ -1814,7 +1819,7 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t ecid)
 		return error;
 	}
 
-	if (client->mode == IRECV_K_DFU_MODE || client->mode == IRECV_K_WTF_MODE || client->mode == KIS_PRODUCT_ID) {
+	if (client->mode == IRECV_K_DFU_MODE || client->mode == IRECV_K_PORT_DFU_MODE || client->mode == IRECV_K_WTF_MODE || client->mode == KIS_PRODUCT_ID) {
 		error = irecv_usb_set_interface(client, 0, 0);
 	} else {
 		error = irecv_usb_set_interface(client, 0, 0);
@@ -2238,6 +2243,7 @@ static int _irecv_is_recovery_device(void *device)
 		case IRECV_K_RECOVERY_MODE_2:
 		case IRECV_K_RECOVERY_MODE_3:
 		case IRECV_K_RECOVERY_MODE_4:
+		case IRECV_K_PORT_DFU_MODE:
 		case KIS_PRODUCT_ID:
 			break;
 		default:
@@ -2596,7 +2602,7 @@ static void *_irecv_event_handler(void* data)
 	struct _irecv_event_handler_info* info = (struct _irecv_event_handler_info*)data;
 #ifdef WIN32
 	struct collection newDevices;
-	const GUID *guids[] = { &GUID_DEVINTERFACE_KIS, &GUID_DEVINTERFACE_DFU, &GUID_DEVINTERFACE_IBOOT, NULL };
+	const GUID *guids[] = { &GUID_DEVINTERFACE_KIS, &GUID_DEVINTERFACE_PORTDFU, &GUID_DEVINTERFACE_DFU, &GUID_DEVINTERFACE_IBOOT, NULL };
 	int running = 1;
 
 	collection_init(&newDevices);
@@ -2693,6 +2699,7 @@ static void *_irecv_event_handler(void* data)
 				// make sure the current device is actually in the right mode for the given driver interface
 				int skip = 0;
 				if ((guids[k] == &GUID_DEVINTERFACE_DFU && pid != IRECV_K_DFU_MODE && pid != IRECV_K_WTF_MODE)
+				    || (guids[k] == &GUID_DEVINTERFACE_PORTDFU && pid != IRECV_K_PORT_DFU_MODE)
 				    || (guids[k] == &GUID_DEVINTERFACE_IBOOT && (pid < IRECV_K_RECOVERY_MODE_1 || pid > IRECV_K_RECOVERY_MODE_4))
 				    || (guids[k] == &GUID_DEVINTERFACE_KIS && pid != 1)
 				) {
@@ -2746,7 +2753,7 @@ static void *_irecv_event_handler(void* data)
 	iokit_runloop = CFRunLoopGetCurrent();
 	CFRunLoopAddSource(iokit_runloop, runLoopSource, kCFRunLoopDefaultMode);
 
-	uint16_t pids[8] = { IRECV_K_WTF_MODE, IRECV_K_DFU_MODE, IRECV_K_RECOVERY_MODE_1, IRECV_K_RECOVERY_MODE_2, IRECV_K_RECOVERY_MODE_3, IRECV_K_RECOVERY_MODE_4, KIS_PRODUCT_ID, 0 };
+	uint16_t pids[9] = { IRECV_K_WTF_MODE, IRECV_K_DFU_MODE, IRECV_K_RECOVERY_MODE_1, IRECV_K_RECOVERY_MODE_2, IRECV_K_RECOVERY_MODE_3, IRECV_K_RECOVERY_MODE_4, IRECV_K_PORT_DFU_MODE, KIS_PRODUCT_ID, 0 };
 	int i = 0;
 	while (pids[i] > 0) {
 		CFMutableDictionaryRef matchingDict = IOServiceMatching(kIOUSBDeviceClassName);
@@ -3005,7 +3012,7 @@ irecv_error_t irecv_close(irecv_client_t client)
 		}
 #else
 		if (client->handle != NULL) {
-			if ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE) && (client->isKIS == 0)) {
+			if ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_PORT_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE) && (client->isKIS == 0)) {
 				libusb_release_interface(client->handle, client->usb_interface);
 			}
 			libusb_close(client->handle);
@@ -3275,7 +3282,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 		return irecv_kis_send_buffer(client, buffer, length, dfu_notify_finished);
 
 	irecv_error_t error = 0;
-	int recovery_mode = ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE));
+	int recovery_mode = ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_PORT_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE));
 
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;
@@ -3806,7 +3813,7 @@ irecv_error_t irecv_reset_counters(irecv_client_t client)
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;
 
-	if ((client->mode == IRECV_K_DFU_MODE) || (client->mode == IRECV_K_WTF_MODE)) {
+	if ((client->mode == IRECV_K_DFU_MODE) || (client->mode == IRECV_K_PORT_DFU_MODE) || (client->mode == IRECV_K_WTF_MODE)) {
 		irecv_usb_control_transfer(client, 0x21, 4, 0, 0, 0, 0, USB_TIMEOUT);
 	}
 
@@ -3819,7 +3826,7 @@ irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned lo
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
-	int recovery_mode = ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE));
+	int recovery_mode = ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_PORT_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE));
 
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;
@@ -3905,8 +3912,15 @@ irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client, irecv_de
 		return IRECV_E_UNKNOWN_ERROR;
 	}
 
+	unsigned int cpid_match = client->device_info.cpid;
+	unsigned int bdid_match = client->device_info.bdid;
+	if (client->mode == IRECV_K_PORT_DFU_MODE) {
+		cpid_match = (client->device_info.bdid >> 8) & 0xFFFF;
+		bdid_match = (client->device_info.bdid >> 24) & 0xFF;
+	}
+
 	for (i = 0; irecv_devices[i].hardware_model != NULL; i++) {
-		if (irecv_devices[i].chip_id == client->device_info.cpid && irecv_devices[i].board_id == client->device_info.bdid) {
+		if (irecv_devices[i].chip_id == cpid_match && irecv_devices[i].board_id == bdid_match) {
 			*device = &irecv_devices[i];
 			return IRECV_E_SUCCESS;
 		}

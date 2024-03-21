@@ -43,7 +43,8 @@ enum irecv_mode {
 	IRECV_K_RECOVERY_MODE_3   = 0x1282,
 	IRECV_K_RECOVERY_MODE_4   = 0x1283,
 	IRECV_K_WTF_MODE          = 0x1222,
-	IRECV_K_DFU_MODE          = 0x1227
+	IRECV_K_DFU_MODE          = 0x1227,
+	IRECV_K_PORT_DFU_MODE     = 0xf014
 };
 
 typedef enum {

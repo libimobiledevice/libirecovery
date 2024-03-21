@@ -90,6 +90,9 @@ static const char* mode_to_str(int mode)
 		case IRECV_K_DFU_MODE:
 			return "DFU";
 			break;
+		case IRECV_K_PORT_DFU_MODE:
+			return "Port DFU";
+			break;
 		case IRECV_K_WTF_MODE:
 			return "WTF";
 			break;
