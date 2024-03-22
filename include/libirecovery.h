@@ -122,6 +122,13 @@ typedef struct {
 typedef struct irecv_client_private irecv_client_private;
 typedef irecv_client_private* irecv_client_t;
 
+enum {
+	IRECV_SEND_OPT_NONE              = 0,
+	IRECV_SEND_OPT_DFU_NOTIFY_FINISH = (1 << 0),
+	IRECV_SEND_OPT_DFU_FORCE_ZLP     = (1 << 1),
+	IRECV_SEND_OPT_DFU_SMALL_PKT     = (1 << 2)
+};
+
 /* library */
 IRECV_API void irecv_set_debug_level(int level);
 IRECV_API const char* irecv_strerror(irecv_error_t error);
@@ -160,10 +167,10 @@ IRECV_API irecv_error_t irecv_event_subscribe(irecv_client_t client, irecv_event
 IRECV_API irecv_error_t irecv_event_unsubscribe(irecv_client_t client, irecv_event_type type);
 
 /* I/O */
-IRECV_API irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, int dfu_notify_finished);
+IRECV_API irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, unsigned int options);
 IRECV_API irecv_error_t irecv_send_command(irecv_client_t client, const char* command);
 IRECV_API irecv_error_t irecv_send_command_breq(irecv_client_t client, const char* command, uint8_t b_request);
-IRECV_API irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfu_notify_finished);
+IRECV_API irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, unsigned int options);
 IRECV_API irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned long length);
 
 /* commands */

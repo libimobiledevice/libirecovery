@@ -596,7 +596,7 @@ int main(int argc, char* argv[])
 
 		case kSendFile:
 			irecv_event_subscribe(client, IRECV_PROGRESS, &progress_cb, NULL);
-			error = irecv_send_file(client, argument, 1);
+			error = irecv_send_file(client, argument, IRECV_SEND_OPT_DFU_NOTIFY_FINISH);
 			debug("%s\n", irecv_strerror(error));
 			break;
 

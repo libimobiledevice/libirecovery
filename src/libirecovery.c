@@ -3130,7 +3130,7 @@ irecv_error_t irecv_send_command(irecv_client_t client, const char* command)
 	return irecv_send_command_breq(client, command, 0);
 }
 
-irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, int dfu_notify_finished)
+irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, unsigned int options)
 {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
@@ -3163,7 +3163,7 @@ irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, int d
 		return IRECV_E_UNKNOWN_ERROR;
 	}
 
-	irecv_error_t error = irecv_send_buffer(client, (unsigned char*)buffer, length, dfu_notify_finished);
+	irecv_error_t error = irecv_send_buffer(client, (unsigned char*)buffer, length, options);
 	free(buffer);
 
 	return error;
@@ -3190,7 +3190,7 @@ static irecv_error_t irecv_get_status(irecv_client_t client, unsigned int* statu
 	return IRECV_E_SUCCESS;
 }
 
-static irecv_error_t irecv_kis_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfu_notify_finished)
+static irecv_error_t irecv_kis_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, unsigned int options)
 {
 	if (client->mode != IRECV_K_DFU_MODE) {
 		return IRECV_E_UNSUPPORTED;
@@ -3254,7 +3254,7 @@ static irecv_error_t irecv_kis_send_buffer(irecv_client_t client, unsigned char*
 	}
 	free(chunk);
 
-	if (dfu_notify_finished) {
+	if (options & IRECV_SEND_OPT_DFU_NOTIFY_FINISH) {
 #ifdef WIN32
 		DWORD amount = (DWORD)origLen;
 		DWORD transferred = 0;
@@ -3273,13 +3273,13 @@ static irecv_error_t irecv_kis_send_buffer(irecv_client_t client, unsigned char*
 }
 #endif
 
-irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, int dfu_notify_finished)
+irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, unsigned int options)
 {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
 	if (client->isKIS)
-		return irecv_kis_send_buffer(client, buffer, length, dfu_notify_finished);
+		return irecv_kis_send_buffer(client, buffer, length, options);
 
 	irecv_error_t error = 0;
 	int recovery_mode = ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_PORT_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE));
@@ -3289,7 +3289,12 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 
 	unsigned int h1 = 0xFFFFFFFF;
 	unsigned char dfu_xbuf[12] = {0xff, 0xff, 0xff, 0xff, 0xac, 0x05, 0x00, 0x01, 0x55, 0x46, 0x44, 0x10};
+	int dfu_crc = 1;
 	int packet_size = recovery_mode ? 0x8000 : 0x800;
+	if (!recovery_mode && (options & IRECV_SEND_OPT_DFU_SMALL_PKT)) {
+		packet_size = 0x40;
+		dfu_crc = 0;
+	}
 	int last = length % packet_size;
 	int packets = length / packet_size;
 
@@ -3341,11 +3346,14 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 		if (recovery_mode) {
 			error = irecv_usb_bulk_transfer(client, 0x04, &buffer[i * packet_size], size, &bytes, USB_TIMEOUT);
 		} else {
-			int j;
-			for (j = 0; j < size; j++) {
-				crc32_step(h1, buffer[i*packet_size + j]);
+			if (dfu_crc) {
+				int j;
+				for (j = 0; j < size; j++) {
+					crc32_step(h1, buffer[i*packet_size + j]);
+				}
 			}
-			if (i+1 == packets) {
+			if (dfu_crc && i+1 == packets) {
+				int j;
 				if (size+16 > packet_size) {
 					bytes = irecv_usb_control_transfer(client, 0x21, 1, i, 0, &buffer[i * packet_size], size, USB_TIMEOUT);
 					if (bytes != size) {
@@ -3354,7 +3362,6 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 					count += size;
 					size = 0;
 				}
-
 				for (j = 0; j < 2; j++) {
 					crc32_step(h1, dfu_xbuf[j*6 + 0]);
 					crc32_step(h1, dfu_xbuf[j*6 + 1]);
@@ -3428,7 +3435,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 		irecv_usb_bulk_transfer(client, 0x04, buffer, 0, &bytes, USB_TIMEOUT);
 	}
 
-	if (dfu_notify_finished && !recovery_mode) {
+	if ((options & IRECV_SEND_OPT_DFU_NOTIFY_FINISH) && !recovery_mode) {
 		irecv_usb_control_transfer(client, 0x21, 1, packets, 0, (unsigned char*) buffer, 0, USB_TIMEOUT);
 
 		for (i = 0; i < 2; i++) {
@@ -3438,7 +3445,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 			}
 		}
 
-		if (dfu_notify_finished == 2) {
+		if ((options & IRECV_SEND_OPT_DFU_FORCE_ZLP)) {
 			/* we send a pseudo ZLP here just in case */
 			irecv_usb_control_transfer(client, 0x21, 1, 0, 0, 0, 0, USB_TIMEOUT);
 		}
