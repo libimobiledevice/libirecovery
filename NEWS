@@ -1,3 +1,25 @@
+Version 1.2.0
+~~~~~~~~~~~~~
+
+* Changes:
+  - Allow building --without-tools
+  - Add KIS (aka Debug USB) support for macOS, Linux, and Windows
+    (Windows note: requires up-to-date AppleMobileDeviceSupport64.msi package installed)
+  - Add Port DFU support (restore procedure is handled externally)
+  - irecovery: Print detailed mode for -q and -m commands
+  - Overall code cleanup and de-duplication
+  - Windows-specific code cleanup and improvements
+
+* Device database changes:
+  - Add Mac Pro, Mac Studio (M2) and MacBook Air (M2) models
+  - Add iPhone 15 family
+  - Add Apple Watch Series 9 and Ultra 2 models
+  - Add November 2023 iMac and MacBook Pro models
+  - Add support for Apple Vision Pro (RealityDevice14,1)
+
+* Bug Fixes:
+  - A few minor Windows-specific bug fixes
+
 Version 1.1.0
 ~~~~~~~~~~~~~
 
