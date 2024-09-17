@@ -187,6 +187,10 @@ static struct irecv_device irecv_devices[] = {
 	{ "iPhone15,5",	 "d38ap",    0x0A, 0x8120, "iPhone 15 Plus" },
 	{ "iPhone16,1",	 "d83ap",    0x04, 0x8130, "iPhone 15 Pro" },
 	{ "iPhone16,2",	 "d84ap",    0x06, 0x8130, "iPhone 15 Pro Max" },
+	{ "iPhone17,1",	 "d93ap",    0x0C, 0x8140, "iPhone 16 Pro" },
+	{ "iPhone17,2",	 "d94ap",    0x0E, 0x8140, "iPhone 16 Pro Max" },
+	{ "iPhone17,3",	 "d47ap",    0x08, 0x8140, "iPhone 16" },
+	{ "iPhone17,4",	 "d48ap",    0x0A, 0x8140, "iPhone 16 Plus" },
 	/* iPod */
 	{ "iPod1,1",     "n45ap",    0x02, 0x8900, "iPod Touch (1st gen)" },
 	{ "iPod2,1",     "n72ap",    0x00, 0x8720, "iPod Touch (2nd gen)" },
@@ -345,6 +349,10 @@ static struct irecv_device irecv_devices[] = {
 	{ "Watch7,3",    "n208sap", 0x0C, 0x8310, "Apple Watch Series 9 (41mm Cellular)" },
 	{ "Watch7,4",    "n208bap", 0x0E, 0x8310, "Apple Watch Series 9 (45mm Cellular)" },
 	{ "Watch7,5",    "n210ap",  0x02, 0x8310, "Apple Watch Ultra 2" },
+	{ "Watch7,8",    "n217sap", 0x10, 0x8310, "Apple Watch Series 10 (42mm)" },
+	{ "Watch7,9",    "n217bap", 0x12, 0x8310, "Apple Watch Series 10 (46mm)" },
+	{ "Watch7,10",   "n218sap", 0x14, 0x8310, "Apple Watch Series 10 (42mm Cellular)" },
+	{ "Watch7,11",   "n218bap", 0x16, 0x8310, "Apple Watch Series 10 (46mm Cellular)" },
 	/* Apple Silicon Macs */
 	{ "ADP3,2",         "j273aap", 0x42, 0x8027, "Developer Transition Kit (2020)" },
 	{ "Macmini9,1",	    "j274ap",  0x22, 0x8103, "Mac mini (M1, 2020)" },
