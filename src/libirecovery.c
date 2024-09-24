@@ -2370,13 +2370,19 @@ static void* _irecv_handle_device_add(void *userdata)
 
 	if (product_id == KIS_PRODUCT_ID) {
 		IOObjectRetain(device);
-
-		error = iokit_usb_open_service(&client, device);
+		int i = 0;
+		for (i = 0; i < 10; i++) {
+			error = iokit_usb_open_service(&client, device);
+			if (error == IRECV_E_SUCCESS) {
+				break;
+			}
+			debug("%s: Could not open KIS device, retrying...\n", __func__);
+			usleep(500000);
+		}
 		if (error != IRECV_E_SUCCESS) {
 			debug("%s: ERROR: could not open KIS device!\n", __func__);
 			return NULL;
 		}
-
 		product_id = client->mode;
 	} else {
 		CFStringRef serialString = (CFStringRef)IORegistryEntryCreateCFProperty(device, CFSTR(kUSBSerialNumberString), kCFAllocatorDefault, 0);
@@ -2429,14 +2435,29 @@ static void* _irecv_handle_device_add(void *userdata)
 #endif /* !WIN32 */
 	memset(&client_loc, '\0', sizeof(client_loc));
 	if (product_id == KIS_PRODUCT_ID) {
-		error = irecv_usb_set_configuration(client, 1);
+		int i = 0;
+		for (i = 0; i < 10; i++) {
+			error = irecv_usb_set_configuration(client, 1);
+			if (error == IRECV_E_SUCCESS) {
+				break;
+			}
+			debug("Failed to set configuration, error %d, retrying...\n", error);
+			usleep(500000);
+		}
 		if (error != IRECV_E_SUCCESS) {
 			debug("Failed to set configuration, error %d\n", error);
 			irecv_close(client);
 			return NULL;
 		}
 
-		error = irecv_usb_set_interface(client, 0, 0);
+		for (i = 0; i < 10; i++) {
+			error = irecv_usb_set_interface(client, 0, 0);
+			if (error == IRECV_E_SUCCESS) {
+				break;
+			}
+			debug("Failed to set interface, error %d, retrying...\n", error);
+			usleep(500000);
+		}
 		if (error != IRECV_E_SUCCESS) {
 			debug("Failed to set interface, error %d\n", error);
 			irecv_close(client);
