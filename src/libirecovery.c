@@ -2310,6 +2310,11 @@ static void* _irecv_handle_device_add(void *userdata)
 
 	if (product_id == KIS_PRODUCT_ID) {
 		client = (irecv_client_t)malloc(sizeof(struct irecv_client_private));
+		if (client == NULL) {
+			debug("%s: Failed to allocate memory\n", __func__);
+			return NULL;
+		}
+		memset(client, '\0', sizeof(struct irecv_client_private));
 		client->handle = CreateFileA(result, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 		if (client->handle == INVALID_HANDLE_VALUE) {
 			debug("%s: Failed to open device path %s\n", __func__, result);
