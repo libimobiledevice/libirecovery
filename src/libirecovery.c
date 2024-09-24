@@ -2515,7 +2515,7 @@ static void _irecv_handle_device_remove(struct irecv_usb_device_info *devinfo)
 {
 	irecv_device_event_t dev_event;
 	dev_event.type = IRECV_DEVICE_REMOVE;
-	dev_event.mode = 0;
+	dev_event.mode = devinfo->mode;
 	dev_event.device_info = &(devinfo->device_info);
 	mutex_lock(&listener_mutex);
 	FOREACH(struct irecv_device_event_context* context, &listeners) {
