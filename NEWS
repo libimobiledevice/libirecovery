@@ -1,3 +1,18 @@
+Version 1.2.1
+~~~~~~~~~~~~~
+
+* Changes:
+  - Make sure IRECV_DEVICE_REMOVE event has the mode set the device was in
+  - KIS: Add some retry loops around open/set config/set interface operations
+
+* Device database changes:
+  - Support Apple Watch Series 10 and iPhone 16 models
+  - Add iPad Air (M2) and iPad Pro (M4) models
+
+* Bug Fixes:
+  - Windows: Fix crash due to access to uninitialized data
+
+
 Version 1.2.0
 ~~~~~~~~~~~~~
 
