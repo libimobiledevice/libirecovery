@@ -91,7 +91,8 @@ section of the README on how to build it. Note that some platforms might have it
   	libtool \
   	autoconf \
   	automake-wrapper \
-  	pkg-config
+  	pkg-config \
+  	mingw-w64-x86_64-readline
   ```
   NOTE: You can use a different shell and different compiler according to your needs. Adapt the above command accordingly.
 
@@ -255,4 +256,4 @@ iPadOS, tvOS, watchOS, and macOS are trademarks of Apple Inc.
 This project is an independent software library and has not been authorized,
 sponsored, or otherwise approved by Apple Inc.
 
-README Updated on: 2024-10-10
+README Updated on: 2024-10-22
