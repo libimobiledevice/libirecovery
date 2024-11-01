@@ -96,16 +96,17 @@ if test "$ac_cv_attribute_constructor" = "yes"; then
 fi
 
 AC_ARG_WITH([tools],
-	[AS_HELP_STRING([--with-tools], [Build irecovery tools. (requires readline) [default=yes]])],
+	[AS_HELP_STRING([--with-tools], [Build irecovery tools. [default=yes]])],
 	[],
 	[with_tools=yes])
 
 AS_IF([test "x$with_tools" = "xyes"], [
 	AC_DEFINE(BUILD_TOOLS, 1, [Define if we are building irecovery tools])
-	AC_CHECK_HEADERS([readline/readline.h], [],
-		[AC_MSG_ERROR([Please install readline development headers])]
-	)]
-)
+	AC_CHECK_HEADERS([readline/readline.h],
+		[AC_DEFINE(HAVE_READLINE, 1, [Define if readline is available])],
+		[AC_MSG_NOTICE([NOTE: Building without readline support. If you want readline support, install its development package.])]
+	)
+])
 AM_CONDITIONAL(BUILD_TOOLS, test "x$with_tools" = "xyes")
 
 AC_ARG_WITH([dummy],

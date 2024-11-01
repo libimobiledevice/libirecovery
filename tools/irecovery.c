@@ -31,12 +31,20 @@
 #include <string.h>
 #include <getopt.h>
 #include <inttypes.h>
+#include <ctype.h>
 #include <libirecovery.h>
+#ifdef HAVE_READLINE
 #include <readline/readline.h>
 #include <readline/history.h>
+#else
+#ifndef WIN32
+#include <termios.h>
+#endif
+#endif
 
 #ifdef WIN32
 #include <windows.h>
+#include <conio.h>
 #ifndef sleep
 #define sleep(n) Sleep(1000 * n)
 #endif
@@ -271,14 +279,48 @@ static void parse_command(irecv_client_t client, unsigned char* command, unsigne
 
 static void load_command_history()
 {
+#ifdef HAVE_READLINE
 	read_history(FILE_HISTORY_PATH);
+#endif
 }
 
-static void append_command_to_history(char* cmd)
+static void append_command_to_history(const char* cmd)
 {
+#ifdef HAVE_READLINE
 	add_history(cmd);
 	write_history(FILE_HISTORY_PATH);
+#endif
 }
+
+#ifndef HAVE_READLINE
+#ifdef WIN32
+#define BS_CC '\b'
+#else
+#define BS_CC 0x7f
+#define getch getchar
+#endif
+static void get_input(char *buf, int maxlen)
+{
+	int len = 0;
+	int c;
+
+	while ((c = getch())) {
+		if ((c == '\r') || (c == '\n')) {
+			break;
+		}
+		if (isprint(c)) {
+			if (len < maxlen-1)
+				buf[len++] = c;
+		} else if (c == BS_CC) {
+			if (len > 0) {
+				fputs("\b \b", stdout);
+				len--;
+			}
+		}
+	}
+	buf[len] = 0;
+}
+#endif
 
 static void init_shell(irecv_client_t client)
 {
@@ -294,8 +336,15 @@ static void init_shell(irecv_client_t client)
 			debug("%s\n", irecv_strerror(error));
 			break;
 		}
-
+#ifdef HAVE_READLINE
 		char* cmd = readline("> ");
+#else
+		char cmdbuf[4096];
+		const char* cmd = &cmdbuf[0];
+		printf("> ");
+		fflush(stdout);
+		get_input(cmdbuf, sizeof(cmdbuf));
+#endif
 		if (cmd && *cmd) {
 			if (_is_breq_command(cmd)) {
 				error = irecv_send_command_breq(client, cmd, 1);
@@ -307,8 +356,10 @@ static void init_shell(irecv_client_t client)
 			}
 
 			append_command_to_history(cmd);
-			free(cmd);
 		}
+#ifdef HAVE_READLINE
+		free(cmd);
+#endif
 	}
 }
 
