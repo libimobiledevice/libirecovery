@@ -595,7 +595,11 @@ int main(int argc, char* argv[])
 				return 0;
 
 			case 'V':
-				printf("%s %s\n", TOOL_NAME, PACKAGE_VERSION);
+				printf("%s %s", TOOL_NAME, PACKAGE_VERSION);
+#ifdef HAVE_READLINE
+				printf(" (readline)");
+#endif
+				printf("\n");
 				return 0;
 
 			default:

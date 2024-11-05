@@ -101,11 +101,14 @@ AC_ARG_WITH([tools],
 	[with_tools=yes])
 
 AS_IF([test "x$with_tools" = "xyes"], [
+	have_readline=no
 	AC_DEFINE(BUILD_TOOLS, 1, [Define if we are building irecovery tools])
 	AC_CHECK_HEADERS([readline/readline.h],
-		[AC_DEFINE(HAVE_READLINE, 1, [Define if readline is available])],
+		[AC_DEFINE(HAVE_READLINE, 1, [Define if readline is available])
+		have_readline=yes],
 		[AC_MSG_NOTICE([NOTE: Building without readline support. If you want readline support, install its development package.])]
 	)
+	AM_CONDITIONAL(HAVE_READLINE, test "x$have_readline" = "xyes")
 ])
 AM_CONDITIONAL(BUILD_TOOLS, test "x$with_tools" = "xyes")
 
