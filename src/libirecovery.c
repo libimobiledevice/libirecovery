@@ -71,6 +71,33 @@
 
 #include "libirecovery.h"
 
+// Reference: https://stackoverflow.com/a/2390626/1806760
+// Initializer/finalizer sample for MSVC and GCC/Clang.
+// 2010-2016 Joe Lowe. Released into the public domain.
+
+#ifdef __cplusplus
+    #define INITIALIZER(f) \
+        static void f(void); \
+        struct f##_t_ { f##_t_(void) { f(); } }; static f##_t_ f##_; \
+        static void f(void)
+#elif defined(_MSC_VER)
+    #pragma section(".CRT$XCU",read)
+    #define INITIALIZER2_(f,p) \
+        static void f(void); \
+        __declspec(allocate(".CRT$XCU")) void (*f##_)(void) = f; \
+        __pragma(comment(linker,"/include:" p #f "_")) \
+        static void f(void)
+    #ifdef _WIN64
+        #define INITIALIZER(f) INITIALIZER2_(f,"")
+    #else
+        #define INITIALIZER(f) INITIALIZER2_(f,"_")
+    #endif
+#else
+    #define INITIALIZER(f) \
+        static void f(void) __attribute__((__constructor__)); \
+        static void f(void)
+#endif
+
 struct irecv_client_private {
 	int debug;
 	int usb_config;
@@ -603,24 +630,6 @@ static libusb_context* irecv_hotplug_ctx = NULL;
 #endif
 #endif
 
-static void _irecv_init(void)
-{
-	char* dbglvl = getenv("LIBIRECOVERY_DEBUG_LEVEL");
-	if (dbglvl) {
-		libirecovery_debug = strtol(dbglvl, NULL, 0);
-		irecv_set_debug_level(libirecovery_debug);
-	}
-#ifndef USE_DUMMY
-#ifndef _WIN32
-#ifndef HAVE_IOKIT
-	libusb_init(&libirecovery_context);
-#endif
-#endif
-	collection_init(&listeners);
-	mutex_init(&listener_mutex);
-#endif
-}
-
 static void _irecv_deinit(void)
 {
 #ifndef USE_DUMMY
@@ -637,43 +646,24 @@ static void _irecv_deinit(void)
 #endif
 }
 
-static thread_once_t init_once = THREAD_ONCE_INIT;
-static thread_once_t deinit_once = THREAD_ONCE_INIT;
-
-#ifndef HAVE_ATTRIBUTE_CONSTRUCTOR
-  #if defined(__llvm__) || defined(__GNUC__)
-    #define HAVE_ATTRIBUTE_CONSTRUCTOR
-  #endif
-#endif
-
-#ifdef HAVE_ATTRIBUTE_CONSTRUCTOR
-static void __attribute__((constructor)) libirecovery_initialize(void)
+INITIALIZER(_irecv_init)
 {
-	thread_once(&init_once, _irecv_init);
-}
-
-static void __attribute__((destructor)) libirecovery_deinitialize(void)
-{
-	thread_once(&deinit_once, _irecv_deinit);
-}
-#elif defined(_WIN32)
-BOOL WINAPI DllMain(HINSTANCE hModule, DWORD dwReason, LPVOID lpReserved)
-{
-	switch (dwReason) {
-	case DLL_PROCESS_ATTACH:
-		thread_once(&init_once, _irecv_init);
-		break;
-	case DLL_PROCESS_DETACH:
-		thread_once(&deinit_once, _irecv_deinit);
-		break;
-	default:
-		break;
+	char* dbglvl = getenv("LIBIRECOVERY_DEBUG_LEVEL");
+	if (dbglvl) {
+		libirecovery_debug = strtol(dbglvl, NULL, 0);
+		irecv_set_debug_level(libirecovery_debug);
 	}
-	return 1;
-}
-#else
-#warning No compiler support for constructor/destructor attributes, some features might not be available.
+#ifndef USE_DUMMY
+#ifndef _WIN32
+#ifndef HAVE_IOKIT
+	libusb_init(&libirecovery_context);
 #endif
+#endif
+	collection_init(&listeners);
+	mutex_init(&listener_mutex);
+#endif
+	atexit(_irecv_deinit);
+}
 
 #ifdef HAVE_IOKIT
 static int iokit_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc_index, unsigned char * buffer, int size)
@@ -1333,20 +1323,6 @@ static int check_context(irecv_client_t client)
 	return IRECV_E_SUCCESS;
 }
 #endif
-
-void irecv_init(void)
-{
-#ifndef USE_DUMMY
-	thread_once(&init_once, _irecv_init);
-#endif
-}
-
-void irecv_exit(void)
-{
-#ifndef USE_DUMMY
-	thread_once(&deinit_once, _irecv_deinit);
-#endif
-}
 
 #ifndef USE_DUMMY
 #ifdef HAVE_IOKIT

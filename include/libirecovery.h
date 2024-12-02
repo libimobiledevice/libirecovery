@@ -132,8 +132,6 @@ enum {
 /* library */
 IRECV_API void irecv_set_debug_level(int level);
 IRECV_API const char* irecv_strerror(irecv_error_t error);
-IRECV_API void irecv_init(void); /* deprecated: libirecovery has constructor now */
-IRECV_API void irecv_exit(void); /* deprecated: libirecovery has destructor now */
 
 IRECV_API const char* irecv_version();
 
