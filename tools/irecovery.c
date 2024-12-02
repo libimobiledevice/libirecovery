@@ -37,17 +37,15 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #else
-#ifndef WIN32
+#ifndef _WIN32
 #include <termios.h>
 #endif
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <windows.h>
 #include <conio.h>
-#ifndef sleep
 #define sleep(n) Sleep(1000 * n)
-#endif
 #endif
 
 #define FILE_HISTORY_PATH ".irecovery"
@@ -293,7 +291,7 @@ static void append_command_to_history(const char* cmd)
 }
 
 #ifndef HAVE_READLINE
-#ifdef WIN32
+#ifdef _WIN32
 #define BS_CC '\b'
 #else
 #define BS_CC 0x7f
