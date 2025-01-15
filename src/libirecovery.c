@@ -2358,6 +2358,31 @@ static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid(irecv_clien
 	return IRECV_E_SUCCESS;
 }
 
+static const char *mode_to_str(int mode)
+{
+	switch (mode)
+	{
+	case IRECV_K_RECOVERY_MODE_1:
+	case IRECV_K_RECOVERY_MODE_2:
+	case IRECV_K_RECOVERY_MODE_3:
+	case IRECV_K_RECOVERY_MODE_4:
+		return "Recovery";
+		break;
+	case IRECV_K_DFU_MODE:
+		return "DFU";
+		break;
+	case IRECV_K_PORT_DFU_MODE:
+		return "Port DFU";
+		break;
+	case IRECV_K_WTF_MODE:
+		return "WTF";
+		break;
+	default:
+		return "Unknown";
+		break;
+	}
+}
+
 static void print_device_info_nafiz(irecv_client_t client)
 {
 	int ret, mode;
