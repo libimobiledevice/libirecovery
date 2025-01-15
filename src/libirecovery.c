@@ -2286,6 +2286,42 @@ static irecv_error_t iokit_open_with_ecid(irecv_client_t *pclient, uint64_t ecid
 
 #ifndef _WIN32
 #ifndef HAVE_IOKIT
+static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid_nafiz(irecv_client_t *pclient, struct libusb_device_handle *usb_handle, struct libusb_device_descriptor *usb_descriptor, uint64_t ecid)
+{
+	irecv_client_t client = (irecv_client_t)malloc(sizeof(struct irecv_client_private));
+	if (client == NULL)
+	{
+		libusb_close(usb_handle);
+		return IRECV_E_OUT_OF_MEMORY;
+	}
+
+	memset(client, '\0', sizeof(struct irecv_client_private));
+	client->usb_interface = 0;
+	client->handle = usb_handle;
+	client->mode = usb_descriptor->idProduct;
+
+	if (client->mode != KIS_PRODUCT_ID)
+	{
+		char serial_str[256];
+		memset(serial_str, 0, 256);
+		irecv_get_string_descriptor_ascii(client, usb_descriptor->iSerialNumber, (unsigned char *)serial_str, 255);
+		irecv_load_device_info_from_iboot_string(client, serial_str);
+	}
+
+	if (ecid != 0 && client->mode != KIS_PRODUCT_ID)
+	{
+		if (client->device_info.ecid != ecid)
+		{
+			irecv_close(client);
+			return IRECV_E_NO_DEVICE; // wrong device
+		}
+		debug("found device with ECID %016" PRIx64 "\n", (uint64_t)ecid);
+	}
+
+	*pclient = client;
+	return IRECV_E_SUCCESS;
+}
+
 static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid(irecv_client_t *pclient, struct libusb_device_handle *usb_handle, struct libusb_device_descriptor *usb_descriptor, uint64_t ecid)
 {
 	irecv_client_t client = (irecv_client_t)malloc(sizeof(struct irecv_client_private));
@@ -2384,11 +2420,13 @@ static irecv_error_t libusb_open_with_ecid_nafiz(irecv_client_t *pclient, uint64
 					return IRECV_E_UNABLE_TO_CONNECT;
 				}
 
-				// ret = libusb_usb_open_handle_with_descriptor_and_ecid(pclient, usb_handle, &usb_descriptor, ecid);
+				ret = libusb_usb_open_handle_with_descriptor_and_ecid_nafiz(pclient, usb_handle, &usb_descriptor, ecid);
 				// if (ret == IRECV_E_SUCCESS)
 				// {
 				// 	break;
 				// }
+
+				print_device_info_nafiz(pclient);
 			}
 		}
 	}
