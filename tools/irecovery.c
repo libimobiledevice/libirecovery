@@ -546,7 +546,7 @@ static void print_usage(int argc, char **argv)
 	printf("  -e, --script FILE\texecutes recovery script from FILE\n");
 	printf("  -s, --shell\t\tstart an interactive shell\n");
 	printf("  -q, --query\t\tquery device info\n");
-	printf("  -l, --query\t\tlist device info\n");
+	printf("  -l, --list\t\tlist device info\n");
 	printf("  -a, --devices\t\tlist information for all known devices\n");
 	printf("  -v, --verbose\t\tenable verbose output, repeat for higher verbosity\n");
 	printf("  -h, --help\t\tprints this usage information\n");
