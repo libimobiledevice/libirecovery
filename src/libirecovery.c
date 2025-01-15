@@ -2387,7 +2387,7 @@ static void print_device_info_nafiz(irecv_client_t client)
 {
 	int ret, mode;
 	irecv_device_t device = NULL;
-	const struct irecv_device_info *devinfo = irecv_get_device_info(client);
+	const struct irecv_device_info *devinfo = irecv_get_device_info_nafiz(client);
 	printf("nafiz\n");
 	if (devinfo)
 	{
@@ -2482,6 +2482,7 @@ static irecv_error_t libusb_open_with_ecid_nafiz(irecv_client_t *pclient, uint64
 					return IRECV_E_UNABLE_TO_CONNECT;
 				}
 
+				*pclient = NULL;
 				ret = libusb_usb_open_handle_with_descriptor_and_ecid_nafiz(pclient, usb_handle, &usb_descriptor, ecid);
 				// if (ret == IRECV_E_SUCCESS)
 				// {
@@ -4737,7 +4738,7 @@ irecv_error_t irecv_get_mode(irecv_client_t client, int *mode)
 #endif
 }
 
-const struct irecv_device_info *irecv_get_device_info(irecv_client_t client)
+const struct irecv_device_info *irecv_get_device_info_nafiz(irecv_client_t client)
 {
 #ifdef USE_DUMMY
 	return NULL;
