@@ -65,7 +65,8 @@ enum
 	kShowMode,
 	kRebootToNormalMode,
 	kQueryInfo,
-	kListDevices
+	kListDevices,
+	kListDevice
 };
 
 static unsigned int quit = 0;
@@ -545,6 +546,7 @@ static void print_usage(int argc, char **argv)
 	printf("  -e, --script FILE\texecutes recovery script from FILE\n");
 	printf("  -s, --shell\t\tstart an interactive shell\n");
 	printf("  -q, --query\t\tquery device info\n");
+	printf("  -l, --query\t\tlist device info\n");
 	printf("  -a, --devices\t\tlist information for all known devices\n");
 	printf("  -v, --verbose\t\tenable verbose output, repeat for higher verbosity\n");
 	printf("  -h, --help\t\tprints this usage information\n");
@@ -567,6 +569,7 @@ int main(int argc, char *argv[])
 		{"script", required_argument, NULL, 'e'},
 		{"shell", no_argument, NULL, 's'},
 		{"query", no_argument, NULL, 'q'},
+		{"list", no_argument, NULL, 'l'},
 		{"devices", no_argument, NULL, 'a'},
 		{"verbose", no_argument, NULL, 'v'},
 		{"help", no_argument, NULL, 'h'},
@@ -656,6 +659,10 @@ int main(int argc, char *argv[])
 
 		case 'q':
 			action = kQueryInfo;
+			break;
+
+		case 'l':
+			action = kListDevice;
 			break;
 
 		case 'a':
@@ -844,6 +851,10 @@ int main(int argc, char *argv[])
 		break;
 
 	case kQueryInfo:
+		print_device_info(client);
+		break;
+
+	case kListDevice:
 		print_device_info(client);
 		break;
 
