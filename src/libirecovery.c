@@ -2286,7 +2286,7 @@ static irecv_error_t iokit_open_with_ecid(irecv_client_t *pclient, uint64_t ecid
 
 #ifndef _WIN32
 #ifndef HAVE_IOKIT
-static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid_nafiz(irecv_client_t *pclient, struct libusb_device_handle *usb_handle, struct libusb_device_descriptor *usb_descriptor, uint64_t ecid)
+static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid_nafiz(struct libusb_device_handle *usb_handle, struct libusb_device_descriptor *usb_descriptor, uint64_t ecid)
 {
 	irecv_client_t client = (irecv_client_t)malloc(sizeof(struct irecv_client_private));
 	if (client == NULL)
@@ -2318,8 +2318,7 @@ static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid_nafiz(irecv
 		debug("found device with ECID %016" PRIx64 "\n", (uint64_t)ecid);
 	}
 
-	*pclient = client;
-	return IRECV_E_SUCCESS;
+	print_device_info_nafiz(client);
 }
 
 static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid(irecv_client_t *pclient, struct libusb_device_handle *usb_handle, struct libusb_device_descriptor *usb_descriptor, uint64_t ecid)
@@ -2420,15 +2419,13 @@ static void print_device_info_nafiz(irecv_client_t client)
 	printf("nafiz\n");
 }
 
-static irecv_error_t libusb_open_with_ecid_nafiz(irecv_client_t *pclient, uint64_t ecid)
+static irecv_error_t libusb_open_with_ecid_nafiz(uint64_t ecid)
 {
-	irecv_error_t ret = IRECV_E_UNABLE_TO_CONNECT;
 	int i = 0;
 	struct libusb_device *usb_device = NULL;
 	struct libusb_device **usb_device_list = NULL;
 	struct libusb_device_descriptor usb_descriptor;
 
-	*pclient = NULL;
 	int usb_device_count = libusb_get_device_list(libirecovery_context, &usb_device_list);
 	for (i = 0; i < usb_device_count; i++)
 	{
@@ -2482,14 +2479,11 @@ static irecv_error_t libusb_open_with_ecid_nafiz(irecv_client_t *pclient, uint64
 					return IRECV_E_UNABLE_TO_CONNECT;
 				}
 
-				*pclient = NULL;
-				ret = libusb_usb_open_handle_with_descriptor_and_ecid_nafiz(pclient, usb_handle, &usb_descriptor, ecid);
+				libusb_usb_open_handle_with_descriptor_and_ecid_nafiz(usb_handle, &usb_descriptor, ecid);
 				// if (ret == IRECV_E_SUCCESS)
 				// {
 				// 	break;
 				// }
-
-				print_device_info_nafiz(pclient);
 			}
 		}
 	}
@@ -2590,7 +2584,7 @@ irecv_error_t irecv_open_with_ecid_nafiz(irecv_client_t *pclient, uint64_t ecid)
 #ifdef HAVE_IOKIT
 	error = iokit_open_with_ecid_nafiz(pclient, ecid);
 #else
-	error = libusb_open_with_ecid_nafiz(pclient, ecid);
+	error = libusb_open_with_ecid_nafiz(ecid);
 #endif
 #else
 	error = win32_open_with_ecid_nafiz(pclient, ecid);
