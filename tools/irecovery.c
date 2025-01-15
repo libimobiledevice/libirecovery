@@ -895,7 +895,17 @@ int main(int argc, char *argv[])
 		break;
 
 	case kListDevice:
-		print_device_info_nafiz(client);
+		irecv_client_t clientNafiz = NULL;
+
+		irecv_error_t errNafiz = irecv_open_with_ecid_nafiz(&clientNafiz, ecid);
+
+		if (errNafiz == IRECV_E_UNSUPPORTED || errNafiz != IRECV_E_SUCCESS)
+		{
+			fprintf(stderr, "ERROR: %s\n", irecv_strerror(errNafiz));
+			return -1;
+		}
+
+		print_device_info_nafiz(clientNafiz);
 		break;
 
 	default:
