@@ -905,7 +905,7 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 
-		print_device_info_nafiz(clientNafiz);
+		// print_device_info_nafiz(clientNafiz);
 		break;
 
 	default:
