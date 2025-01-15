@@ -592,7 +592,7 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	while ((opt = getopt_long(argc, argv, "i:vVhrsmnc:f:e:k:qa", longopts, NULL)) > 0)
+	while ((opt = getopt_long(argc, argv, "i:vVhrsmnc:f:e:k:qla", longopts, NULL)) > 0)
 	{
 		switch (opt)
 		{
@@ -707,6 +707,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "ERROR: %s\n", irecv_strerror(err));
 		return -1;
 	}
+
+	// nafiz
 	// 	else if (err != IRECV_E_SUCCESS)
 	// 		sleep(1);
 	// 	else
