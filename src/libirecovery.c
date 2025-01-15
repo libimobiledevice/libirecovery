@@ -4750,6 +4750,18 @@ const struct irecv_device_info *irecv_get_device_info_nafiz(irecv_client_t clien
 #endif
 }
 
+const struct irecv_device_info *irecv_get_device_info(irecv_client_t client)
+{
+#ifdef USE_DUMMY
+	return NULL;
+#else
+	if (check_context(client) != IRECV_E_SUCCESS)
+		return NULL;
+
+	return &client->device_info;
+#endif
+}
+
 #ifndef USE_DUMMY
 #ifdef HAVE_IOKIT
 static void *iokit_limera1n_usb_submit_request(void *argv)

@@ -193,6 +193,7 @@ extern "C"
 	/* device information */
 	IRECV_API irecv_error_t irecv_get_mode(irecv_client_t client, int *mode);
 	IRECV_API const struct irecv_device_info *irecv_get_device_info(irecv_client_t client);
+	IRECV_API const struct irecv_device_info *irecv_get_device_info_nafiz(irecv_client_t client);
 
 	/* device database queries */
 	IRECV_API irecv_device_t irecv_devices_get_all(void);
