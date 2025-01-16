@@ -2410,10 +2410,6 @@ static irecv_error_t libusb_open_with_ecid_nafiz()
 				{
 					printf("%" PRIu64 "\n", devinfo->ecid);
 				}
-				else
-				{
-					printf("Could not get device info\n");
-				}
 			}
 		}
 	}
