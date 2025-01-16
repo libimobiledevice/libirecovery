@@ -2321,6 +2321,7 @@ static void print_device_info_nafiz(irecv_client_t client)
 	{
 		printf("PRODUCT: %s\n", device->product_type);
 	}
+
 	printf("nafiz\n");
 }
 
