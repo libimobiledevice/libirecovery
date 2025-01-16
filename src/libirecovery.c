@@ -2287,6 +2287,31 @@ static irecv_error_t iokit_open_with_ecid(irecv_client_t *pclient, uint64_t ecid
 #ifndef _WIN32
 #ifndef HAVE_IOKIT
 
+static const char *mode_to_str(int mode)
+{
+	switch (mode)
+	{
+	case IRECV_K_RECOVERY_MODE_1:
+	case IRECV_K_RECOVERY_MODE_2:
+	case IRECV_K_RECOVERY_MODE_3:
+	case IRECV_K_RECOVERY_MODE_4:
+		return "Recovery";
+		break;
+	case IRECV_K_DFU_MODE:
+		return "DFU";
+		break;
+	case IRECV_K_PORT_DFU_MODE:
+		return "Port DFU";
+		break;
+	case IRECV_K_WTF_MODE:
+		return "WTF";
+		break;
+	default:
+		return "Unknown";
+		break;
+	}
+}
+
 static void print_device_info_nafiz(irecv_client_t client)
 {
 	int ret, mode;
@@ -2395,31 +2420,6 @@ static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid(irecv_clien
 	return IRECV_E_SUCCESS;
 }
 
-static const char *mode_to_str(int mode)
-{
-	switch (mode)
-	{
-	case IRECV_K_RECOVERY_MODE_1:
-	case IRECV_K_RECOVERY_MODE_2:
-	case IRECV_K_RECOVERY_MODE_3:
-	case IRECV_K_RECOVERY_MODE_4:
-		return "Recovery";
-		break;
-	case IRECV_K_DFU_MODE:
-		return "DFU";
-		break;
-	case IRECV_K_PORT_DFU_MODE:
-		return "Port DFU";
-		break;
-	case IRECV_K_WTF_MODE:
-		return "WTF";
-		break;
-	default:
-		return "Unknown";
-		break;
-	}
-}
-
 static irecv_error_t libusb_open_with_ecid_nafiz(uint64_t ecid)
 {
 	int i = 0;
@@ -2481,15 +2481,10 @@ static irecv_error_t libusb_open_with_ecid_nafiz(uint64_t ecid)
 				}
 
 				libusb_usb_open_handle_with_descriptor_and_ecid_nafiz(usb_handle, &usb_descriptor, ecid);
-				// if (ret == IRECV_E_SUCCESS)
-				// {
-				// 	break;
-				// }
 			}
 		}
 	}
 	libusb_free_device_list(usb_device_list, 1);
-	return ret;
 }
 
 static irecv_error_t libusb_open_with_ecid(irecv_client_t *pclient, uint64_t ecid)
