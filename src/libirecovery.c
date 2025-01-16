@@ -2286,6 +2286,44 @@ static irecv_error_t iokit_open_with_ecid(irecv_client_t *pclient, uint64_t ecid
 
 #ifndef _WIN32
 #ifndef HAVE_IOKIT
+
+static void print_device_info_nafiz(irecv_client_t client)
+{
+	int ret, mode;
+	irecv_device_t device = NULL;
+	const struct irecv_device_info *devinfo = irecv_get_device_info_nafiz(client);
+	printf("nafiz\n");
+	if (devinfo)
+	{
+		printf("ECID: 0x%016" PRIx64 "\n", devinfo->ecid);
+	}
+	else
+	{
+		printf("Could not get device info?!\n");
+	}
+
+	ret = irecv_get_mode(client, &mode);
+	if (ret == IRECV_E_SUCCESS)
+	{
+		switch (devinfo->pid)
+		{
+		case 0x1881:
+			printf("MODE: DFU via Debug USB (KIS)\n");
+			break;
+		default:
+			printf("MODE: %s\n", mode_to_str(mode));
+			break;
+		}
+	}
+
+	irecv_devices_get_device_by_client(client, &device);
+	if (device)
+	{
+		printf("PRODUCT: %s\n", device->product_type);
+	}
+	printf("nafiz\n");
+}
+
 static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid_nafiz(struct libusb_device_handle *usb_handle, struct libusb_device_descriptor *usb_descriptor, uint64_t ecid)
 {
 	irecv_client_t client = (irecv_client_t)malloc(sizeof(struct irecv_client_private));
@@ -2380,43 +2418,6 @@ static const char *mode_to_str(int mode)
 		return "Unknown";
 		break;
 	}
-}
-
-static void print_device_info_nafiz(irecv_client_t client)
-{
-	int ret, mode;
-	irecv_device_t device = NULL;
-	const struct irecv_device_info *devinfo = irecv_get_device_info_nafiz(client);
-	printf("nafiz\n");
-	if (devinfo)
-	{
-		printf("ECID: 0x%016" PRIx64 "\n", devinfo->ecid);
-	}
-	else
-	{
-		printf("Could not get device info?!\n");
-	}
-
-	ret = irecv_get_mode(client, &mode);
-	if (ret == IRECV_E_SUCCESS)
-	{
-		switch (devinfo->pid)
-		{
-		case 0x1881:
-			printf("MODE: DFU via Debug USB (KIS)\n");
-			break;
-		default:
-			printf("MODE: %s\n", mode_to_str(mode));
-			break;
-		}
-	}
-
-	irecv_devices_get_device_by_client(client, &device);
-	if (device)
-	{
-		printf("PRODUCT: %s\n", device->product_type);
-	}
-	printf("nafiz\n");
 }
 
 static irecv_error_t libusb_open_with_ecid_nafiz(uint64_t ecid)
