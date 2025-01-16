@@ -152,43 +152,6 @@ static void print_hex(unsigned char *buf, size_t len)
 	}
 }
 
-static void print_device_info_nafiz(irecv_client_t client)
-{
-	int ret, mode;
-	irecv_device_t device = NULL;
-	const struct irecv_device_info *devinfo = irecv_get_device_info(client);
-	printf("nafiz\n");
-	if (devinfo)
-	{
-		printf("ECID: 0x%016" PRIx64 "\n", devinfo->ecid);
-	}
-	else
-	{
-		printf("Could not get device info?!\n");
-	}
-
-	ret = irecv_get_mode(client, &mode);
-	if (ret == IRECV_E_SUCCESS)
-	{
-		switch (devinfo->pid)
-		{
-		case 0x1881:
-			printf("MODE: DFU via Debug USB (KIS)\n");
-			break;
-		default:
-			printf("MODE: %s\n", mode_to_str(mode));
-			break;
-		}
-	}
-
-	irecv_devices_get_device_by_client(client, &device);
-	if (device)
-	{
-		printf("PRODUCT: %s\n", device->product_type);
-	}
-	printf("nafiz\n");
-}
-
 static void print_device_info(irecv_client_t client)
 {
 	int ret, mode;
@@ -895,17 +858,7 @@ int main(int argc, char *argv[])
 		break;
 
 	case kListDevice:
-		irecv_client_t clientNafiz = NULL;
-
-		irecv_error_t errNafiz = irecv_open_with_ecid_nafiz(&clientNafiz, ecid);
-
-		if (errNafiz == IRECV_E_UNSUPPORTED || errNafiz != IRECV_E_SUCCESS)
-		{
-			fprintf(stderr, "ERROR: %s\n", irecv_strerror(errNafiz));
-			return -1;
-		}
-
-		// print_device_info_nafiz(clientNafiz);
+		irecv_open_with_ecid_nafiz();
 		break;
 
 	default:

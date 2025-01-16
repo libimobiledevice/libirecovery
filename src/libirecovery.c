@@ -2349,7 +2349,7 @@ static void print_device_info_nafiz(irecv_client_t client)
 	printf("nafiz\n");
 }
 
-static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid_nafiz(struct libusb_device_handle *usb_handle, struct libusb_device_descriptor *usb_descriptor, uint64_t ecid)
+static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid_nafiz(struct libusb_device_handle *usb_handle, struct libusb_device_descriptor *usb_descriptor)
 {
 	irecv_client_t client = (irecv_client_t)malloc(sizeof(struct irecv_client_private));
 	if (client == NULL)
@@ -2369,16 +2369,6 @@ static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid_nafiz(struc
 		memset(serial_str, 0, 256);
 		irecv_get_string_descriptor_ascii(client, usb_descriptor->iSerialNumber, (unsigned char *)serial_str, 255);
 		irecv_load_device_info_from_iboot_string(client, serial_str);
-	}
-
-	if (ecid != 0 && client->mode != KIS_PRODUCT_ID)
-	{
-		if (client->device_info.ecid != ecid)
-		{
-			irecv_close(client);
-			return IRECV_E_NO_DEVICE; // wrong device
-		}
-		debug("found device with ECID %016" PRIx64 "\n", (uint64_t)ecid);
 	}
 
 	print_device_info_nafiz(client);
@@ -2420,7 +2410,7 @@ static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid(irecv_clien
 	return IRECV_E_SUCCESS;
 }
 
-static irecv_error_t libusb_open_with_ecid_nafiz(uint64_t ecid)
+static irecv_error_t libusb_open_with_ecid_nafiz()
 {
 	int i = 0;
 	struct libusb_device *usb_device = NULL;
@@ -2439,29 +2429,11 @@ static irecv_error_t libusb_open_with_ecid_nafiz(uint64_t ecid)
 				usb_descriptor.idProduct == IRECV_K_RECOVERY_MODE_2 ||
 				usb_descriptor.idProduct == IRECV_K_RECOVERY_MODE_3 ||
 				usb_descriptor.idProduct == IRECV_K_RECOVERY_MODE_4 ||
-				usb_descriptor.idProduct == IRECV_K_WTF_MODE ||
+				// usb_descriptor.idProduct == IRECV_K_WTF_MODE ||
 				usb_descriptor.idProduct == IRECV_K_DFU_MODE ||
 				usb_descriptor.idProduct == IRECV_K_PORT_DFU_MODE ||
 				usb_descriptor.idProduct == KIS_PRODUCT_ID)
 			{
-				if (ecid == IRECV_K_WTF_MODE)
-				{
-					if (usb_descriptor.idProduct != IRECV_K_WTF_MODE)
-					{
-						/* special ecid case, ignore !IRECV_K_WTF_MODE */
-						continue;
-					}
-					else
-					{
-						ecid = 0;
-					}
-				}
-
-				if ((ecid != 0) && (usb_descriptor.idProduct == IRECV_K_WTF_MODE))
-				{
-					/* we can't get ecid in WTF mode */
-					continue;
-				}
 
 				debug("opening %llu device %04x:%04x...\n", ecid, usb_descriptor.idVendor, usb_descriptor.idProduct);
 
@@ -2472,15 +2444,9 @@ static irecv_error_t libusb_open_with_ecid_nafiz(uint64_t ecid)
 					debug("%s: can't connect to device: %s\n", __func__, libusb_error_name(libusb_error));
 
 					libusb_close(usb_handle);
-					if (ecid != 0)
-					{
-						continue;
-					}
-					libusb_free_device_list(usb_device_list, 1);
-					return IRECV_E_UNABLE_TO_CONNECT;
+					continue;
 				}
-
-				libusb_usb_open_handle_with_descriptor_and_ecid_nafiz(usb_handle, &usb_descriptor, ecid);
+				libusb_usb_open_handle_with_descriptor_and_ecid_nafiz(usb_handle, &usb_descriptor);
 			}
 		}
 	}
@@ -2565,12 +2531,14 @@ static irecv_error_t libusb_open_with_ecid(irecv_client_t *pclient, uint64_t eci
 #endif
 #endif
 
-irecv_error_t irecv_open_with_ecid_nafiz(irecv_client_t *pclient, uint64_t ecid)
+irecv_error_t irecv_open_with_ecid_nafiz()
 {
+	uint64_t ecid;
+	irecv_client_t pclient = NULL;
+
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
-	irecv_error_t error = IRECV_E_UNABLE_TO_CONNECT;
 
 	if (libirecovery_debug)
 	{
@@ -2578,91 +2546,13 @@ irecv_error_t irecv_open_with_ecid_nafiz(irecv_client_t *pclient, uint64_t ecid)
 	}
 #ifndef _WIN32
 #ifdef HAVE_IOKIT
-	error = iokit_open_with_ecid_nafiz(pclient, ecid);
+	iokit_open_with_ecid_nafiz(pclient, ecid);
 #else
-	error = libusb_open_with_ecid_nafiz(ecid);
+	libusb_open_with_ecid_nafiz();
 #endif
 #else
-	error = win32_open_with_ecid_nafiz(pclient, ecid);
+	win32_open_with_ecid_nafiz(pclient, ecid);
 #endif
-	irecv_client_t client = *pclient;
-	if (error != IRECV_E_SUCCESS)
-	{
-		irecv_close(client);
-		return error;
-	}
-
-	error = irecv_usb_set_configuration(client, 1);
-	if (error != IRECV_E_SUCCESS)
-	{
-		debug("Failed to set configuration, error %d\n", error);
-		irecv_close(client);
-		return error;
-	}
-
-	if (client->mode == IRECV_K_DFU_MODE || client->mode == IRECV_K_PORT_DFU_MODE || client->mode == IRECV_K_WTF_MODE || client->mode == KIS_PRODUCT_ID)
-	{
-		error = irecv_usb_set_interface(client, 0, 0);
-	}
-	else
-	{
-		error = irecv_usb_set_interface(client, 0, 0);
-		if (error == IRECV_E_SUCCESS && client->mode > IRECV_K_RECOVERY_MODE_2)
-		{
-			error = irecv_usb_set_interface(client, 1, 1);
-		}
-	}
-
-	if (error != IRECV_E_SUCCESS)
-	{
-		debug("Failed to set interface, error %d\n", error);
-		irecv_close(client);
-		return error;
-	}
-
-	if (client->mode == KIS_PRODUCT_ID)
-	{
-		error = irecv_kis_init(client);
-		if (error != IRECV_E_SUCCESS)
-		{
-			debug("irecv_kis_init failed, error %d\n", error);
-			irecv_close(client);
-			return error;
-		}
-
-		error = irecv_kis_load_device_info(client);
-		if (error != IRECV_E_SUCCESS)
-		{
-			debug("irecv_kis_load_device_info failed, error %d\n", error);
-			irecv_close(client);
-			return error;
-		}
-		if (ecid != 0 && client->device_info.ecid != ecid)
-		{
-			irecv_close(client);
-			return IRECV_E_NO_DEVICE; // wrong device
-		}
-		debug("found device with ECID %016" PRIx64 "\n", (uint64_t)client->device_info.ecid);
-	}
-	else
-	{
-		irecv_copy_nonce_with_tag(client, "NONC", &client->device_info.ap_nonce, &client->device_info.ap_nonce_size);
-		irecv_copy_nonce_with_tag(client, "SNON", &client->device_info.sep_nonce, &client->device_info.sep_nonce_size);
-	}
-
-	if (error == IRECV_E_SUCCESS)
-	{
-		if ((*pclient)->connected_callback != NULL)
-		{
-			irecv_event_t event;
-			event.size = 0;
-			event.data = NULL;
-			event.progress = 0;
-			event.type = IRECV_CONNECTED;
-			(*pclient)->connected_callback(*pclient, &event);
-		}
-	}
-	return error;
 #endif
 }
 

@@ -147,7 +147,7 @@ extern "C"
 
 	/* device connectivity */
 	IRECV_API irecv_error_t irecv_open_with_ecid(irecv_client_t *client, uint64_t ecid);
-	IRECV_API irecv_error_t irecv_open_with_ecid_nafiz(irecv_client_t *client, uint64_t ecid);
+	IRECV_API irecv_error_t irecv_open_with_ecid_nafiz();
 	IRECV_API irecv_error_t irecv_open_with_ecid_and_attempts(irecv_client_t *pclient, uint64_t ecid, int attempts);
 	IRECV_API irecv_error_t irecv_reset(irecv_client_t client);
 	IRECV_API irecv_error_t irecv_close(irecv_client_t client);
