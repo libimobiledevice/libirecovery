@@ -2320,8 +2320,7 @@ static void print_device_info_nafiz(irecv_client_t client)
 	printf("nafiz\n");
 	if (devinfo)
 	{
-		printf("ECID: 0x%016" PRIx64 "\n", devinfo->ecid);
-		printf("ECID: %" PRIu64 "\n", devinfo->ecid);
+		printf("%" PRIu64 "\n", devinfo->ecid);
 	}
 	else
 	{
