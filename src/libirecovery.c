@@ -2435,7 +2435,7 @@ static irecv_error_t libusb_open_with_ecid_nafiz()
 				usb_descriptor.idProduct == KIS_PRODUCT_ID)
 			{
 
-				debug("opening %llu device %04x:%04x...\n", ecid, usb_descriptor.idVendor, usb_descriptor.idProduct);
+				debug("opening device %04x:%04x...\n", usb_descriptor.idVendor, usb_descriptor.idProduct);
 
 				struct libusb_device_handle *usb_handle = NULL;
 				int libusb_error = libusb_open(usb_device, &usb_handle);
