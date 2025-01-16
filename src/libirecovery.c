@@ -2321,30 +2321,11 @@ static void print_device_info_nafiz(irecv_client_t client)
 	if (devinfo)
 	{
 		printf("ECID: 0x%016" PRIx64 "\n", devinfo->ecid);
+		printf("ECID: %" PRIu64 "\n", devinfo->ecid);
 	}
 	else
 	{
 		printf("Could not get device info?!\n");
-	}
-
-	ret = irecv_get_mode(client, &mode);
-	if (ret == IRECV_E_SUCCESS)
-	{
-		switch (devinfo->pid)
-		{
-		case 0x1881:
-			printf("MODE: DFU via Debug USB (KIS)\n");
-			break;
-		default:
-			printf("MODE: %s\n", mode_to_str(mode));
-			break;
-		}
-	}
-
-	irecv_devices_get_device_by_client(client, &device);
-	if (device)
-	{
-		printf("PRODUCT: %s\n", device->product_type);
 	}
 	printf("nafiz\n");
 }
