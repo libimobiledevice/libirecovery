@@ -2312,39 +2312,6 @@ static const char *mode_to_str(int mode)
 	}
 }
 
-static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid_nafiz(struct libusb_device_handle *usb_handle, struct libusb_device_descriptor *usb_descriptor)
-{
-	irecv_client_t client = (irecv_client_t)malloc(sizeof(struct irecv_client_private));
-	if (client == NULL)
-	{
-		libusb_close(usb_handle);
-		return IRECV_E_OUT_OF_MEMORY;
-	}
-
-	memset(client, '\0', sizeof(struct irecv_client_private));
-	client->usb_interface = 0;
-	client->handle = usb_handle;
-	client->mode = usb_descriptor->idProduct;
-
-	if (client->mode != KIS_PRODUCT_ID)
-	{
-		char serial_str[256];
-		memset(serial_str, 0, 256);
-		irecv_get_string_descriptor_ascii(client, usb_descriptor->iSerialNumber, (unsigned char *)serial_str, 255);
-		irecv_load_device_info_from_iboot_string(client, serial_str);
-	}
-
-	const struct irecv_device_info *devinfo = irecv_get_device_info_nafiz(client);
-	if (devinfo)
-	{
-		printf("nafiz\n%" PRIu64 "\nnafiz\n", devinfo->ecid);
-	}
-	else
-	{
-		printf("nafiz\nCould not get device info?!\nnafiz\n");
-	}
-}
-
 static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid(irecv_client_t *pclient, struct libusb_device_handle *usb_handle, struct libusb_device_descriptor *usb_descriptor, uint64_t ecid)
 {
 	irecv_client_t client = (irecv_client_t)malloc(sizeof(struct irecv_client_private));
@@ -2417,7 +2384,6 @@ static irecv_error_t libusb_open_with_ecid_nafiz()
 					libusb_close(usb_handle);
 					continue;
 				}
-				// libusb_usb_open_handle_with_descriptor_and_ecid_nafiz(usb_handle, &usb_descriptor);
 
 				irecv_client_t client = (irecv_client_t)malloc(sizeof(struct irecv_client_private));
 				if (client == NULL)
@@ -2442,11 +2408,11 @@ static irecv_error_t libusb_open_with_ecid_nafiz()
 				const struct irecv_device_info *devinfo = irecv_get_device_info_nafiz(client);
 				if (devinfo)
 				{
-					printf("nafiz\n%" PRIu64 "\nnafiz\n", devinfo->ecid);
+					printf("%" PRIu64 "\n", devinfo->ecid);
 				}
 				else
 				{
-					printf("nafiz\nCould not get device info?!\nnafiz\n");
+					printf("Could not get device info\n");
 				}
 			}
 		}
