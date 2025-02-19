@@ -218,6 +218,7 @@ static struct irecv_device irecv_devices[] = {
 	{ "iPhone17,2",	 "d94ap",    0x0E, 0x8140, "iPhone 16 Pro Max" },
 	{ "iPhone17,3",	 "d47ap",    0x08, 0x8140, "iPhone 16" },
 	{ "iPhone17,4",	 "d48ap",    0x0A, 0x8140, "iPhone 16 Plus" },
+	{ "iPhone17,5",	 "v59ap",    0x04, 0x8140, "iPhone 16e" },
 	/* iPod */
 	{ "iPod1,1",     "n45ap",    0x02, 0x8900, "iPod Touch (1st gen)" },
 	{ "iPod2,1",     "n72ap",    0x00, 0x8720, "iPod Touch (2nd gen)" },
