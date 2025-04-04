@@ -858,6 +858,7 @@ int main(int argc, char *argv[])
 		break;
 
 	case kListDevice:
+		// nafiz
 		irecv_open_with_ecid_nafiz();
 		break;
 

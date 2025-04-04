@@ -1439,6 +1439,7 @@ typedef struct usb_control_request
 	char data[];
 } usb_control_request;
 
+// nafiz
 static irecv_error_t win32_open_with_ecid_nafiz(irecv_client_t *client, uint64_t ecid)
 {
 	int found = 0;
@@ -2071,6 +2072,7 @@ static io_iterator_t iokit_usb_get_iterator_for_pid(UInt16 pid)
 	return iterator;
 }
 
+// nafiz
 static irecv_error_t iokit_open_with_ecid_nafiz(irecv_client_t *pclient, uint64_t ecid)
 {
 	io_service_t service, ret_service;
@@ -2348,6 +2350,7 @@ static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid(irecv_clien
 	return IRECV_E_SUCCESS;
 }
 
+// nafiz
 static irecv_error_t libusb_open_with_ecid_nafiz()
 {
 	int i = 0;
@@ -2405,6 +2408,7 @@ static irecv_error_t libusb_open_with_ecid_nafiz()
 					irecv_load_device_info_from_iboot_string(client, serial_str);
 				}
 
+				// nafiz
 				const struct irecv_device_info *devinfo = irecv_get_device_info_nafiz(client);
 				if (devinfo)
 				{
@@ -2494,6 +2498,7 @@ static irecv_error_t libusb_open_with_ecid(irecv_client_t *pclient, uint64_t eci
 #endif
 #endif
 
+// nafiz
 irecv_error_t irecv_open_with_ecid_nafiz()
 {
 	uint64_t ecid;
@@ -2509,11 +2514,14 @@ irecv_error_t irecv_open_with_ecid_nafiz()
 	}
 #ifndef _WIN32
 #ifdef HAVE_IOKIT
+	// nafiz
 	iokit_open_with_ecid_nafiz(pclient, ecid);
 #else
+	// nafiz
 	libusb_open_with_ecid_nafiz();
 #endif
 #else
+	// nafiz
 	win32_open_with_ecid_nafiz(pclient, ecid);
 #endif
 #endif
@@ -4581,6 +4589,7 @@ irecv_error_t irecv_get_mode(irecv_client_t client, int *mode)
 #endif
 }
 
+// nafiz
 const struct irecv_device_info *irecv_get_device_info_nafiz(irecv_client_t client)
 {
 #ifdef USE_DUMMY
