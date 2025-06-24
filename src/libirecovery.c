@@ -738,10 +738,10 @@ static int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc
 	unsigned short langid = 0;
 	unsigned char data[256];
 	int di, si;
-	memset(data, 0, 256);
+	memset(data, 0, sizeof(data));
 	memset(buffer, 0, size);
 
-	ret = irecv_usb_control_transfer(client, 0x80, 0x06, (0x03 << 8) | desc_index, langid, data, 255, USB_TIMEOUT);
+	ret = irecv_usb_control_transfer(client, 0x80, 0x06, (0x03 << 8) | desc_index, langid, data, sizeof(data)-1, USB_TIMEOUT);
 
 	if (ret < 0) return ret;
 	if (data[1] != 0x03) return IRECV_E_UNKNOWN_ERROR;
@@ -928,8 +928,8 @@ static void irecv_copy_nonce_with_tag(irecv_client_t client, const char* tag, un
 	*nonce = NULL;
 	*nonce_size = 0;
 
-	memset(buf, 0, 256);
-	len = irecv_get_string_descriptor_ascii(client, 1, (unsigned char*) buf, 255);
+	memset(buf, 0, sizeof(buf));
+	len = irecv_get_string_descriptor_ascii(client, 1, (unsigned char*)buf, sizeof(buf)-1);
 	if (len < 0) {
 		debug("%s: got length: %d\n", __func__, len);
 		return;
@@ -1717,8 +1717,8 @@ static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid(irecv_clien
 
 	if (client->mode != KIS_PRODUCT_ID) {
 		char serial_str[256];
-		memset(serial_str, 0, 256);
-		irecv_get_string_descriptor_ascii(client, usb_descriptor->iSerialNumber, (unsigned char*)serial_str, 255);
+		memset(serial_str, 0, sizeof(serial_str));
+		irecv_get_string_descriptor_ascii(client, usb_descriptor->iSerialNumber, (unsigned char*)serial_str, sizeof(serial_str)-1);
 		irecv_load_device_info_from_iboot_string(client, serial_str);
 	}
 
@@ -2275,7 +2275,7 @@ static void* _irecv_handle_device_add(void *userdata)
 	irecv_error_t error = 0;
 	irecv_client_t client = NULL;
 
-	memset(serial_str, 0, 256);
+	memset(serial_str, 0, sizeof(serial_str));
 #ifdef _WIN32
 	struct irecv_win_dev_ctx *win_ctx = (struct irecv_win_dev_ctx*)userdata;
 	PSP_DEVICE_INTERFACE_DETAIL_DATA_A details = win_ctx->details;
@@ -2422,7 +2422,7 @@ static void* _irecv_handle_device_add(void *userdata)
 
 		product_id = client->mode;
 	} else {
-		libusb_error = libusb_get_string_descriptor_ascii(usb_handle, devdesc.iSerialNumber, (unsigned char*)serial_str, 255);
+		libusb_error = libusb_get_string_descriptor_ascii(usb_handle, devdesc.iSerialNumber, (unsigned char*)serial_str, sizeof(serial_str)-1);
 		if (libusb_error < 0) {
 			debug("%s: Failed to get string descriptor: %s\n", __func__, libusb_error_name(libusb_error));
 			return 0;
@@ -3219,8 +3219,8 @@ static irecv_error_t irecv_get_status(irecv_client_t client, unsigned int* statu
 	}
 
 	unsigned char buffer[6];
-	memset(buffer, '\0', 6);
-	if (irecv_usb_control_transfer(client, 0xA1, 3, 0, 0, buffer, 6, USB_TIMEOUT) != 6) {
+	memset(buffer, '\0', sizeof(buffer));
+	if (irecv_usb_control_transfer(client, 0xA1, 3, 0, 0, buffer, sizeof(buffer), USB_TIMEOUT) != sizeof(buffer)) {
 		*status = 0;
 		return IRECV_E_USB_STATUS;
 	}
@@ -3559,13 +3559,14 @@ irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** v
 		return error;
 	}
 
-	char* response = (char*) malloc(256);
+	int rsize = 256;
+	char* response = (char*) malloc(rsize);
 	if (response == NULL) {
 		return IRECV_E_OUT_OF_MEMORY;
 	}
 
-	memset(response, '\0', 256);
-	irecv_usb_control_transfer(client, 0xC0, 0, 0, 0, (unsigned char*) response, 255, USB_TIMEOUT);
+	memset(response, '\0', rsize);
+	irecv_usb_control_transfer(client, 0xC0, 0, 0, 0, (unsigned char*) response, rsize-1, USB_TIMEOUT);
 
 	*value = response;
 
@@ -3583,13 +3584,14 @@ irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value)
 
 	*value = 0;
 
-	char* response = (char*) malloc(256);
+	int rsize = 256;
+	char* response = (char*) malloc(rsize);
 	if (response == NULL) {
 		return IRECV_E_OUT_OF_MEMORY;
 	}
 
-	memset(response, '\0', 256);
-	irecv_usb_control_transfer(client, 0xC0, 0, 0, 0, (unsigned char*) response, 255, USB_TIMEOUT);
+	memset(response, '\0', rsize);
+	irecv_usb_control_transfer(client, 0xC0, 0, 0, 0, (unsigned char*) response, rsize-1, USB_TIMEOUT);
 
 	*value = (unsigned int) *response;
 
