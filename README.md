@@ -73,7 +73,7 @@ section of the README on how to build it. Note that some platforms might have it
 
   Using Homebrew:
   ```shell
-  brew install libtool autoconf automake pkg-config
+  brew install libtool autoconf automake pkg-config libimobiledevice-glue
   ```
 
 #### Windows
