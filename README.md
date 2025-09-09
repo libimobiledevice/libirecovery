@@ -39,8 +39,9 @@ have common build steps across different platforms.
 Only the prerequisites differ and they are described in this section.
 
 libirecovery requires [libimobiledevice-glue](https://github.com/libimobiledevice/libimobiledevice-glue).
+Some platforms already provide it as a package.
 Check the [Building](https://github.com/libimobiledevice/libimobiledevice-glue?tab=readme-ov-file#building)
-section of the README on how to build it. Note that some platforms might have it as a package.
+section of the README on how to build it.
 
 #### Linux (Debian/Ubuntu based)
 
@@ -68,12 +69,12 @@ section of the README on how to build it. Note that some platforms might have it
 
   Using MacPorts:
   ```shell
-  sudo port install libtool autoconf automake pkgconfig
+  sudo port install libtool autoconf automake pkgconfig libimobiledevice-glue
   ```
 
   Using Homebrew:
   ```shell
-  brew install libtool autoconf automake pkg-config
+  brew install libtool autoconf automake pkg-config libimobiledevice-glue
   ```
 
 #### Windows
@@ -92,6 +93,7 @@ section of the README on how to build it. Note that some platforms might have it
   	autoconf \
   	automake-wrapper \
   	pkg-config \
+  	mingw-w64-x86_64-libimobiledevice-glue \
   	mingw-w64-x86_64-readline
   ```
   NOTE: You can use a different shell and different compiler according to your needs. Adapt the above command accordingly.
@@ -256,4 +258,4 @@ iPadOS, tvOS, watchOS, and macOS are trademarks of Apple Inc.
 This project is an independent software library and has not been authorized,
 sponsored, or otherwise approved by Apple Inc.
 
-README Updated on: 2024-10-22
+README Updated on: 2025-09-10
