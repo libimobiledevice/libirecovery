@@ -15,7 +15,7 @@ dnl libtool versioning
 #                 changes to the signature and the semantic)
 #  ? :+1 : ?   == just internal changes
 # CURRENT : REVISION : AGE
-LIBIRECOVERY_SO_VERSION=5:1:0
+LIBIRECOVERY_SO_VERSION=6:1:1
 
 dnl Minimum package versions
 LIBUSB_VERSION=1.0.3
