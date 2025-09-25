@@ -3269,7 +3269,7 @@ static irecv_error_t irecv_send_command_raw(irecv_client_t client, const char* c
 		if ((error = irecv_usb_interrupt_transfer(client, 0x83, &buf[0], sizeof(buf), &bytes, USB_TIMEOUT))) return error;
 		if (bytes != sizeof(legacyCMD)) return IRECV_E_UNKNOWN_ERROR;
 #endif
-		char cmdstr[0x100] = {};
+		char cmdstr[0x100] = {0};
 		if (length & 0xf) {
 			length &= ~0xf;
 			length += 0x10;
@@ -3730,7 +3730,7 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 
 	if (legacy_recovery_mode) {
 		irecv_reconnect(client, 0);
-		char cmdstr[0x100] = {};
+		char cmdstr[0x100] = {0};
 		snprintf(cmdstr, sizeof(cmdstr), "setenv filesize %d", (int)length);
 		irecv_send_command(client, cmdstr);
 	}
