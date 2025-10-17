@@ -331,6 +331,10 @@ static struct irecv_device irecv_devices[] = {
 	{ "iPad16,4",    "j718ap",   0x0A, 0x8132, "iPad Pro 11-inch (M4, Cellular)" },
 	{ "iPad16,5",    "j720ap",   0x0C, 0x8132, "iPad Pro 13-inch (M4, WiFi)" },
 	{ "iPad16,6",    "j721ap",   0x0E, 0x8132, "iPad Pro 13-inch (M4, Cellular)" },
+	{ "iPad17,1",    "j817ap",   0x08, 0x8142, "iPad Pro 11-inch (M5, WiFi)" },
+	{ "iPad17,2",    "j818ap",   0x0A, 0x8142, "iPad Pro 11-inch (M5, Cellular)" },
+	{ "iPad17,3",    "j820ap",   0x0C, 0x8142, "iPad Pro 13-inch (M5, WiFi)" },
+	{ "iPad17,4",    "j821ap",   0x0E, 0x8142, "iPad Pro 13-inch (M5, Cellular)" },
 	/* Apple TV */
 	{ "AppleTV2,1",  "k66ap",    0x10, 0x8930, "Apple TV 2" },
 	{ "AppleTV3,1",  "j33ap",    0x08, 0x8942, "Apple TV 3" },
@@ -451,6 +455,7 @@ static struct irecv_device irecv_devices[] = {
 	{ "Mac16,11",       "j773sap", 0x02, 0x6040, "Mac mini (M4 Pro, 2024)" },
 	{ "Mac16,12",       "j713ap",  0x2C, 0x8132, "MacBook Air (13-inch, M4, 2025)" },
 	{ "Mac16,13",       "j715ap",  0x2E, 0x8132, "MacBook Air (15-inch, M4, 2025)" },
+	{ "Mac17,2",        "j704ap",  0x22, 0x8142, "MacBook Pro (14-inch, M5, 2025)" },
 	/* Apple Silicon VMs (supported by Virtualization.framework on macOS 12) */
 	{ "VirtualMac2,1",  "vma2macosap",  0x20, 0xFE00, "Apple Virtual Machine 1" },
 	/* Apple T2 Coprocessor */
@@ -474,6 +479,7 @@ static struct irecv_device irecv_devices[] = {
 	{ "AppleDisplay2,1", "j327ap", 0x22, 0x8030, "Studio Display" },
 	/* Apple Vision Pro */
 	{ "RealityDevice14,1", "n301ap", 0x42, 0x8112, "Apple Vision Pro" },
+	{ "RealityDevice17,1", "n301aap", 0x42, 0x8142, "Apple Vision Pro (M5)" },
 	{ NULL,          NULL,         -1,     -1, NULL }
 };
 
