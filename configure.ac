@@ -90,8 +90,8 @@ AS_IF([test "x$with_tools" = "xyes"], [
 		have_readline=yes],
 		[AC_MSG_NOTICE([NOTE: Building without readline support. If you want readline support, install its development package.])]
 	)
-	AM_CONDITIONAL(HAVE_READLINE, test "x$have_readline" = "xyes")
 ])
+AM_CONDITIONAL(HAVE_READLINE, test "x$have_readline" = "xyes")
 AM_CONDITIONAL(BUILD_TOOLS, test "x$with_tools" = "xyes")
 
 AC_ARG_WITH([dummy],
