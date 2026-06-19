@@ -104,7 +104,9 @@ struct irecv_async_transfer {
  #ifdef HAVE_IOKIT
  	kern_return_t ret;
  #else
+ #ifndef USE_DUMMY
  	enum libusb_transfer_status ret;
+ #endif
  #endif
 };
 
@@ -1533,6 +1535,7 @@ static int iokit_async_usb_control_transfer(irecv_client_t client, uint8_t bm_re
 }
 
 #else
+#ifndef USE_DUMMY
 
 static void async_cb(struct libusb_transfer* usb_transfer) {
 	struct irecv_async_transfer* transfer = usb_transfer->user_data;
@@ -1540,6 +1543,7 @@ static void async_cb(struct libusb_transfer* usb_transfer) {
 	transfer->len += usb_transfer->actual_length;
 }
 
+#endif
 #endif
 #endif
 
