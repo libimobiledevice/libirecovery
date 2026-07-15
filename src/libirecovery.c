@@ -474,6 +474,13 @@ static struct irecv_device irecv_devices[] = {
 	{ "Mac16,12",       "j713ap",  0x2C, 0x8132, "MacBook Air (13-inch, M4, 2025)" },
 	{ "Mac16,13",       "j715ap",  0x2E, 0x8132, "MacBook Air (15-inch, M4, 2025)" },
 	{ "Mac17,2",        "j704ap",  0x22, 0x8142, "MacBook Pro (14-inch, M5, 2025)" },
+	{ "Mac17,3",        "j813ap",  0x24, 0x8142, "MacBook Air (13-inch, M5, 2026)" },
+	{ "Mac17,4",        "j815ap",  0x26, 0x8142, "MacBook Air (15-inch, M5, 2026)" },
+	{ "Mac17,5",        "j700ap",  0x64, 0x8140, "MacBook Neo" },
+	{ "Mac17,6",        "j716cap", 0x0E, 0x6050, "MacBook Pro (16-inch, M5 Max, 2026)" },
+	{ "Mac17,7",        "j714cap", 0x0A, 0x6050, "MacBook Pro (14-inch, M5 Max, 2026)" },
+	{ "Mac17,8",        "j716sap", 0x0C, 0x6050, "MacBook Pro (16-inch, M5 Pro, 2026)" },
+	{ "Mac17,9",        "j714sap", 0x08, 0x6050, "MacBook Pro (14-inch, M5 Pro, 2026)" },
 	/* Apple Silicon VMs (supported by Virtualization.framework on macOS 12) */
 	{ "VirtualMac2,1",  "vma2macosap",  0x20, 0xFE00, "Apple Virtual Machine 1" },
 	/* Apple T2 Coprocessor */
