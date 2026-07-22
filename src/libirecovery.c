@@ -1588,7 +1588,7 @@ IRECV_API int irecv_async_usb_control_transfer_with_cancel(irecv_client_t client
 #ifndef _WIN32
 	irecv_error_t error;
 	struct irecv_async_transfer transfer;
-	bzero(&transfer, sizeof(struct irecv_async_transfer));
+	memset(&transfer, 0, sizeof(struct irecv_async_transfer));
 
 #ifdef HAVE_IOKIT
 
