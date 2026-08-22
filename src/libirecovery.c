@@ -2705,9 +2705,9 @@ static void* _irecv_handle_device_add(void *userdata)
 	}
 
 	if (product_id == KIS_PRODUCT_ID) {
-		IOObjectRetain(device);
 		int i = 0;
 		for (i = 0; i < 10; i++) {
+			IOObjectRetain(device);
 			error = iokit_usb_open_service(&client, device);
 			if (error == IRECV_E_SUCCESS) {
 				break;
