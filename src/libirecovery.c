@@ -834,7 +834,7 @@ static void irecv_load_device_info_from_iboot_string(irecv_client_t client, cons
 		return;
 	}
 
-	memset(&client->device_info, '\0', sizeof(struct irecv_device_info));
+	memset(&client->device_info, 0, sizeof(struct irecv_device_info));
 
 	client->device_info.serial_string = strdup(iboot_string);
 
@@ -1266,7 +1266,7 @@ static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 		DWORD i;
 		SP_DEVICE_INTERFACE_DATA currentInterface;
 		HDEVINFO usbDevices = SetupDiGetClassDevs(guids[k], NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
-		memset(&currentInterface, '\0', sizeof(SP_DEVICE_INTERFACE_DATA));
+		memset(&currentInterface, 0, sizeof(SP_DEVICE_INTERFACE_DATA));
 		currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
 		for (i = 0; usbDevices && SetupDiEnumDeviceInterfaces(usbDevices, NULL, guids[k], i, &currentInterface); i++) {
 			_client->handle = INVALID_HANDLE_VALUE;
@@ -1418,7 +1418,7 @@ static int iokit_usb_control_transfer(irecv_client_t client, uint8_t bm_request_
 	IOReturn result;
 	IOUSBDevRequestTO req;
 
-	bzero(&req, sizeof(req));
+	memset(&req, 0, sizeof(req));
 	req.bmRequestType     = bm_request_type;
 	req.bRequest          = b_request;
 	req.wValue            = OSSwapLittleToHostInt16(w_value);
@@ -1521,7 +1521,7 @@ static int iokit_async_usb_control_transfer(irecv_client_t client, uint8_t bm_re
 	IOReturn result;
 	IOUSBDevRequest req;
 
-	bzero(&req, sizeof(req));
+	memset(&req, 0, sizeof(req));
 	req.bmRequestType     = bm_request_type;
 	req.bRequest          = b_request;
 	req.wValue            = OSSwapLittleToHostInt16(w_value);
@@ -1599,7 +1599,7 @@ IRECV_API int irecv_async_usb_control_transfer_with_cancel(irecv_client_t client
 #ifndef _WIN32
 	irecv_error_t error;
 	struct irecv_async_transfer transfer;
-	bzero(&transfer, sizeof(struct irecv_async_transfer));
+	memset(&transfer, 0, sizeof(struct irecv_async_transfer));
 
 #ifdef HAVE_IOKIT
 
@@ -2039,7 +2039,7 @@ static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid(irecv_clien
 		return IRECV_E_OUT_OF_MEMORY;
 	}
 
-	memset(client, '\0', sizeof(struct irecv_client_private));
+	memset(client, 0, sizeof(struct irecv_client_private));
 	client->usb_interface = 0;
 	client->handle = usb_handle;
 	client->mode = usb_descriptor->idProduct;
@@ -2650,7 +2650,7 @@ static void* _irecv_handle_device_add(void *userdata)
 			debug("%s: Failed to allocate memory\n", __func__);
 			return NULL;
 		}
-		memset(client, '\0', sizeof(struct irecv_client_private));
+		memset(client, 0, sizeof(struct irecv_client_private));
 		client->handle = CreateFileA(result, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 		if (client->handle == INVALID_HANDLE_VALUE) {
 			debug("%s: Failed to open device path %s\n", __func__, result);
@@ -2769,7 +2769,7 @@ static void* _irecv_handle_device_add(void *userdata)
 	}
 #endif /* !HAVE_IOKIT */
 #endif /* !_WIN32 */
-	memset(&client_loc, '\0', sizeof(client_loc));
+	memset(&client_loc, 0, sizeof(client_loc));
 	if (product_id == KIS_PRODUCT_ID) {
 		int i = 0;
 		for (i = 0; i < 10; i++) {
@@ -3014,7 +3014,7 @@ static void *_irecv_event_handler(void* data)
 			}
 
 
-			memset(&currentInterface, '\0', sizeof(SP_DEVICE_INTERFACE_DATA));
+			memset(&currentInterface, 0, sizeof(SP_DEVICE_INTERFACE_DATA));
 			currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
 			for (i = 0; usbDevices && SetupDiEnumDeviceInterfaces(usbDevices, NULL, guids[k], i, &currentInterface); i++) {
 				DWORD requiredSize = 0;
@@ -3599,7 +3599,7 @@ static irecv_error_t irecv_get_status(irecv_client_t client, unsigned int* statu
 	}
 
 	unsigned char buffer[6];
-	memset(buffer, '\0', sizeof(buffer));
+	memset(buffer, 0, sizeof(buffer));
 	if (irecv_usb_control_transfer(client, 0xA1, 3, 0, 0, buffer, sizeof(buffer), USB_TIMEOUT) != sizeof(buffer)) {
 		*status = 0;
 		return IRECV_E_USB_STATUS;
@@ -3948,7 +3948,7 @@ irecv_error_t irecv_receive(irecv_client_t client)
 	return IRECV_E_UNSUPPORTED;
 #else
 	char buffer[BUFFER_SIZE];
-	memset(buffer, '\0', BUFFER_SIZE);
+	memset(buffer, 0, BUFFER_SIZE);
 
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;
@@ -3998,7 +3998,7 @@ irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** v
 		return IRECV_E_UNSUPPORTED;
 	}
 
-	memset(command, '\0', sizeof(command));
+	memset(command, 0, sizeof(command));
 	snprintf(command, sizeof(command)-1, "getenv %s", variable);
 	irecv_error_t error = irecv_send_command_raw(client, command, 0);
 	if (error == IRECV_E_PIPE) {
@@ -4015,7 +4015,7 @@ irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** v
 		return IRECV_E_OUT_OF_MEMORY;
 	}
 
-	memset(response, '\0', rsize);
+	memset(response, 0, rsize);
 	irecv_usb_control_transfer(client, 0xC0, 0, 0, 0, (unsigned char*) response, rsize-1, USB_TIMEOUT);
 
 	*value = response;
@@ -4040,7 +4040,7 @@ irecv_error_t irecv_getret(irecv_client_t client, unsigned int* value)
 		return IRECV_E_OUT_OF_MEMORY;
 	}
 
-	memset(response, '\0', rsize);
+	memset(response, 0, rsize);
 	irecv_usb_control_transfer(client, 0xC0, 0, 0, 0, (unsigned char*) response, rsize-1, USB_TIMEOUT);
 
 	*value = (unsigned int) *response;
@@ -4103,7 +4103,7 @@ irecv_error_t irecv_trigger_limera1n_exploit(irecv_client_t client)
 #ifdef HAVE_IOKIT
 	IOReturn result;
 	IOUSBDevRequestTO req;
-	bzero(&req, sizeof(req));
+	memset(&req, 0, sizeof(req));
 
 	req.bmRequestType     = 0x21;
 	req.bRequest          = 2;
@@ -4205,7 +4205,7 @@ irecv_error_t irecv_setenv(irecv_client_t client, const char* variable, const ch
 		return IRECV_E_UNKNOWN_ERROR;
 	}
 
-	memset(command, '\0', sizeof(command));
+	memset(command, 0, sizeof(command));
 	snprintf(command, sizeof(command)-1, "setenv %s %s", variable, value);
 	irecv_error_t error = irecv_send_command_raw(client, command, 0);
 	if (error != IRECV_E_SUCCESS) {
@@ -4230,7 +4230,7 @@ irecv_error_t irecv_setenv_np(irecv_client_t client, const char* variable, const
 		return IRECV_E_UNKNOWN_ERROR;
 	}
 
-	memset(command, '\0', sizeof(command));
+	memset(command, 0, sizeof(command));
 	snprintf(command, sizeof(command)-1, "setenvnp %s %s", variable, value);
 	irecv_error_t error = irecv_send_command_raw(client, command, 0);
 	if (error != IRECV_E_SUCCESS) {
