@@ -485,6 +485,8 @@ static struct irecv_device irecv_devices[] = {
 	{ "Mac17,9",        "j714sap", 0x08, 0x6050, "MacBook Pro (14-inch, M5 Pro, 2026)" },
 	/* Apple Silicon VMs (supported by Virtualization.framework on macOS 12) */
 	{ "VirtualMac2,1",  "vma2macosap",  0x20, 0xFE00, "Apple Virtual Machine 1" },
+	/* Apple T1 Coprocessor (iBridge1,1) - all four Touch Bar Macs share one identity */
+	{ "iBridge1,1",  "x619ap",    0x12, 0x8002, "Apple T1 iBridge (x619)" },
 	/* Apple T2 Coprocessor */
 	{ "iBridge2,1",	 "j137ap",   0x0A, 0x8012, "Apple T2 iMacPro1,1 (j137)" },
 	{ "iBridge2,3",	 "j680ap",   0x0B, 0x8012, "Apple T2 MacBookPro15,1 (j680)" },
