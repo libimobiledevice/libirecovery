@@ -108,6 +108,8 @@ struct irecv_async_transfer {
  #else
  #ifndef USE_DUMMY
  	enum libusb_transfer_status ret;
+ 	/* set by async_cb; ret can't tell, since LIBUSB_TRANSFER_COMPLETED is 0 */
+ 	int completed;
  #endif
  #endif
 };
@@ -1315,6 +1317,7 @@ static void async_cb(struct libusb_transfer* usb_transfer) {
 	struct irecv_async_transfer* transfer = usb_transfer->user_data;
 	transfer->ret = usb_transfer->status;
 	transfer->len += usb_transfer->actual_length;
+	transfer->completed = 1;
 }
 
 #endif
@@ -1396,26 +1399,27 @@ int irecv_async_usb_control_transfer_with_cancel(irecv_client_t client, uint8_t 
 	memcpy((buffer + 8), data, w_length);
 	libusb_fill_control_setup(buffer, bm_request_type, b_request, w_value, w_index, w_length);
 	libusb_fill_control_transfer(usb_transfer, client->handle, buffer, async_cb, &transfer, 0);
+	/* libusb frees buffer in libusb_free_transfer() */
 	usb_transfer->flags |= LIBUSB_TRANSFER_FREE_BUFFER;
 	error = libusb_submit_transfer(usb_transfer);
 	if(error != 0) {
-		free(buffer);
+		libusb_free_transfer(usb_transfer);
 		return error;
 	}
 
 	usleep(u_time);
 
-	error = libusb_cancel_transfer(usb_transfer);
-	if(error != 0) {
-		free(buffer);
-		return error;
-	}
-	free(buffer);
+	/* LIBUSB_ERROR_NOT_FOUND only means the transfer already finished;
+	   either way the callback has to run before the transfer can be freed */
+	libusb_cancel_transfer(usb_transfer);
 
-	while(transfer.ret != LIBUSB_TRANSFER_CANCELLED){
-		libusb_handle_events_completed(libirecovery_context, NULL);
+	while(!transfer.completed) {
+		libusb_handle_events_completed(libirecovery_context, &transfer.completed);
 	}
-	return transfer.len;
+
+	int transferred = (int)transfer.len;
+	libusb_free_transfer(usb_transfer);
+	return transferred;
 #endif
 #else
 	return IRECV_E_UNSUPPORTED;
