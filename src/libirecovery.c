@@ -24,6 +24,7 @@
 #endif
 
 #include <stdio.h>
+#include <dirent.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -497,6 +498,8 @@ static struct irecv_device irecv_devices[] = {
 	{ "Mac18,5",        "j873gap", 0x24, 0x6050, "Mac mini (M6, 2026)" },
 	/* Apple Silicon VMs (supported by Virtualization.framework on macOS 12) */
 	{ "VirtualMac2,1",  "vma2macosap",  0x20, 0xFE00, "Apple Virtual Machine 1" },
+	/* Apple T1 Coprocessor (iBridge1,1) - all four Touch Bar Macs share one identity */
+	{ "iBridge1,1",  "x619ap",    0x12, 0x8002, "Apple T1 iBridge (x619)" },
 	/* Apple T2 Coprocessor */
 	{ "iBridge2,1",	 "j137ap",   0x0A, 0x8012, "Apple T2 iMacPro1,1 (j137)" },
 	{ "iBridge2,3",	 "j680ap",   0x0B, 0x8012, "Apple T2 MacBookPro15,1 (j680)" },
@@ -808,13 +811,53 @@ static int iokit_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc
 }
 #endif
 
+/* Fetch a string descriptor with libirecovery's own USB_TIMEOUT and a few
+ * retries. libusb_get_string_descriptor_ascii() hardcodes a 1 s timeout, which
+ * some parts miss: the Apple T1/iBridge in recovery answers this control
+ * transfer only intermittently and well beyond 1 s, returning
+ * LIBUSB_ERROR_TIMEOUT (-7). Losing that read costs us the device identity AND
+ * the AP/SEP nonces, so it is worth waiting for. */
+static int irecv_get_string_descriptor_ascii_slow(irecv_client_t client, uint8_t desc_index, unsigned char *buffer, int size)
+{
+	unsigned char data[256];
+	int attempt, di, si, ret = -1;
+
+	for (attempt = 0; attempt < 3; attempt++) {
+		memset(data, 0, sizeof(data));
+		memset(buffer, 0, size);
+
+		ret = irecv_usb_control_transfer(client, 0x80, 0x06, (0x03 << 8) | desc_index, 0,
+		                                 data, sizeof(data) - 1, USB_TIMEOUT);
+		if (ret < 0) {
+			debug("%s: attempt %d: control transfer failed (%d)\n", __func__, attempt + 1, ret);
+			continue;
+		}
+		if (data[1] != 0x03 || data[0] > ret) {
+			debug("%s: attempt %d: malformed descriptor\n", __func__, attempt + 1);
+			ret = -1;
+			continue;
+		}
+		for (di = 0, si = 2; si < data[0]; si += 2) {
+			if (di >= (size - 1)) break;
+			buffer[di++] = data[si + 1] ? '?' : data[si];
+		}
+		buffer[di] = 0;
+		debug("%s: got %d bytes on attempt %d\n", __func__, di, attempt + 1);
+		return di;
+	}
+	return ret;
+}
+
 static int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc_index, unsigned char * buffer, int size)
 {
 #ifndef _WIN32
 #ifdef HAVE_IOKIT
 	return iokit_get_string_descriptor_ascii(client, desc_index, buffer, size);
 #else
-	return libusb_get_string_descriptor_ascii(client->handle, desc_index, buffer, size);
+	int r = libusb_get_string_descriptor_ascii(client->handle, desc_index, buffer, size);
+	if (r >= 0) return r;
+	debug("%s: libusb helper failed (%d); retrying with USB_TIMEOUT\n", __func__, r);
+	return irecv_get_string_descriptor_ascii_slow(client, desc_index, buffer, size);
 #endif
 #else
 	irecv_error_t ret;
@@ -861,8 +904,12 @@ static void irecv_load_device_info_from_iboot_string(irecv_client_t client, cons
 	if (ptr != NULL) {
 		sscanf(ptr, "CPID:%x", &client->device_info.cpid);
 		client->device_info.have_cpid = 1;
-	} else {
-		// early iOS 1 doesn't identify itself
+	} else if (iboot_string[0] != '\0') {
+		// early iOS 1 doesn't identify itself. Only assume that when the
+		// device actually said something; an EMPTY string means the
+		// descriptor read failed, and silently claiming to be an 0x8900
+		// part then mis-identifies every modern device (e.g. an Apple T1
+		// reports CPID:8002 but would come back as an iPhone 2G).
 		client->device_info.cpid = 0x8900;
 	}
 
@@ -2048,6 +2095,66 @@ static irecv_error_t iokit_open_with_ecid(irecv_client_t* pclient, uint64_t ecid
 
 #ifndef _WIN32
 #ifndef HAVE_IOKIT
+
+/* Read the USB serial string the kernel already cached for this device.
+ * Linux only; returns the length, or 0 if unavailable. Never fatal. */
+static int irecv_linux_sysfs_serial(struct libusb_device_handle *handle, char *out, size_t out_len)
+{
+#ifdef __linux__
+	libusb_device *dev;
+	uint8_t bus, addr;
+	DIR *d;
+	struct dirent *e;
+	int got = 0;
+
+	if (!handle || !out || out_len == 0) return 0;
+	dev = libusb_get_device(handle);
+	if (!dev) return 0;
+	bus  = libusb_get_bus_number(dev);
+	addr = libusb_get_device_address(dev);
+
+	d = opendir("/sys/bus/usb/devices");
+	if (!d) return 0;
+	while ((e = readdir(d)) != NULL) {
+		char path[512];
+		FILE *f;
+		int b = -1, a = -1;
+
+		if (e->d_name[0] == '.') continue;
+
+		snprintf(path, sizeof(path), "/sys/bus/usb/devices/%s/busnum", e->d_name);
+		f = fopen(path, "r");
+		if (!f) continue;
+		if (fscanf(f, "%d", &b) != 1) { fclose(f); continue; }
+		fclose(f);
+
+		snprintf(path, sizeof(path), "/sys/bus/usb/devices/%s/devnum", e->d_name);
+		f = fopen(path, "r");
+		if (!f) continue;
+		if (fscanf(f, "%d", &a) != 1) { fclose(f); continue; }
+		fclose(f);
+
+		if (b != (int)bus || a != (int)addr) continue;
+
+		snprintf(path, sizeof(path), "/sys/bus/usb/devices/%s/serial", e->d_name);
+		f = fopen(path, "r");
+		if (!f) break;
+		if (fgets(out, (int)out_len, f)) {
+			size_t n = strlen(out);
+			while (n && (out[n-1] == '\n' || out[n-1] == '\r')) out[--n] = '\0';
+			got = (int)n;
+		}
+		fclose(f);
+		break;
+	}
+	closedir(d);
+	return got;
+#else
+	(void)handle; (void)out; (void)out_len;
+	return 0;
+#endif
+}
+
 static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid(irecv_client_t *pclient, struct libusb_device_handle *usb_handle, struct libusb_device_descriptor *usb_descriptor, uint64_t ecid)
 {
 	irecv_client_t client = (irecv_client_t) malloc(sizeof(struct irecv_client_private));
@@ -2063,8 +2170,21 @@ static irecv_error_t libusb_usb_open_handle_with_descriptor_and_ecid(irecv_clien
 
 	if (client->mode != KIS_PRODUCT_ID) {
 		char serial_str[256];
+		int slen;
 		memset(serial_str, 0, sizeof(serial_str));
-		irecv_get_string_descriptor_ascii(client, usb_descriptor->iSerialNumber, (unsigned char*)serial_str, sizeof(serial_str)-1);
+		slen = irecv_get_string_descriptor_ascii(client, usb_descriptor->iSerialNumber, (unsigned char*)serial_str, sizeof(serial_str)-1);
+		if (slen <= 0 || strstr(serial_str, "CPID:") == NULL) {
+			/* Some parts (observed on the Apple T1/iBridge in recovery) do
+			 * not answer the string-descriptor control transfer here even
+			 * though the kernel enumerated the very same string at attach.
+			 * Fall back to the kernel's cached copy rather than proceeding
+			 * with an unidentified device. */
+			debug("string descriptor read gave %d bytes; trying kernel copy\n", slen);
+			memset(serial_str, 0, sizeof(serial_str));
+			if (irecv_linux_sysfs_serial(usb_handle, serial_str, sizeof(serial_str)) > 0) {
+				debug("recovered serial from kernel\n");
+			}
+		}
 		irecv_load_device_info_from_iboot_string(client, serial_str);
 	}
 
@@ -2777,10 +2897,23 @@ static void* _irecv_handle_device_add(void *userdata)
 
 		product_id = client->mode;
 	} else {
+		memset(serial_str, 0, sizeof(serial_str));
 		libusb_error = libusb_get_string_descriptor_ascii(usb_handle, devdesc.iSerialNumber, (unsigned char*)serial_str, sizeof(serial_str)-1);
-		if (libusb_error < 0) {
-			debug("%s: Failed to get string descriptor: %s\n", __func__, libusb_error_name(libusb_error));
-			return 0;
+		if (libusb_error < 0 || strstr(serial_str, "CPID:") == NULL) {
+			/* The Apple T1/iBridge in recovery times out on this control
+			 * transfer (LIBUSB_ERROR_TIMEOUT). Bailing out here means no
+			 * IRECV_DEVICE_ADD is ever emitted and callers conclude that no
+			 * device is attached. The kernel already enumerated the same
+			 * string at attach, so fall back to its copy. */
+			debug("%s: string descriptor read failed (%s); trying kernel copy\n",
+			      __func__, libusb_error_name(libusb_error));
+			memset(serial_str, 0, sizeof(serial_str));
+			if (irecv_linux_sysfs_serial(usb_handle, serial_str, sizeof(serial_str)) <= 0) {
+				debug("%s: no kernel copy either; giving up on this device\n", __func__);
+				libusb_close(usb_handle);
+				return 0;
+			}
+			debug("%s: recovered serial from kernel\n", __func__);
 		}
 		libusb_close(usb_handle);
 	}
