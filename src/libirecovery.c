@@ -70,6 +70,7 @@
 #endif
 
 #include "libirecovery.h"
+#include "libirecovery-private.h"
 
 // Reference: https://stackoverflow.com/a/2390626/1806760
 // Initializer/finalizer sample for MSVC and GCC/Clang.
@@ -1831,7 +1832,7 @@ int irecv_usb_bulk_transfer(irecv_client_t client,
 	return iokit_usb_bulk_transfer(client, endpoint, data, length, transferred, timeout);
 #else
 	ret = libusb_bulk_transfer(client->handle, endpoint, data, length, transferred, timeout);
-	if (ret < 0) {
+	if (irecv_usb_should_clear_halt(ret)) {
 		libusb_clear_halt(client->handle, endpoint);
 	}
 #endif
