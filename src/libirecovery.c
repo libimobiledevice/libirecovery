@@ -70,6 +70,7 @@
 #endif
 
 #include "libirecovery.h"
+#include "libirecovery-private.h"
 
 // Reference: https://stackoverflow.com/a/2390626/1806760
 // Initializer/finalizer sample for MSVC and GCC/Clang.
@@ -1831,7 +1832,7 @@ int irecv_usb_bulk_transfer(irecv_client_t client,
 	return iokit_usb_bulk_transfer(client, endpoint, data, length, transferred, timeout);
 #else
 	ret = libusb_bulk_transfer(client->handle, endpoint, data, length, transferred, timeout);
-	if (ret < 0) {
+	if (irecv_usb_should_clear_halt(ret, LIBUSB_ERROR_PIPE)) {
 		libusb_clear_halt(client->handle, endpoint);
 	}
 #endif
@@ -3473,6 +3474,19 @@ const char* irecv_version()
 
 
 #ifndef USE_DUMMY
+static irecv_error_t irecv_control_transfer_error(int result)
+{
+#ifdef HAVE_IOKIT
+	/* The IOKit backend already returns public irecv_error_t values. */
+	return irecv_preserve_control_transfer_error(result);
+#elif defined(_WIN32)
+	/* The Windows backend exposes only an undifferentiated negative result. */
+	return IRECV_E_USB_STATUS;
+#else
+	return irecv_map_control_transfer_error(result, LIBUSB_ERROR_PIPE, LIBUSB_ERROR_TIMEOUT, LIBUSB_ERROR_NO_DEVICE, LIBUSB_ERROR_NO_MEM);
+#endif
+}
+
 static irecv_error_t irecv_send_command_raw(irecv_client_t client, const char* command, uint8_t b_request)
 {
 	unsigned int length = strlen(command);
@@ -3510,7 +3524,13 @@ static irecv_error_t irecv_send_command_raw(irecv_client_t client, const char* c
 	}
 
 	if (length > 0) {
-		irecv_usb_control_transfer(client, 0x40, b_request, 0, 0, (unsigned char*) command, length + 1, USB_TIMEOUT);
+		int transferred = irecv_usb_control_transfer(client, 0x40, b_request, 0, 0, (unsigned char*) command, length + 1, USB_TIMEOUT);
+		if (transferred < 0) {
+			return irecv_control_transfer_error(transferred);
+		}
+		if ((unsigned int)transferred != length + 1) {
+			return IRECV_E_USB_STATUS;
+		}
 	}
 
 	return IRECV_E_SUCCESS;
@@ -3545,8 +3565,9 @@ irecv_error_t irecv_send_command_breq(irecv_client_t client, const char* command
 	error = irecv_send_command_raw(client, command, b_request);
 	if (error != IRECV_E_SUCCESS) {
 		debug("Failed to send command %s\n", command);
-		if (error != IRECV_E_PIPE)
+		if (!irecv_command_error_is_accepted(error, command)) {
 			return error;
+		}
 	}
 
 	if (client->postcommand_callback != NULL) {
@@ -4018,10 +4039,6 @@ irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** v
 	memset(command, 0, sizeof(command));
 	snprintf(command, sizeof(command)-1, "getenv %s", variable);
 	irecv_error_t error = irecv_send_command_raw(client, command, 0);
-	if (error == IRECV_E_PIPE) {
-		return IRECV_E_SUCCESS;
-	}
-
 	if (error != IRECV_E_SUCCESS) {
 		return error;
 	}
@@ -4032,9 +4049,18 @@ irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** v
 		return IRECV_E_OUT_OF_MEMORY;
 	}
 
-	memset(response, 0, rsize);
-	irecv_usb_control_transfer(client, 0xC0, 0, 0, 0, (unsigned char*) response, rsize-1, USB_TIMEOUT);
+	int received = irecv_usb_control_transfer(client, 0xC0, 0, 0, 0, (unsigned char*) response, rsize-1, USB_TIMEOUT);
+	if (received < 0) {
+		free(response);
+		return irecv_control_transfer_error(received);
+	}
+	irecv_error_t finalize_error = irecv_finalize_control_response(response, rsize, received);
+	if (finalize_error != IRECV_E_SUCCESS) {
+		free(response);
+		return finalize_error;
+	}
 
+	/* A zero-length response is a successful getenv with an empty value. */
 	*value = response;
 
 	return IRECV_E_SUCCESS;
@@ -4264,7 +4290,7 @@ irecv_error_t irecv_reboot(irecv_client_t client)
 	return IRECV_E_UNSUPPORTED;
 #else
 	irecv_error_t error = irecv_send_command_raw(client, "reboot", 0);
-	if (error != IRECV_E_SUCCESS) {
+	if (error != IRECV_E_SUCCESS && !irecv_command_error_is_accepted(error, "reboot")) {
 		return error;
 	}
 
