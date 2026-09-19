@@ -178,6 +178,7 @@ IRECV_API irecv_error_t irecv_event_unsubscribe(irecv_client_t client, irecv_eve
 IRECV_API irecv_error_t irecv_send_file(irecv_client_t client, const char* filename, unsigned int options);
 IRECV_API irecv_error_t irecv_send_command(irecv_client_t client, const char* command);
 IRECV_API irecv_error_t irecv_send_command_breq(irecv_client_t client, const char* command, uint8_t b_request);
+IRECV_API int irecv_command_is_breq(const char* command);
 IRECV_API irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, unsigned long length, unsigned int options);
 IRECV_API irecv_error_t irecv_recv_buffer(irecv_client_t client, char* buffer, unsigned long length);
 

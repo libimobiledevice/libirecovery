@@ -3737,7 +3737,82 @@ const char* irecv_version()
 }
 
 
+int irecv_command_is_breq(const char* command)
+{
+	static const char* const commands[] = { "go", "bootx", "reboot", "memboot" };
+	size_t token_length;
+	size_t i;
+
+	if (command == NULL) {
+		return 0;
+	}
+
+	command += strspn(command, " \t\r\n");
+	token_length = strcspn(command, " \t\r\n");
+	for (i = 0; i < sizeof(commands) / sizeof(commands[0]); i++) {
+		if (strlen(commands[i]) == token_length
+			&& strncmp(command, commands[i], token_length) == 0) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 #ifndef USE_DUMMY
+static int irecv_command_error_is_accepted(irecv_error_t error, const char* command)
+{
+	if (error == IRECV_E_PIPE) {
+		return 1;
+	}
+
+	return irecv_command_is_breq(command)
+		&& (error == IRECV_E_NO_DEVICE
+			|| error == IRECV_E_TIMEOUT
+			|| error == IRECV_E_USB_STATUS);
+}
+
+static irecv_error_t irecv_control_transfer_error(int result)
+{
+#ifdef HAVE_IOKIT
+	/* The IOKit backend already returns public irecv_error_t values. */
+	switch (result) {
+	case IRECV_E_NO_DEVICE:
+	case IRECV_E_OUT_OF_MEMORY:
+	case IRECV_E_UNABLE_TO_CONNECT:
+	case IRECV_E_INVALID_INPUT:
+	case IRECV_E_FILE_NOT_FOUND:
+	case IRECV_E_USB_UPLOAD:
+	case IRECV_E_USB_STATUS:
+	case IRECV_E_USB_INTERFACE:
+	case IRECV_E_USB_CONFIGURATION:
+	case IRECV_E_PIPE:
+	case IRECV_E_TIMEOUT:
+	case IRECV_E_UNSUPPORTED:
+	case IRECV_E_UNKNOWN_ERROR:
+		return (irecv_error_t)result;
+	default:
+		return IRECV_E_USB_STATUS;
+	}
+#elif defined(_WIN32)
+	/* The Windows backend exposes only an undifferentiated negative result. */
+	return IRECV_E_USB_STATUS;
+#else
+	switch (result) {
+	case LIBUSB_ERROR_PIPE:
+		return IRECV_E_PIPE;
+	case LIBUSB_ERROR_TIMEOUT:
+		return IRECV_E_TIMEOUT;
+	case LIBUSB_ERROR_NO_DEVICE:
+		return IRECV_E_NO_DEVICE;
+	case LIBUSB_ERROR_NO_MEM:
+		return IRECV_E_OUT_OF_MEMORY;
+	default:
+		return IRECV_E_USB_STATUS;
+	}
+#endif
+}
+
 static irecv_error_t irecv_send_command_raw(irecv_client_t client, const char* command, uint8_t b_request)
 {
 	unsigned int length = strlen(command);
@@ -3775,7 +3850,13 @@ static irecv_error_t irecv_send_command_raw(irecv_client_t client, const char* c
 	}
 
 	if (length > 0) {
-		irecv_usb_control_transfer(client, 0x40, b_request, 0, 0, (unsigned char*) command, length + 1, USB_TIMEOUT);
+		int transferred = irecv_usb_control_transfer(client, 0x40, b_request, 0, 0, (unsigned char*) command, length + 1, USB_TIMEOUT);
+		if (transferred < 0) {
+			return irecv_control_transfer_error(transferred);
+		}
+		if ((unsigned int)transferred != length + 1) {
+			return IRECV_E_USB_STATUS;
+		}
 	}
 
 	return IRECV_E_SUCCESS;
@@ -3810,8 +3891,9 @@ irecv_error_t irecv_send_command_breq(irecv_client_t client, const char* command
 	error = irecv_send_command_raw(client, command, b_request);
 	if (error != IRECV_E_SUCCESS) {
 		debug("Failed to send command %s\n", command);
-		if (error != IRECV_E_PIPE)
+		if (!irecv_command_error_is_accepted(error, command)) {
 			return error;
+		}
 	}
 
 	if (client->postcommand_callback != NULL) {
@@ -4283,10 +4365,6 @@ irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** v
 	memset(command, 0, sizeof(command));
 	snprintf(command, sizeof(command)-1, "getenv %s", variable);
 	irecv_error_t error = irecv_send_command_raw(client, command, 0);
-	if (error == IRECV_E_PIPE) {
-		return IRECV_E_SUCCESS;
-	}
-
 	if (error != IRECV_E_SUCCESS) {
 		return error;
 	}
@@ -4297,9 +4375,18 @@ irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** v
 		return IRECV_E_OUT_OF_MEMORY;
 	}
 
-	memset(response, 0, rsize);
-	irecv_usb_control_transfer(client, 0xC0, 0, 0, 0, (unsigned char*) response, rsize-1, USB_TIMEOUT);
+	int received = irecv_usb_control_transfer(client, 0xC0, 0, 0, 0, (unsigned char*) response, rsize-1, USB_TIMEOUT);
+	if (received < 0) {
+		free(response);
+		return irecv_control_transfer_error(received);
+	}
+	if (received >= rsize) {
+		free(response);
+		return IRECV_E_USB_STATUS;
+	}
+	response[received] = '\0';
 
+	/* A zero-length response is a successful getenv with an empty value. */
 	*value = response;
 
 	return IRECV_E_SUCCESS;
@@ -4529,7 +4616,7 @@ irecv_error_t irecv_reboot(irecv_client_t client)
 	return IRECV_E_UNSUPPORTED;
 #else
 	irecv_error_t error = irecv_send_command_raw(client, "reboot", 0);
-	if (error != IRECV_E_SUCCESS) {
+	if (error != IRECV_E_SUCCESS && !irecv_command_error_is_accepted(error, "reboot")) {
 		return error;
 	}
 
