@@ -1945,7 +1945,7 @@ int irecv_usb_bulk_transfer(irecv_client_t client,
 	return iokit_usb_bulk_transfer(client, endpoint, data, length, transferred, timeout);
 #else
 	ret = libusb_bulk_transfer(client->handle, endpoint, data, length, transferred, timeout);
-	if (ret < 0) {
+	if (ret == LIBUSB_ERROR_PIPE) {
 		libusb_clear_halt(client->handle, endpoint);
 	}
 #endif
