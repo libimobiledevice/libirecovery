@@ -494,7 +494,7 @@ static struct irecv_device irecv_devices[] = {
 	{ "Mac17,14",       "j775cap", 0x10, 0x6050, "Mac Studio (M5 Max, 2026)" },
 	{ "Mac17,15",       "j775dap", 0x12, 0x6050, "Mac Studio (M5 Ultra, 2026)" },
 	{ "Mac17,16",       "j873sap", 0x02, 0x6050, "Mac mini (M5 Pro, 2026)" },
-	{ "Mac18,5",        "j873gap", 0x24, 0x6050, "Mac mini (M6, 2026)" },
+	{ "Mac18,5",        "j873gap", 0x24, 0x8152, "Mac mini (M6, 2026)" },
 	/* Apple Silicon VMs (supported by Virtualization.framework on macOS 12) */
 	{ "VirtualMac2,1",  "vma2macosap",  0x20, 0xFE00, "Apple Virtual Machine 1" },
 	/* Apple T2 Coprocessor */
