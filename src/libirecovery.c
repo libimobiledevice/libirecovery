@@ -1276,6 +1276,9 @@ static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 	int found = 0;
 	const GUID *guids[] = { &GUID_DEVINTERFACE_KIS, &GUID_DEVINTERFACE_PORTDFU, &GUID_DEVINTERFACE_DFU, &GUID_DEVINTERFACE_IBOOT, NULL };
 	irecv_client_t _client = (irecv_client_t) malloc(sizeof(struct irecv_client_private));
+	if (_client == NULL) {
+		return IRECV_E_OUT_OF_MEMORY;
+	}
 	memset(_client, 0, sizeof(struct irecv_client_private));
 
 	int k;
@@ -1398,6 +1401,11 @@ static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 				if (_client->device_info.ecid != ecid) {
 					CloseHandle(_client->handle);
 					_client->handle = INVALID_HANDLE_VALUE;
+					free(_client->device_info.srnm);
+					free(_client->device_info.imei);
+					free(_client->device_info.srtg);
+					free(_client->device_info.serial_string);
+					memset(&_client->device_info, 0, sizeof(_client->device_info));
 					continue;
 				}
 				debug("found device with ECID %016" PRIx64 "\n", (uint64_t)ecid);
@@ -2168,6 +2176,7 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t ecid)
 #else
 	irecv_error_t error = IRECV_E_UNABLE_TO_CONNECT;
 
+	*pclient = NULL;
 	if (libirecovery_debug) {
 		irecv_set_debug_level(libirecovery_debug);
 	}
@@ -2183,6 +2192,7 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t ecid)
 	irecv_client_t client = *pclient;
 	if (error != IRECV_E_SUCCESS) {
 		irecv_close(client);
+		*pclient = NULL;
 		return error;
 	}
 
@@ -2190,6 +2200,7 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t ecid)
 	if (error != IRECV_E_SUCCESS) {
 		debug("Failed to set configuration, error %d\n", error);
 		irecv_close(client);
+		*pclient = NULL;
 		return error;
 	}
 
@@ -2197,6 +2208,7 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t ecid)
 	error = (*client->handle)->CreateDeviceAsyncEventSource(client->handle, &client->async_event_source);
 	if (error != IRECV_E_SUCCESS) {
 		free(client);
+		*pclient = NULL;
 		return error;
 	}
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), client->async_event_source, kCFRunLoopDefaultMode);
@@ -2214,6 +2226,7 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t ecid)
 	if (error != IRECV_E_SUCCESS) {
 		debug("Failed to set interface, error %d\n", error);
 		irecv_close(client);
+		*pclient = NULL;
 		return error;
 	}
 
@@ -2222,6 +2235,7 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t ecid)
 		if (error != IRECV_E_SUCCESS) {
 			debug("irecv_kis_init failed, error %d\n", error);
 			irecv_close(client);
+			*pclient = NULL;
 			return error;
 		}
 
@@ -2229,10 +2243,12 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t ecid)
 		if (error != IRECV_E_SUCCESS) {
 			debug("irecv_kis_load_device_info failed, error %d\n", error);
 			irecv_close(client);
+			*pclient = NULL;
 			return error;
 		}
 		if (ecid != 0 && client->device_info.ecid != ecid) {
 			irecv_close(client);
+			*pclient = NULL;
 			return IRECV_E_NO_DEVICE; //wrong device
 		}
 		debug("found device with ECID %016" PRIx64 "\n", (uint64_t)client->device_info.ecid);
@@ -3450,6 +3466,13 @@ static irecv_error_t irecv_cleanup(irecv_client_t client)
 		free(client->device_info.serial_string);
 		free(client->device_info.ap_nonce);
 		free(client->device_info.sep_nonce);
+		// irecv_reconnect() may clean up a client that is later closed again
+		client->device_info.srnm = NULL;
+		client->device_info.imei = NULL;
+		client->device_info.srtg = NULL;
+		client->device_info.serial_string = NULL;
+		client->device_info.ap_nonce = NULL;
+		client->device_info.sep_nonce = NULL;
 	}
 
 	return IRECV_E_SUCCESS;
