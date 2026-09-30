@@ -2917,7 +2917,9 @@ static void* _irecv_handle_device_add(void *userdata)
 	usb_dev_info->alive = 1;
 	usb_dev_info->mode = client_loc.mode;
 
+	mutex_lock(&device_mutex);
 	collection_add(&devices, usb_dev_info);
+	mutex_unlock(&device_mutex);
 
 	irecv_device_event_t dev_event;
 	dev_event.type = IRECV_DEVICE_ADD;
@@ -2933,9 +2935,13 @@ static void* _irecv_handle_device_add(void *userdata)
 	return NULL;
 }
 
+// Caller must not hold device_mutex; listeners are notified without it.
 static void _irecv_handle_device_remove(struct irecv_usb_device_info *devinfo)
 {
 	irecv_device_event_t dev_event;
+	mutex_lock(&device_mutex);
+	collection_remove(&devices, devinfo);
+	mutex_unlock(&device_mutex);
 	dev_event.type = IRECV_DEVICE_REMOVE;
 	dev_event.mode = devinfo->mode;
 	dev_event.device_info = &(devinfo->device_info);
@@ -2953,9 +2959,45 @@ static void _irecv_handle_device_remove(struct irecv_usb_device_info *devinfo)
 	free(devinfo->device_info.serial_string);
 	devinfo->device_info.serial_string = NULL;
 	devinfo->alive = 0;
-	collection_remove(&devices, devinfo);
 	free(devinfo);
 }
+
+#if defined(_WIN32) || (!defined(HAVE_IOKIT) && !defined(HAVE_LIBUSB_HOTPLUG_API))
+static void _irecv_remove_dead_devices(void)
+{
+	struct collection dead;
+	collection_init(&dead);
+	mutex_lock(&device_mutex);
+	FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
+		if (!devinfo->alive) {
+			collection_add(&dead, devinfo);
+		}
+	} ENDFOREACH
+	mutex_unlock(&device_mutex);
+
+	FOREACH(struct irecv_usb_device_info *devinfo, &dead) {
+		debug("%s: removed ecid: %016" PRIx64 ", location: %d\n",__func__, (uint64_t)devinfo->device_info.ecid, devinfo->location);
+		_irecv_handle_device_remove(devinfo);
+	} ENDFOREACH
+	collection_free(&dead);
+}
+#endif
+
+#if !defined(_WIN32) && (defined(HAVE_IOKIT) || defined(HAVE_LIBUSB_HOTPLUG_API))
+static struct irecv_usb_device_info* _irecv_find_device_by_location(uint32_t location)
+{
+	struct irecv_usb_device_info *found = NULL;
+	mutex_lock(&device_mutex);
+	FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
+		if (devinfo->location == location) {
+			found = devinfo;
+			break;
+		}
+	} ENDFOREACH
+	mutex_unlock(&device_mutex);
+	return found;
+}
+#endif
 
 #ifndef _WIN32
 #ifdef HAVE_IOKIT
@@ -3016,12 +3058,10 @@ static void iokit_device_removed(void *refcon, io_iterator_t iterator)
 			continue;
 		}
 
-		FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
-			if (devinfo->location == location) {
-				_irecv_handle_device_remove(devinfo);
-				break;
-			}
-		} ENDFOREACH
+		struct irecv_usb_device_info *devinfo = _irecv_find_device_by_location(location);
+		if (devinfo) {
+			_irecv_handle_device_remove(devinfo);
+		}
 	}
 }
 #else /* !HAVE_IOKIT */
@@ -3042,12 +3082,10 @@ static int _irecv_usb_hotplug_cb(libusb_context *ctx, libusb_device *device, lib
 		uint8_t bus = libusb_get_bus_number(device);
 		uint8_t address = libusb_get_device_address(device);
 		uint32_t location = (bus << 16) | address;
-		FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
-			if (devinfo->location == location) {
-				_irecv_handle_device_remove(devinfo);
-				break;
-			}
-		} ENDFOREACH
+		struct irecv_usb_device_info *devinfo = _irecv_find_device_by_location(location);
+		if (devinfo) {
+			_irecv_handle_device_remove(devinfo);
+		}
 	}
 
 	return 0;
@@ -3081,9 +3119,11 @@ static void *_irecv_event_handler(void* data)
 		DWORD i;
 		int k;
 
+		mutex_lock(&device_mutex);
 		FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
 			devinfo->alive = 0;
 		} ENDFOREACH
+		mutex_unlock(&device_mutex);
 
 		for (k = 0; guids[k]; k++) {
 			usbDevices = SetupDiGetClassDevs(guids[k], NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
@@ -3145,6 +3185,7 @@ static void *_irecv_event_handler(void* data)
 				memcpy(&location, p, 4);
 				int found = 0;
 
+				mutex_lock(&device_mutex);
 				FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
 					if (devinfo->location == location) {
 						devinfo->alive = 1;
@@ -3152,6 +3193,7 @@ static void *_irecv_event_handler(void* data)
 						break;
 					}
 				} ENDFOREACH
+				mutex_unlock(&device_mutex);
 
 				unsigned int pid = 0;
 				unsigned int vid = 0;
@@ -3188,12 +3230,7 @@ static void *_irecv_event_handler(void* data)
 			SetupDiDestroyDeviceInfoList(usbDevices);
 		}
 
-		FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
-			if (!devinfo->alive) {
-				debug("%s: removed ecid: %016" PRIx64 ", location: %d\n",__func__, (uint64_t)devinfo->device_info.ecid, devinfo->location);
-				_irecv_handle_device_remove(devinfo);
-			}
-		} ENDFOREACH
+		_irecv_remove_dead_devices();
 
 		// handle newly added devices and remove from local list
 		FOREACH(struct irecv_win_dev_ctx *win_ctx, &newDevices) {
@@ -3294,9 +3331,11 @@ static void *_irecv_event_handler(void* data)
 			return NULL;
 		}
 
+		mutex_lock(&device_mutex);
 		FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
 			devinfo->alive = 0;
 		} ENDFOREACH
+		mutex_unlock(&device_mutex);
 
 		for (i = 0; i < cnt; i++) {
 			libusb_device *dev = devs[i];
@@ -3307,6 +3346,7 @@ static void *_irecv_event_handler(void* data)
 			uint8_t address = libusb_get_device_address(dev);
 			uint32_t location = (bus << 16) | address;
 			int found = 0;
+			mutex_lock(&device_mutex);
 			FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
 				if (devinfo->location == location) {
 					devinfo->alive = 1;
@@ -3314,16 +3354,13 @@ static void *_irecv_event_handler(void* data)
 					break;
 				}
 			} ENDFOREACH
+			mutex_unlock(&device_mutex);
 			if (!found) {
 				_irecv_handle_device_add(dev);
 			}
 		}
 
-		FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
-			if (!devinfo->alive) {
-				_irecv_handle_device_remove(devinfo);
-			}
-		} ENDFOREACH
+		_irecv_remove_dead_devices();
 
 		libusb_free_device_list(devs, 1);
 
@@ -3383,6 +3420,7 @@ irecv_error_t irecv_device_event_subscribe(irecv_device_event_context_t *context
 		mutex_destroy(&info.startup_mutex);
 	} else {
 		/* send DEVICE_ADD events to the new listener */
+		mutex_lock(&device_mutex);
 		FOREACH(struct irecv_usb_device_info *devinfo, &devices) {
 			if (devinfo && devinfo->alive) {
 				irecv_device_event_t ev;
@@ -3392,6 +3430,7 @@ irecv_error_t irecv_device_event_subscribe(irecv_device_event_context_t *context
 				_context->callback(&ev, _context->user_data);
 			}
 		} ENDFOREACH
+		mutex_unlock(&device_mutex);
 		mutex_unlock(&listener_mutex);
 	}
 
