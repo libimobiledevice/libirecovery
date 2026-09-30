@@ -1283,14 +1283,24 @@ static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 		DWORD i;
 		SP_DEVICE_INTERFACE_DATA currentInterface;
 		HDEVINFO usbDevices = SetupDiGetClassDevs(guids[k], NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+		if (usbDevices == INVALID_HANDLE_VALUE) {
+			continue;
+		}
 		memset(&currentInterface, 0, sizeof(SP_DEVICE_INTERFACE_DATA));
 		currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
-		for (i = 0; usbDevices && SetupDiEnumDeviceInterfaces(usbDevices, NULL, guids[k], i, &currentInterface); i++) {
+		for (i = 0; SetupDiEnumDeviceInterfaces(usbDevices, NULL, guids[k], i, &currentInterface); i++) {
 			_client->handle = INVALID_HANDLE_VALUE;
 			DWORD requiredSize = 0;
 			PSP_DEVICE_INTERFACE_DETAIL_DATA_A details;
 			SetupDiGetDeviceInterfaceDetailA(usbDevices, &currentInterface, NULL, 0, &requiredSize, NULL);
+			// device may have vanished between enumeration and detail query
+			if (requiredSize < sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A)) {
+				continue;
+			}
 			details = (PSP_DEVICE_INTERFACE_DETAIL_DATA_A) malloc(requiredSize);
+			if (!details) {
+				continue;
+			}
 			details->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A);
 			if (!SetupDiGetDeviceInterfaceDetailA(usbDevices, &currentInterface, details, requiredSize, NULL, NULL)) {
 				free(details);
@@ -1334,6 +1344,7 @@ static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 				if (_client->mode != IRECV_K_WTF_MODE) {
 					/* special ecid case, ignore !IRECV_K_WTF_MODE */
 					CloseHandle(_client->handle);
+					_client->handle = INVALID_HANDLE_VALUE;
 					free(details);
 					continue;
 				} else {
@@ -1344,6 +1355,7 @@ static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 			if ((ecid != 0) && (_client->mode == IRECV_K_WTF_MODE)) {
 				/* we can't get ecid in WTF mode */
 				CloseHandle(_client->handle);
+				_client->handle = INVALID_HANDLE_VALUE;
 				free(details);
 				continue;
 			}
@@ -1362,6 +1374,7 @@ static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 
 				if (serial_str[0] == '\0') {
 					CloseHandle(_client->handle);
+					_client->handle = INVALID_HANDLE_VALUE;
 					continue;
 				}
 				p = strchr(serial_str, '#');
@@ -1384,6 +1397,7 @@ static irecv_error_t win32_open_with_ecid(irecv_client_t* client, uint64_t ecid)
 			if (ecid != 0 && _client->mode != KIS_PRODUCT_ID) {
 				if (_client->device_info.ecid != ecid) {
 					CloseHandle(_client->handle);
+					_client->handle = INVALID_HANDLE_VALUE;
 					continue;
 				}
 				debug("found device with ECID %016" PRIx64 "\n", (uint64_t)ecid);
@@ -3018,9 +3032,8 @@ static void *_irecv_event_handler(void* data)
 
 		for (k = 0; guids[k]; k++) {
 			usbDevices = SetupDiGetClassDevs(guids[k], NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
-			if (!usbDevices) {
+			if (usbDevices == INVALID_HANDLE_VALUE) {
 				debug("%s: ERROR: SetupDiGetClassDevs failed\n", __func__);
-				// cleanup/free newDevices
 				FOREACH(struct irecv_win_dev_ctx *win_ctx, &newDevices) {
 					free(win_ctx->details);
 					collection_remove(&newDevices, win_ctx);
@@ -3030,14 +3043,20 @@ static void *_irecv_event_handler(void* data)
 				return NULL;
 			}
 
-
 			memset(&currentInterface, 0, sizeof(SP_DEVICE_INTERFACE_DATA));
 			currentInterface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
-			for (i = 0; usbDevices && SetupDiEnumDeviceInterfaces(usbDevices, NULL, guids[k], i, &currentInterface); i++) {
+			for (i = 0; SetupDiEnumDeviceInterfaces(usbDevices, NULL, guids[k], i, &currentInterface); i++) {
 				DWORD requiredSize = 0;
 				PSP_DEVICE_INTERFACE_DETAIL_DATA_A details;
-				SetupDiGetDeviceInterfaceDetail(usbDevices, &currentInterface, NULL, 0, &requiredSize, NULL);
+				SetupDiGetDeviceInterfaceDetailA(usbDevices, &currentInterface, NULL, 0, &requiredSize, NULL);
+				// device may have vanished between enumeration and detail query
+				if (requiredSize < sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A)) {
+					continue;
+				}
 				details = (PSP_DEVICE_INTERFACE_DETAIL_DATA_A) malloc(requiredSize);
+				if (!details) {
+					continue;
+				}
 				details->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A);
 				SP_DEVINFO_DATA devinfodata;
 				devinfodata.cbSize = sizeof(SP_DEVINFO_DATA);
@@ -3420,7 +3439,10 @@ static irecv_error_t irecv_cleanup(irecv_client_t client)
 		}
 #endif
 #else
-		CloseHandle(client->handle);
+		if (client->handle != NULL && client->handle != INVALID_HANDLE_VALUE) {
+			CloseHandle(client->handle);
+		}
+		client->handle = INVALID_HANDLE_VALUE;
 #endif
 		free(client->device_info.srnm);
 		free(client->device_info.imei);
