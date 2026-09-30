@@ -1164,6 +1164,43 @@ static int irecv_kis_read_string(KIS_device_info *di, size_t off, char *buf, siz
 }
 #endif
 
+#ifdef _WIN32
+// Device handles are opened with FILE_FLAG_OVERLAPPED, so every ioctl must use an OVERLAPPED
+// and must not return before the driver is done with the buffers, even after a timeout.
+static BOOL win32_device_io_control(HANDLE handle, DWORD code, void* in_buf, DWORD in_size, void* out_buf, DWORD out_size, DWORD* transferred, DWORD timeout)
+{
+	OVERLAPPED overlapped;
+	DWORD count = 0;
+	BOOL ok;
+
+	if (transferred) {
+		*transferred = 0;
+	}
+	memset(&overlapped, 0, sizeof(overlapped));
+	overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+	if (!overlapped.hEvent) {
+		return FALSE;
+	}
+
+	ok = DeviceIoControl(handle, code, in_buf, in_size, out_buf, out_size, NULL, &overlapped);
+	if (ok) {
+		ok = GetOverlappedResult(handle, &overlapped, &count, FALSE);
+	} else if (GetLastError() == ERROR_IO_PENDING) {
+		if (WaitForSingleObject(overlapped.hEvent, timeout) != WAIT_OBJECT_0) {
+			debug("%s: Device IO control timed out, cancelling IO\n", __func__);
+			CancelIo(handle);
+		}
+		ok = GetOverlappedResult(handle, &overlapped, &count, TRUE);
+	}
+	CloseHandle(overlapped.hEvent);
+
+	if (transferred) {
+		*transferred = count;
+	}
+	return ok;
+}
+#endif
+
 static irecv_error_t irecv_kis_init(irecv_client_t client)
 {
 #ifndef _WIN32
@@ -1190,7 +1227,7 @@ static irecv_error_t irecv_kis_load_device_info(irecv_client_t client)
 #ifdef _WIN32
 	KIS_device_info kisInfo;
 	DWORD transferred = 0;
-	int ret = DeviceIoControl(client->handle, 0x220004, NULL, 0, &kisInfo, sizeof(kisInfo), (PDWORD)&transferred, NULL);
+	int ret = win32_device_io_control(client->handle, 0x220004, NULL, 0, &kisInfo, sizeof(kisInfo), &transferred, USB_TIMEOUT);
 	if (ret) {
 		debug("Serial: %s\n", kisInfo.serial);
 		irecv_load_device_info_from_iboot_string(client, kisInfo.serial);
@@ -1499,13 +1536,15 @@ int irecv_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, u
 #endif
 #else
 	DWORD count = 0;
-	BOOL bRet;
-	OVERLAPPED overlapped;
 
 	if (data == NULL)
 		w_length = 0;
 
-	usb_control_request* packet = (usb_control_request*) malloc(sizeof(usb_control_request) + w_length);
+	DWORD packet_size = sizeof(usb_control_request) + w_length;
+	usb_control_request* packet = (usb_control_request*) malloc(packet_size);
+	if (!packet) {
+		return -1;
+	}
 	packet->bmRequestType = bm_request_type;
 	packet->bRequest = b_request;
 	packet->wValue = w_value;
@@ -1516,19 +1555,16 @@ int irecv_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, u
 		memcpy(packet->data, data, w_length);
 	}
 
-	memset(&overlapped, 0, sizeof(overlapped));
-	overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-	DeviceIoControl(client->handle, 0x2200A0, packet, sizeof(usb_control_request) + w_length, packet, sizeof(usb_control_request) + w_length, NULL, &overlapped);
-	WaitForSingleObject(overlapped.hEvent, timeout);
-	bRet = GetOverlappedResult(client->handle, &overlapped, &count, FALSE);
-	CloseHandle(overlapped.hEvent);
-	if (!bRet) {
-		CancelIo(client->handle);
+	if (!win32_device_io_control(client->handle, 0x2200A0, packet, packet_size, packet, packet_size, &count, timeout)
+	    || count < sizeof(usb_control_request)) {
 		free(packet);
 		return -1;
 	}
 
 	count -= sizeof(usb_control_request);
+	if (count > w_length) {
+		count = w_length;
+	}
 	if (count > 0) {
 		if (bm_request_type >= 0x80) {
 			memcpy(data, packet->data, count);
@@ -1859,7 +1895,11 @@ int irecv_usb_bulk_transfer(irecv_client_t client,
 #endif
 #else
 	if (endpoint==0x4) {
-		ret = DeviceIoControl(client->handle, 0x2201B6, data, length, data, length, (PDWORD) transferred, NULL);
+		DWORD count = 0;
+		ret = win32_device_io_control(client->handle, 0x2201B6, data, length, data, length, &count, timeout);
+		if (transferred) {
+			*transferred = (int)count;
+		}
 	} else {
 		ret = 0;
 	}
@@ -2454,8 +2494,7 @@ irecv_error_t irecv_reset(irecv_client_t client)
 	libusb_reset_device(client->handle);
 #endif
 #else
-	DWORD count;
-	DeviceIoControl(client->handle, 0x22000C, NULL, 0, NULL, 0, &count, NULL);
+	win32_device_io_control(client->handle, 0x22000C, NULL, 0, NULL, 0, NULL, USB_TIMEOUT);
 #endif
 
 	return IRECV_E_SUCCESS;
@@ -3706,7 +3745,7 @@ static irecv_error_t irecv_kis_send_buffer(irecv_client_t client, unsigned char*
 
 #ifdef _WIN32
 		DWORD transferred = 0;
-		int ret = DeviceIoControl(client->handle, 0x220008, chunk, sizeof(*chunk), NULL, 0, (PDWORD)&transferred, NULL);
+		int ret = win32_device_io_control(client->handle, 0x220008, chunk, sizeof(*chunk), NULL, 0, &transferred, USB_TIMEOUT);
 		irecv_error_t error = (ret) ? IRECV_E_SUCCESS : IRECV_E_USB_UPLOAD;
 #else
 		KIS_generic_reply reply;
@@ -3740,7 +3779,7 @@ static irecv_error_t irecv_kis_send_buffer(irecv_client_t client, unsigned char*
 #ifdef _WIN32
 		DWORD amount = (DWORD)origLen;
 		DWORD transferred = 0;
-		int ret = DeviceIoControl(client->handle, 0x22000C, &amount, 4, NULL, 0, (PDWORD)&transferred, NULL);
+		int ret = win32_device_io_control(client->handle, 0x22000C, &amount, 4, NULL, 0, &transferred, USB_TIMEOUT);
 		irecv_error_t error = (ret) ? IRECV_E_SUCCESS : IRECV_E_USB_UPLOAD;
 #else
 		irecv_error_t error = irecv_kis_config_write32(client, KIS_PORTAL_RSM, KIS_INDEX_BOOT_IMG, origLen);
