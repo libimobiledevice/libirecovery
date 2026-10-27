@@ -33,6 +33,10 @@ src/.libs
 *.pc
 tools/.libs/*
 tools/irecovery
+tests/usb-halt
+tests/*.log
+tests/*.trs
+test-driver
 .irecovery
 udev/39-libirecovery.rules
 .idea

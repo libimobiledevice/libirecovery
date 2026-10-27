@@ -1,5 +1,7 @@
 if BUILD_TOOLS
-AM_CPPFLAGS = -I$(top_srcdir)/include
+AM_CPPFLAGS = \
+	-I$(top_srcdir)/include \
+	-I$(top_srcdir)/src
 
 AM_CFLAGS = $(GLOBAL_CFLAGS) $(libusb_CFLAGS)
 AM_LDFLAGS = $(libusb_LIBS)

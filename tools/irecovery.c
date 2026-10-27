@@ -33,6 +33,8 @@
 #include <inttypes.h>
 #include <ctype.h>
 #include <libirecovery.h>
+
+#include "libirecovery-private.h"
 #ifdef HAVE_READLINE
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -221,12 +223,7 @@ static void print_devices()
 
 static int _is_breq_command(const char* cmd)
 {
-	return (
-		!strcmp(cmd, "go")
-		|| !strcmp(cmd, "bootx")
-		|| !strcmp(cmd, "reboot")
-		|| !strcmp(cmd, "memboot")
-	);
+	return irecv_command_uses_b_request(cmd);
 }
 
 static void parse_command(irecv_client_t client, unsigned char* command, unsigned int size)
@@ -382,6 +379,43 @@ int precommand_cb(irecv_client_t client, const irecv_event_t* event)
 			parse_command(client, (unsigned char*)event->data, event->size);
 			return -1;
 		}
+
+		char* command = strdup(event->data);
+		if (command == NULL) {
+			fprintf(stderr, "irecovery: %s\n", irecv_strerror(IRECV_E_OUT_OF_MEMORY));
+			return -1;
+		}
+		char* action = strtok(command, " \t");
+		if (action && !strcmp(action, "getenv")) {
+			char* argument = strtok(NULL, " \t");
+			char* trailing = strtok(NULL, " \t");
+			if (argument == NULL) {
+				fprintf(stderr, "getenv: missing variable name\n");
+				free(command);
+				return -1;
+			}
+			if (trailing != NULL) {
+				fprintf(stderr, "getenv: unexpected trailing argument '%s'\n", trailing);
+				free(command);
+				return -1;
+			}
+
+			char* value = NULL;
+			irecv_error_t error = irecv_getenv(client, argument, &value);
+			if (error == IRECV_E_UNSUPPORTED) {
+				free(command);
+				return 0;
+			}
+			if (error != IRECV_E_SUCCESS) {
+				fprintf(stderr, "getenv: %s\n", irecv_strerror(error));
+			} else {
+				printf("%s\n", value);
+				free(value);
+			}
+			free(command);
+			return -1;
+		}
+		free(command);
 	}
 
 	return 0;
@@ -389,28 +423,17 @@ int precommand_cb(irecv_client_t client, const irecv_event_t* event)
 
 int postcommand_cb(irecv_client_t client, const irecv_event_t* event)
 {
-	char* value = NULL;
 	char* action = NULL;
 	char* command = NULL;
-	char* argument = NULL;
-	irecv_error_t error = IRECV_E_SUCCESS;
 
 	if (event->type == IRECV_POSTCOMMAND) {
 		command = strdup(event->data);
-		action = strtok(command, " ");
-		if (!strcmp(action, "getenv")) {
-			argument = strtok(NULL, " ");
-			error = irecv_getenv(client, argument, &value);
-			if (error != IRECV_E_SUCCESS) {
-				debug("%s\n", irecv_strerror(error));
-				free(command);
-				return error;
-			}
-			printf("%s\n", value);
-			free(value);
+		if (command == NULL) {
+			debug("Out of memory\n");
+			return 0;
 		}
-
-		if (!strcmp(action, "reboot")) {
+		action = strtok(command, " ");
+		if (action && !strcmp(action, "reboot")) {
 			quit = 1;
 		}
 	}

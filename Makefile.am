@@ -1,6 +1,6 @@
 AUTOMAKE_OPTIONS = foreign
 ACLOCAL_AMFLAGS = -I m4
-SUBDIRS = src include tools udev
+SUBDIRS = src include tools udev tests
 
 EXTRA_DIST = \
 	README.md \
