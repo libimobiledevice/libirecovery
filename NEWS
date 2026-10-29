@@ -1,3 +1,25 @@
+Version 1.4.0
+~~~~~~~~~~~~~
+
+* Changes:
+  - Add irecv_async_usb_control_transfer() and
+    irecv_async_usb_control_transfer_with_cancel()
+  - Detect stalled pipes for IOKit
+
+* Device database changes:
+  - Support iPhone 17e
+  - Support iPad Air M4 models
+  - Support MacBook Air M5, MacBook Neo, and MacBook Pro M5 Pro/Max
+  - Support the devices of autumn 2026 and the missing 2026 Studio Displays
+  - Support the Private Cloud Compute Research Environment model
+  - Support Lightning Video Adapter models
+
+* Bug Fixes:
+  - Fix the lifetime of the IOKit service during KIS retries
+  - Fix undefined HAVE_READLINE when building with --without-tools
+  - Fix the build without USB support
+
+
 Version 1.3.1
 ~~~~~~~~~~~~~
 
