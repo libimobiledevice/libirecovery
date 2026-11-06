@@ -197,6 +197,7 @@ AC_CONFIG_FILES([
 Makefile
 src/Makefile
 src/libirecovery-1.0.pc
+tests/Makefile
 udev/39-libirecovery.rules
 include/Makefile
 tools/Makefile

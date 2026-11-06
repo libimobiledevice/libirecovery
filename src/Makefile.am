@@ -11,6 +11,8 @@ AM_LDFLAGS = \
 	$(limd_glue_LIBS) \
 	$(libusb_LIBS)
 
+noinst_HEADERS = libirecovery-private.h
+
 lib_LTLIBRARIES = libirecovery-1.0.la
 libirecovery_1_0_la_CFLAGS = $(AM_CFLAGS)
 libirecovery_1_0_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(LIBIRECOVERY_SO_VERSION) -no-undefined
