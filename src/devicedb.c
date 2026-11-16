@@ -618,7 +618,7 @@ static irecv_error_t add_entry(const char* product_type, const char* hardware_mo
 	return IRECV_E_SUCCESS;
 }
 
-IRECV_API irecv_error_t irecv_devices_add(const char* product_type, const char* hardware_model, unsigned int board_id, unsigned int chip_id, const char* display_name)
+irecv_error_t irecv_devices_add(const char* product_type, const char* hardware_model, unsigned int board_id, unsigned int chip_id, const char* display_name)
 {
 	struct irecv_device* table;
 	const struct irecv_device* existing = NULL;

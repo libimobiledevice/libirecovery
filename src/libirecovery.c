@@ -454,6 +454,7 @@ static int iokit_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc
 }
 #endif
 
+#if !defined(_WIN32) && !defined(HAVE_IOKIT)
 /* Fetch a string descriptor with libirecovery's own USB_TIMEOUT and a few
  * retries. libusb_get_string_descriptor_ascii() hardcodes a 1 s timeout, which
  * some parts miss: the Apple T1/iBridge in recovery answers this control
@@ -490,6 +491,7 @@ static int irecv_get_string_descriptor_ascii_slow(irecv_client_t client, uint8_t
 	}
 	return ret;
 }
+#endif
 
 static int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc_index, unsigned char * buffer, int size)
 {
@@ -1319,7 +1321,7 @@ static void async_cb(struct libusb_transfer* usb_transfer) {
 #endif
 #endif
 
-IRECV_API int irecv_async_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length) {
+int irecv_async_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -1357,7 +1359,7 @@ IRECV_API int irecv_async_usb_control_transfer(irecv_client_t client, uint8_t bm
 
 }
 
-IRECV_API int irecv_async_usb_control_transfer_with_cancel(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, unsigned int u_time) {
+int irecv_async_usb_control_transfer_with_cancel(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, unsigned int u_time) {
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -1600,7 +1602,7 @@ int irecv_usb_bulk_transfer(irecv_client_t client,
 #endif
 }
 
-IRECV_API int irecv_usb_interrupt_transfer(irecv_client_t client,
+int irecv_usb_interrupt_transfer(irecv_client_t client,
 							unsigned char endpoint,
 							unsigned char *data,
 							int length,
