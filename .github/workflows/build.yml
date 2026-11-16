@@ -162,14 +162,14 @@ jobs:
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
-        name: libplist-latest_${{ matrix.arch }}-${{ env.dest }}
+        name: libplist-latest_${{ matrix.arch }}-windows-${{ env.dest }}
         repo: libimobiledevice/libplist
     - name: fetch libimobiledevice-glue
       uses: dawidd6/action-download-artifact@v24
       with:
         github_token: ${{secrets.GITHUB_TOKEN}}
         workflow: build.yml
-        name: libimobiledevice-glue-latest_${{ matrix.arch }}-${{ env.dest }}
+        name: libimobiledevice-glue-latest_${{ matrix.arch }}-windows-${{ env.dest }}
         repo: libimobiledevice/libimobiledevice-glue
     - name: install external dependencies
       run: |
@@ -195,5 +195,5 @@ jobs:
     - name: publish artifact
       uses: actions/upload-artifact@v6
       with:
-        name: libirecovery-latest_${{ matrix.arch }}-${{ env.dest }}
+        name: libirecovery-latest_${{ matrix.arch }}-windows-${{ env.dest }}
         path: libirecovery.tar
