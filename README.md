@@ -15,6 +15,7 @@ via USB.*
   - [Configuring the source tree](#configuring-the-source-tree)
   - [Building and installation](#building-and-installation)
 - [Usage](#usage)
+- [Device database](#device-database)
 - [Contributing](#contributing)
 - [Links](#links)
 - [License](#license)
@@ -218,6 +219,30 @@ available command line options:
 irecovery --help
 man irecovery
 ```
+
+## Device database
+
+The device list is maintained in [`data/devices.txt`](data/devices.txt) and
+compiled into the library, so the library works without any extra files. At
+runtime it is extended and overridden, in this order (later wins), by:
+
+1. `<prefix>/share/libirecovery/devices.txt` (not on Windows)
+2. `~/.libirecovery/devices.txt` (`%APPDATA%\libirecovery\devices.txt` on Windows),
+   or the file named by the `LIBIRECOVERY_DEVICE_DB` environment variable
+
+This allows adding new device models without rebuilding the library. The format
+is one device per line, `#` starts a comment:
+```
+<product_type> <hardware_model> <board_id> <chip_id> <display name...>
+iPhone12,1 d421ap 0x0e 0x8030 iPhone 11
+```
+Entries are matched by `hardware_model` (case-insensitive). A file may start with
+a `#!format 1` line declaring its format version (no declaration means 1); files
+declaring a newer format than the library supports are ignored. Malformed lines are
+skipped (use `LIBIRECOVERY_DEBUG_LEVEL=1` to see why). A user file is ignored if
+it is not owned by the current user (or root) or is world-writable.
+
+Applications can add an entry to the user file with `irecv_devices_add()`.
 
 ## Contributing
 

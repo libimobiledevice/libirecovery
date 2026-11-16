@@ -200,6 +200,13 @@ IRECV_API irecv_error_t irecv_devices_get_device_by_client(irecv_client_t client
 IRECV_API irecv_error_t irecv_devices_get_device_by_product_type(const char* product_type, irecv_device_t* device);
 IRECV_API irecv_error_t irecv_devices_get_device_by_hardware_model(const char* hardware_model, irecv_device_t* device);
 
+/* Persistently adds (or overrides, matched by hardware_model) a device in the user device file.
+ * The entry is available to all subsequent lookups; pointers returned earlier stay valid.
+ * display_name may be NULL: an existing entry keeps its name, a new one is named
+ * "<product_type> (<hardware_model>)". Fails with IRECV_E_INVALID_INPUT if the input is malformed
+ * or if another hardware_model already uses the same chip_id and board_id. */
+IRECV_API irecv_error_t irecv_devices_add(const char* product_type, const char* hardware_model, unsigned int board_id, unsigned int chip_id, const char* display_name);
+
 #ifdef __cplusplus
 }
 #endif

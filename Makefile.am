@@ -2,8 +2,12 @@ AUTOMAKE_OPTIONS = foreign
 ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = src include tools udev
 
+pkgdata_DATA = data/devices.txt
+
 EXTRA_DIST = \
 	README.md \
+	data/devices.txt \
+	data/gen-devices.sh \
 	git-version-gen
 
 dist-hook:
