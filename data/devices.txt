@@ -212,12 +212,14 @@ AppleTV5,3 j42dap 0x34 0x7000 Apple TV 4
 AppleTV6,2 j105aap 0x02 0x8011 Apple TV 4K
 AppleTV11,1 j305ap 0x08 0x8020 Apple TV 4K (2nd gen)
 AppleTV14,1 j255ap 0x02 0x8110 Apple TV 4K (3rd gen)
+AppleTV18,1 j265ap 0x18 0x8150 Apple TV 4K (4th gen)
 
 # HomePod
 AudioAccessory1,1 b238aap 0x38 0x7000 HomePod (1st gen)
 AudioAccessory1,2 b238ap 0x1A 0x7000 HomePod (1st gen)
 AudioAccessory5,1 b520ap 0x22 0x8006 HomePod mini
 AudioAccessory6,1 b620ap 0x18 0x8301 HomePod (2nd gen)
+AudioAccessory11,1 b525ap 0x42 0x8310 HomePod mini 2
 
 # Apple Watch
 Watch1,1 n27aap 0x02 0x7002 Apple Watch 38mm (1st gen)
@@ -387,6 +389,10 @@ AppleDisplay18,2 j527ap 0x04 0x8150 Studio Display (2026)
 # Apple Vision Pro
 RealityDevice14,1 n301ap 0x42 0x8112 Apple Vision Pro
 RealityDevice17,1 n301aap 0x42 0x8142 Apple Vision Pro (M5)
+
+# Apple HomeView
+HomeAccessory17,1 j490ap 0x02 0x8140 HomeView (stand)
+HomeAccessory17,2 j491ap 0x06 0x8140 HomeView (wall-mount)
 
 # Private Cloud Compute Research Environment
 iPhone99,11 vresearch101ap 0x90 0xFE01 iPhone 99,11
