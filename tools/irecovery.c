@@ -112,7 +112,9 @@ static const char* mode_to_str(int mode)
 static void buffer_read_from_filename(const char *filename, char **buffer, uint64_t *length)
 {
 	FILE *f;
-	uint64_t size;
+	char *data = NULL;
+	size_t size = 0;
+	size_t capacity = 0;
 
 	*length = 0;
 
@@ -121,19 +123,35 @@ static void buffer_read_from_filename(const char *filename, char **buffer, uint6
 		return;
 	}
 
-	fseek(f, 0, SEEK_END);
-	size = ftell(f);
-	rewind(f);
+	// read in chunks since the file might not be seekable (e.g. a pipe or /dev/stdin)
+	while (1) {
+		if (capacity - size < 4096 + 1) {
+			size_t new_capacity = capacity ? capacity * 2 : 8192;
+			char *tmp = (char*)realloc(data, new_capacity);
+			if (!tmp) {
+				free(data);
+				fclose(f);
+				return;
+			}
+			data = tmp;
+			capacity = new_capacity;
+		}
+		size_t n = fread(data + size, 1, capacity - size - 1, f);
+		size += n;
+		if (n == 0) {
+			break;
+		}
+	}
 
-	if (size == 0) {
+	if (ferror(f) || size == 0) {
+		free(data);
 		fclose(f);
 		return;
 	}
-
-	*buffer = (char*)malloc(sizeof(char)*(size+1));
-	fread(*buffer, sizeof(char), size, f);
 	fclose(f);
 
+	data[size] = '\0';
+	*buffer = data;
 	*length = size;
 }
 
