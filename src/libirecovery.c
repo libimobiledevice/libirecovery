@@ -1346,13 +1346,13 @@ int irecv_async_usb_control_transfer(irecv_client_t client, uint8_t bm_request_t
 	memcpy((buffer + 8), data, w_length);
 	libusb_fill_control_setup(buffer, bm_request_type, b_request, w_value, w_index, w_length);
 	libusb_fill_control_transfer(usb_transfer, client->handle, buffer, NULL, NULL, 0);
-	usb_transfer->flags |= LIBUSB_TRANSFER_FREE_BUFFER;
+	/* nothing waits for this transfer, so libusb frees it and its buffer on completion */
+	usb_transfer->flags |= LIBUSB_TRANSFER_FREE_BUFFER | LIBUSB_TRANSFER_FREE_TRANSFER;
 	error = libusb_submit_transfer(usb_transfer);
 	if(error != 0) {
-		free(buffer);
+		libusb_free_transfer(usb_transfer);
 		return error;
 	}
-	free(buffer);
 	return IRECV_E_SUCCESS;
 #endif
 #else
