@@ -2016,7 +2016,7 @@ irecv_error_t irecv_open_with_ecid(irecv_client_t* pclient, uint64_t ecid)
 #ifdef HAVE_IOKIT
 	error = (*client->handle)->CreateDeviceAsyncEventSource(client->handle, &client->async_event_source);
 	if (error != IRECV_E_SUCCESS) {
-		free(client);
+		irecv_close(client);
 		*pclient = NULL;
 		return error;
 	}
