@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component>
+  <id>org.libimobiledevice.libirecovery</id>
+  <metadata_license>MIT</metadata_license>
+  <name>libirecovery</name>
+  <summary>Communication with iOS devices in recovery and DFU mode</summary>
+  <description>
+    <p>
+      libirecovery is a library which implements communication to iBoot/iBSS
+      recovery and DFU mode found on Apple's iOS devices via USB.
+      It comes with an 'irecovery' tool to interact with devices in recovery/DFU mode.
+    </p>
+  </description>
+  <url type="homepage">https://github.com/libimobiledevice/libirecovery</url>
+  <provides>
+    <modalias>usb:v05ACp1222d*</modalias>
+    <modalias>usb:v05ACp1227d*</modalias>
+    <modalias>usb:v05ACp1280d*</modalias>
+    <modalias>usb:v05ACp1281d*</modalias>
+    <modalias>usb:v05ACp1282d*</modalias>
+    <modalias>usb:v05ACp1283d*</modalias>
+    <modalias>usb:v05ACpF014d*</modalias>
+  </provides>
+</component>

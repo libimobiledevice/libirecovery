@@ -6,6 +6,7 @@ pkgdata_DATA = data/devices.txt
 
 EXTRA_DIST = \
 	README.md \
+	org.libimobiledevice.libirecovery.metainfo.xml \
 	data/devices.txt \
 	data/gen-devices.sh \
 	git-version-gen
@@ -16,3 +17,6 @@ dist-hook:
 
 DISTCHECK_CONFIGURE_FLAGS = \
 	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir)
+
+dist_metainfo_DATA = org.libimobiledevice.libirecovery.metainfo.xml
+metainfodir = $(datarootdir)/metainfo
