@@ -19,6 +19,7 @@
     <modalias>usb:v05ACp1281d*</modalias>
     <modalias>usb:v05ACp1282d*</modalias>
     <modalias>usb:v05ACp1283d*</modalias>
+    <modalias>usb:v05ACp1881d*</modalias>
     <modalias>usb:v05ACpF014d*</modalias>
   </provides>
 </component>
