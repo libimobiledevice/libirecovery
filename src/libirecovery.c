@@ -116,6 +116,11 @@ struct irecv_async_transfer {
 
 #endif
 
+#if !defined(USE_DUMMY) && !defined(HAVE_IOKIT) && !defined(_WIN32)
+#define HAVE_KIS_LINKS 1
+struct kis_link;
+#endif
+
 struct irecv_client_private {
 	int debug;
 	int usb_config;
@@ -142,6 +147,12 @@ struct irecv_client_private {
 	irecv_event_cb_t precommand_callback;
 	irecv_event_cb_t postcommand_callback;
 	irecv_event_cb_t disconnected_callback;
+#ifdef HAVE_KIS_LINKS
+	/* Opened through a Debug USB link: KIS DFU, or, with rsm_session set, a
+	 * recovery device tunnelled over RSM. */
+	struct kis_link *kis;
+	unsigned int rsm_session;
+#endif
 #endif
 };
 
@@ -167,6 +178,15 @@ struct irecv_client_private {
 #define debug(...) if (libirecovery_debug) fprintf(stderr, __VA_ARGS__)
 
 static int libirecovery_debug = 0;
+#ifdef HAVE_KIS_LINKS
+static struct collection kis_links;
+static mutex_t kis_links_mutex;
+/* The device event thread runs and takes over links kept across a stage change. */
+static int kis_links_retained;
+static int rsm_control(struct kis_link *link, unsigned int session, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, unsigned int timeout);
+static int rsm_bulk(struct kis_link *link, unsigned int session, unsigned char endpoint, unsigned char *data, int length, int *transferred, unsigned int timeout);
+static int rsm_string(struct kis_link *link, unsigned int session, uint8_t index, unsigned char *buffer, int size);
+#endif
 #ifndef USE_DUMMY
 #ifndef _WIN32
 #ifndef HAVE_IOKIT
@@ -403,6 +423,10 @@ INITIALIZER(_irecv_init)
 #endif
 	collection_init(&listeners);
 	mutex_init(&listener_mutex);
+#ifdef HAVE_KIS_LINKS
+	collection_init(&kis_links);
+	mutex_init(&kis_links_mutex);
+#endif
 #endif
 	atexit(_irecv_deinit);
 }
@@ -497,6 +521,11 @@ static int irecv_get_string_descriptor_ascii_slow(irecv_client_t client, uint8_t
 
 static int irecv_get_string_descriptor_ascii(irecv_client_t client, uint8_t desc_index, unsigned char * buffer, int size)
 {
+#ifdef HAVE_KIS_LINKS
+	if (client->rsm_session) {
+		return rsm_string(client->kis, client->rsm_session, desc_index, buffer, size);
+	}
+#endif
 #ifndef _WIN32
 #ifdef HAVE_IOKIT
 	return iokit_get_string_descriptor_ascii(client, desc_index, buffer, size);
@@ -727,6 +756,1172 @@ static void irecv_copy_nonce_with_tag(irecv_client_t client, const char* tag, un
 	irecv_copy_nonce_with_tag_from_buffer(tag,nonce,nonce_size,buf);
 }
 
+#ifdef HAVE_KIS_LINKS
+/*
+ * Debug USB links, and iBoot recovery over RSM.
+ *
+ * A Mac with Debug USB on its port shows one KIS device (05ac:1881) for as long
+ * as Debug USB stays on, whatever runs on the Mac. Its doorbell block, RSM
+ * portal registers 0x100 to 0x1ff, says what is behind it: the bootrom's DFU
+ * (magic "aDFU", the block irecv_kis_load_device_info parses, which holds the
+ * device's identity) or RSM channels ("RSM1"). An iBoot with no USB device of
+ * its own presents recovery mode as an ordinary iBoot USB device carried by an
+ * RSM channel of type 2. In RSM mode the doorbells hold no identity: the
+ * tunnelled device's serial can only be read through its channel.
+ *
+ * A KIS interface can be claimed by one process at a time, and the doorbells
+ * can only be read while it is claimed. A process has one link per device,
+ * shared by the clients opened on it and by the device event thread, and
+ * holds the claim while a client has the link open. The event thread
+ * otherwise only looks: it claims the device, reads the doorbells and lets go,
+ * passing over a device another process holds (it enables a device once if
+ * its doorbells don't read back). It never writes to a channel;
+ * a recovery stage is announced with the identity this process last read for
+ * the device, from its DFU block or through a client, or not at all.
+ *
+ * When the last client of a link closes after sending requests that can end
+ * the device's stage (uploads, commands), the event thread keeps the claim for
+ * a moment. If the stage ends, it keeps it until a client of this process
+ * opens the next stage, the device leaves recovery, or a deadline passes, so
+ * that no other process opens the next stage's channel in between.
+ *
+ * RSM 1.x, channel c: configuration in doorbell 0x10+c (type in bits 24-31,
+ * ring sizes 0x800 << n with n in bits 4-7 for device to host and 0-3 for host
+ * to device), ring addresses in 0x20+2c (host to device) and 0x40+2c, and the
+ * producers' offsets in 0x60+c (written by the host) and 0x70+c (by the
+ * device): the head in words in bits 0-23, and in bits 24-31 how far the
+ * producer has read the other ring, in 1/256ths of it. A new boot stage
+ * reinitialises its channel, which clears both offsets. A ring holds commands:
+ * a word with the stream in bits 24-31 and the length in bits 0-23, then the
+ * payload padded to a word. A recovery channel opens with an empty command on
+ * stream 0x80. Stream 0x00 is EP0: the host sends the SETUP, then any OUT data
+ * as a command of its own; the device answers an IN request with its data
+ * (possibly none), then any request with a one-byte status (0 done, 1
+ * stalled). Stream 0x04 is bulk OUT to EP 0x04; as on USB, a transfer ends
+ * at a short packet, so an empty command ends one whose length is a multiple
+ * of 512.
+ */
+
+#define KIS_CMD_PCR 0
+#define KIS_CMD_PCW 1
+#define KIS_CMD_PAR 2
+#define KIS_CMD_PAW 3
+#define KIS_HEADER_SIZE 12
+#define KIS_TRAILER_SIZE 8
+#define KIS_ADDRESS_SPACE 0x0D
+#define KIS_MAX_DATA 0x10000
+/* Whole packets, so a read for the longest reply cannot overflow. */
+#define KIS_LINK_BUFFER (KIS_MAX_DATA + 0x400)
+#define KIS_INDEX_PORTALS 0x16
+#define KIS_PORTALS_VAL 0x30000
+#define KIS_DFU_INFO_SIZE 0x300
+/* A look at a device: how long a read may take, and how often to look at a
+ * device no client of this process has open (in event thread polls). */
+#define KIS_LOOK_TIMEOUT 1000
+#define KIS_LOOK_POLLS 5
+/* A client open passes over other processes' looks. */
+#define KIS_OPEN_ATTEMPTS 10
+#define KIS_OPEN_RETRY_MS 50
+/* How long the claim is kept after a client that sent stage-ending requests
+ * closes, and after the stage then ends. */
+#define KIS_LINGER_MS 2000
+#define KIS_HANDOFF_MS 60000
+
+#define RSM_INDEX_TIMEOUT 0x0A
+#define RSM_TIMEOUT_VAL 288000
+#define RSM_DOORBELLS 0x100
+#define RSM_DOORBELL_COUNT 256
+#define RSM_MAGIC 0x52534D31
+#define RSM_TYPE_RECOVERY 2
+#define RSM_STREAM_EP0 0x00
+#define RSM_STREAM_BULK 0x04
+#define RSM_STREAM_OPEN 0x80
+#define RSM_BULK_CHUNK 0x8000
+#define RSM_RX_BUFFER (KIS_MAX_DATA + 0x100)
+#define RSM_CHECK_MS 100
+
+enum kis_state {
+	KIS_STATE_FAILED,   /* the doorbells could not be read */
+	KIS_STATE_EMPTY,    /* nothing behind them, as between boot stages */
+	KIS_STATE_OTHER,    /* neither DFU nor a recovery channel */
+	KIS_STATE_DFU,
+	KIS_STATE_RECOVERY,
+};
+
+/* What the doorbells show. */
+struct kis_look {
+	enum kis_state state;
+	/* KIS_STATE_DFU */
+	uint16_t mode;
+	char serial[256];
+	/* KIS_STATE_RECOVERY: the first recovery channel */
+	unsigned int chan;
+	uint32_t cfg;
+	uint64_t h2d;
+	uint64_t d2h;
+	uint32_t host;
+	uint32_t dev;
+};
+
+struct kis_link {
+	/* Lifetime: under kis_links_mutex. */
+	uint32_t location;
+	int refs;
+	int clients;
+	/* 1: a reference is kept for the event thread across a stage change; 2: it has taken it. */
+	int retained;
+	/* A client sent a request that can end the device's stage. */
+	int drove;
+	/* Transport: one KIS request at a time. */
+	mutex_t lock;
+	int dead; /* set under lock and kis_links_mutex */
+	int enabled;
+	uint16_t seq;
+	uint16_t packet;
+	uint8_t *out;
+	uint8_t *in;
+	libusb_device_handle *handle;
+	/* The recovery session, while session is nonzero: changed under xfer and
+	 * lock, read under either. xfer: one recovery transfer at a time. */
+	mutex_t xfer;
+	unsigned int session;
+	unsigned int sessions;
+	unsigned int chan;
+	uint64_t h2d;
+	uint64_t d2h;
+	uint32_t h2d_len;
+	uint32_t d2h_len;
+	uint32_t head;
+	uint32_t tail;
+	uint32_t bell;
+	uint32_t dev_head;
+	uint32_t dev_cons;
+	uint64_t checked;
+	uint8_t *rx;
+	uint32_t rx_len;
+	uint16_t pid;
+	char serial[256];
+};
+
+static uint32_t kis_get32(const uint8_t *p)
+{
+	return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+static void kis_put32(uint8_t *p, uint32_t v)
+{
+	p[0] = v & 0xFF;
+	p[1] = (v >> 8) & 0xFF;
+	p[2] = (v >> 16) & 0xFF;
+	p[3] = (v >> 24) & 0xFF;
+}
+
+static uint64_t kis_now_ms(void)
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (uint64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+static void kis_sleep_ms(unsigned int ms)
+{
+	usleep(ms * 1000);
+}
+
+/* Caller holds link->lock. */
+static void kis_link_set_dead(struct kis_link *link)
+{
+	mutex_lock(&kis_links_mutex);
+	link->dead = 1;
+	mutex_unlock(&kis_links_mutex);
+}
+
+/* Caller holds link->lock. */
+static irecv_error_t kis_link_bulk(struct kis_link *link, uint8_t ep, uint8_t *buf, int len, int *done, unsigned int timeout)
+{
+	int ret = libusb_bulk_transfer(link->handle, ep, buf, len, done, timeout);
+	switch (ret) {
+	case 0:
+		return IRECV_E_SUCCESS;
+	case LIBUSB_ERROR_TIMEOUT:
+		return IRECV_E_TIMEOUT;
+	case LIBUSB_ERROR_NO_DEVICE:
+		kis_link_set_dead(link);
+		return IRECV_E_NO_DEVICE;
+	default:
+		debug("%s: endpoint %02x: %s\n", __func__, ep, libusb_error_name(ret));
+		if (ret == LIBUSB_ERROR_PIPE) {
+			libusb_clear_halt(link->handle, ep);
+		}
+		return IRECV_E_USB_STATUS;
+	}
+}
+
+/* Send the request built in link->out and read its reply, at most reply_max
+ * bytes, into link->in, passing over replies to earlier requests. The device
+ * takes a transfer as ended by a short packet, so a request that fills its
+ * last packet is followed by an empty one, and a reply that fills its last
+ * packet is read by its length. Caller holds link->lock. */
+static irecv_error_t kis_link_exchange(struct kis_link *link, uint32_t out_len, uint32_t reply_max, uint32_t *in_len, unsigned int timeout)
+{
+	uint8_t portal = link->out[3];
+	uint8_t ep = (portal == KIS_PORTAL_CONFIG) ? 1 : 3;
+	uint16_t seq = ++link->seq;
+	uint32_t want = (reply_max + link->packet - 1) / link->packet * link->packet;
+	int done = 0;
+
+	if (link->dead) {
+		return IRECV_E_NO_DEVICE;
+	}
+	link->out[0] = seq & 0xFF;
+	link->out[1] = seq >> 8;
+	irecv_error_t err = kis_link_bulk(link, ep, link->out, (int)out_len, &done, timeout);
+	if (err != IRECV_E_SUCCESS) {
+		return err;
+	}
+	if ((uint32_t)done != out_len) {
+		return IRECV_E_USB_UPLOAD;
+	}
+	if (out_len % link->packet == 0) {
+		err = kis_link_bulk(link, ep, link->out, 0, &done, timeout);
+		if (err != IRECV_E_SUCCESS) {
+			return err;
+		}
+	}
+	if (want > KIS_LINK_BUFFER) {
+		want = KIS_LINK_BUFFER;
+	}
+	for (;;) {
+		err = kis_link_bulk(link, ep | 0x80, link->in, (int)want, &done, timeout);
+		if (err != IRECV_E_SUCCESS) {
+			return err;
+		}
+		if (done >= KIS_HEADER_SIZE + KIS_TRAILER_SIZE && link->in[3] == portal && (link->in[0] | (link->in[1] << 8)) == seq) {
+			break;
+		}
+		debug("%s: passing over a reply for portal %02x (%d bytes)\n", __func__, done > 3 ? link->in[3] : 0, done);
+	}
+	*in_len = (uint32_t)done;
+	return IRECV_E_SUCCESS;
+}
+
+/* One KIS request, answered with up to reply_data bytes: the reply's data is
+ * at link->in + KIS_HEADER_SIZE, and *size and *status come from its trailer.
+ * Caller holds link->lock. */
+static irecv_error_t kis_link_request(struct kis_link *link, uint8_t portal, uint32_t info, const uint8_t *args, uint32_t args_len, const uint8_t *data, uint32_t data_len, uint32_t reply_data, uint32_t *reply_len, uint32_t *size, uint32_t *status, unsigned int timeout)
+{
+	uint32_t len = args_len + data_len;
+	uint32_t in_len = 0;
+
+	if (KIS_HEADER_SIZE + len > KIS_LINK_BUFFER) {
+		return IRECV_E_INVALID_INPUT;
+	}
+	link->out[2] = 0xA0;
+	link->out[3] = portal;
+	kis_put32(link->out + 4, info);
+	kis_put32(link->out + 8, len);
+	if (args_len) {
+		memcpy(link->out + KIS_HEADER_SIZE, args, args_len);
+	}
+	if (data_len) {
+		memcpy(link->out + KIS_HEADER_SIZE + args_len, data, data_len);
+	}
+	irecv_error_t err = kis_link_exchange(link, KIS_HEADER_SIZE + len, KIS_HEADER_SIZE + reply_data + KIS_TRAILER_SIZE, &in_len, timeout);
+	if (err != IRECV_E_SUCCESS) {
+		return err;
+	}
+	*reply_len = in_len - KIS_HEADER_SIZE - KIS_TRAILER_SIZE;
+	*size = kis_get32(link->in + in_len - 8);
+	*status = kis_get32(link->in + in_len - 4);
+	return IRECV_E_SUCCESS;
+}
+
+/* A request built by the KIS DFU code, with its reply copied back whole. */
+static irecv_error_t kis_link_raw(struct kis_link *link, const void *req, size_t req_size, void *rpl, size_t *rpl_size)
+{
+	uint32_t in_len = 0;
+
+	if (req_size < KIS_HEADER_SIZE || req_size > KIS_LINK_BUFFER) {
+		return IRECV_E_INVALID_INPUT;
+	}
+	mutex_lock(&link->lock);
+	memcpy(link->out, req, req_size);
+	irecv_error_t err = kis_link_exchange(link, (uint32_t)req_size, (uint32_t)*rpl_size, &in_len, USB_TIMEOUT);
+	if (err == IRECV_E_SUCCESS) {
+		if (in_len < *rpl_size) {
+			*rpl_size = in_len;
+		}
+		memcpy(rpl, link->in, *rpl_size);
+	}
+	mutex_unlock(&link->lock);
+	return err;
+}
+
+/* Caller holds link->lock. */
+static irecv_error_t kis_link_write32(struct kis_link *link, uint8_t portal, uint16_t index, uint32_t value)
+{
+	uint8_t arg[4];
+	uint32_t reply_len, size, status;
+
+	kis_put32(arg, value);
+	return kis_link_request(link, portal, KIS_CMD_PCW | ((uint32_t)index << 8) | (1 << 18), arg, 4, NULL, 0, 0, &reply_len, &size, &status, USB_TIMEOUT);
+}
+
+/* Caller holds link->lock. */
+static irecv_error_t rsm_read_regs(struct kis_link *link, uint16_t index, uint32_t count, uint32_t *words, uint32_t *got, unsigned int timeout)
+{
+	uint32_t reply_len, size, status, i;
+
+	irecv_error_t err = kis_link_request(link, KIS_PORTAL_RSM, KIS_CMD_PCR | ((uint32_t)index << 8) | (count << 18), NULL, 0, NULL, 0, 4 * count, &reply_len, &size, &status, timeout);
+	if (err != IRECV_E_SUCCESS) {
+		return err;
+	}
+	*got = reply_len / 4;
+	if (*got > count) {
+		*got = count;
+	}
+	for (i = 0; i < *got; i++) {
+		words[i] = kis_get32(link->in + KIS_HEADER_SIZE + 4 * i);
+	}
+	return IRECV_E_SUCCESS;
+}
+
+/* Caller holds link->lock. */
+static irecv_error_t rsm_access(struct kis_link *link, int write, uint64_t address, uint8_t *data, uint32_t len)
+{
+	uint8_t args[12];
+	uint32_t reply_len, size, status;
+
+	kis_put32(args, (uint32_t)address);
+	kis_put32(args + 4, (uint32_t)(address >> 32));
+	kis_put32(args + 8, len);
+	irecv_error_t err = kis_link_request(link, KIS_PORTAL_RSM, (write ? KIS_CMD_PAW : KIS_CMD_PAR) | (KIS_ADDRESS_SPACE << 8), args, sizeof(args), write ? data : NULL, write ? len : 0, write ? 0 : len, &reply_len, &size, &status, USB_TIMEOUT);
+	if (err != IRECV_E_SUCCESS) {
+		return err;
+	}
+	if (size != len || (!write && reply_len < len)) {
+		debug("%s: %s %u bytes at %#" PRIx64 ": %u done, status %#x\n", __func__, write ? "write" : "read", len, address, size, status);
+		return IRECV_E_USB_STATUS;
+	}
+	if (!write) {
+		memcpy(data, link->in + KIS_HEADER_SIZE, len);
+	}
+	return IRECV_E_SUCCESS;
+}
+
+/* Read the device's offset doorbell. Caller holds link->lock. */
+static irecv_error_t rsm_poll(struct kis_link *link)
+{
+	uint32_t w = 0, got = 0;
+
+	irecv_error_t err = rsm_read_regs(link, RSM_DOORBELLS + 0x70 + link->chan, 1, &w, &got, USB_TIMEOUT);
+	if (err != IRECV_E_SUCCESS) {
+		return err;
+	}
+	if (got != 1 || ((w & 0xFFFFFF) << 2) >= link->d2h_len) {
+		link->session = 0;
+		return IRECV_E_NO_DEVICE;
+	}
+	link->dev_head = (w & 0xFFFFFF) << 2;
+	link->dev_cons = (w >> 24) * (link->h2d_len >> 8);
+	return IRECV_E_SUCCESS;
+}
+
+/* Whether the channel is still the one we opened: a new boot stage
+ * reinitialises it, which clears our offset doorbell. Caller holds link->lock. */
+static int rsm_alive(struct kis_link *link)
+{
+	uint32_t w = 0, got = 0;
+
+	link->checked = kis_now_ms();
+	if (rsm_read_regs(link, RSM_DOORBELLS + 0x60 + link->chan, 1, &w, &got, USB_TIMEOUT) != IRECV_E_SUCCESS || got != 1 || w != link->bell) {
+		debug("%s: channel %u reset\n", __func__, link->chan);
+		link->session = 0;
+		return 0;
+	}
+	return 1;
+}
+
+/* The longest command payload the host to device ring can take. Caller holds
+ * link->lock. */
+static uint32_t rsm_max_payload(struct kis_link *link)
+{
+	uint32_t room = link->h2d_len - (link->h2d_len >> 8);
+	if (room > KIS_MAX_DATA) {
+		room = KIS_MAX_DATA;
+	}
+	return (room - 4) & ~3U;
+}
+
+/* Queue one command for the device. Caller holds link->xfer. */
+static irecv_error_t rsm_send(struct kis_link *link, unsigned int session, uint8_t stream, const uint8_t *data, uint32_t len, unsigned int timeout)
+{
+	uint32_t total = 4 + ((len + 3) & ~3U);
+	uint64_t start = kis_now_ms();
+	unsigned int wait = 1;
+	irecv_error_t err = IRECV_E_SUCCESS;
+
+	if (len > KIS_MAX_DATA) {
+		return IRECV_E_INVALID_INPUT;
+	}
+	uint8_t *cmd = calloc(1, total);
+	if (!cmd) {
+		return IRECV_E_OUT_OF_MEMORY;
+	}
+	kis_put32(cmd, ((uint32_t)stream << 24) | len);
+	if (len) {
+		memcpy(cmd + 4, data, len);
+	}
+
+	mutex_lock(&link->lock);
+	for (;;) {
+		if (link->session != session) {
+			err = IRECV_E_NO_DEVICE;
+			break;
+		}
+		if (len > rsm_max_payload(link)) {
+			err = IRECV_E_INVALID_INPUT;
+			break;
+		}
+		/* A stage that ended while we were idle must not get our next write. */
+		uint64_t now = kis_now_ms();
+		if (now - link->checked >= RSM_CHECK_MS && !rsm_alive(link)) {
+			err = IRECV_E_NO_DEVICE;
+			break;
+		}
+		uint32_t granule = link->h2d_len >> 8;
+		uint32_t used = (link->head + link->h2d_len - link->dev_cons) % link->h2d_len;
+		if (used + total + granule <= link->h2d_len) {
+			break;
+		}
+		uint32_t before = link->dev_cons;
+		err = rsm_poll(link);
+		if (err != IRECV_E_SUCCESS) {
+			break;
+		}
+		if (link->dev_cons != before) {
+			wait = 1;
+			continue;
+		}
+		if (now - start > timeout) {
+			err = IRECV_E_TIMEOUT;
+			break;
+		}
+		mutex_unlock(&link->lock);
+		kis_sleep_ms(wait);
+		if (wait < 8) {
+			wait *= 2;
+		}
+		mutex_lock(&link->lock);
+	}
+	if (err == IRECV_E_SUCCESS) {
+		uint32_t off = link->head;
+		uint32_t first = link->h2d_len - off;
+		if (first > total) {
+			first = total;
+		}
+		err = rsm_access(link, 1, link->h2d + off, cmd, first);
+		if (err == IRECV_E_SUCCESS && first < total) {
+			err = rsm_access(link, 1, link->h2d, cmd + first, total - first);
+		}
+		if (err == IRECV_E_SUCCESS) {
+			uint8_t bell[4];
+			uint32_t reply_len, size, status;
+			link->head = (off + total) % link->h2d_len;
+			link->bell = (link->head >> 2) | ((link->tail / (link->d2h_len >> 8)) << 24);
+			kis_put32(bell, link->bell);
+			err = kis_link_request(link, KIS_PORTAL_RSM, KIS_CMD_PCW | ((uint32_t)(RSM_DOORBELLS + 0x60 + link->chan) << 8) | (1 << 18), bell, 4, NULL, 0, 0, &reply_len, &size, &status, USB_TIMEOUT);
+			if (err == IRECV_E_SUCCESS && size != 4) {
+				err = IRECV_E_USB_STATUS;
+			}
+		}
+		if (err != IRECV_E_SUCCESS) {
+			debug("%s: stream %02x: write failed, error %d\n", __func__, stream, err);
+			link->session = 0;
+		}
+	}
+	mutex_unlock(&link->lock);
+	free(cmd);
+	return err;
+}
+
+/* The next command from the device on any stream. Caller holds link->xfer. */
+static irecv_error_t rsm_recv(struct kis_link *link, unsigned int session, uint8_t *stream, uint8_t *buf, uint32_t cap, uint32_t *len, unsigned int timeout)
+{
+	uint64_t start = kis_now_ms();
+	unsigned int wait = 1;
+	irecv_error_t err = IRECV_E_SUCCESS;
+
+	mutex_lock(&link->lock);
+	for (;;) {
+		if (link->session != session) {
+			err = IRECV_E_NO_DEVICE;
+			break;
+		}
+		if (link->rx_len >= 4) {
+			uint32_t word = kis_get32(link->rx);
+			uint32_t n = word & 0xFFFFFF;
+			uint32_t total = 4 + ((n + 3) & ~3U);
+			if (total > RSM_RX_BUFFER) {
+				err = IRECV_E_USB_STATUS;
+				link->session = 0;
+				break;
+			}
+			if (link->rx_len >= total) {
+				*stream = word >> 24;
+				*len = n;
+				memcpy(buf, link->rx + 4, n < cap ? n : cap);
+				link->rx_len -= total;
+				memmove(link->rx, link->rx + total, link->rx_len);
+				break;
+			}
+		}
+		if (link->tail != link->dev_head) {
+			uint32_t n = (link->dev_head + link->d2h_len - link->tail) % link->d2h_len;
+			if (n > link->d2h_len - link->tail) {
+				n = link->d2h_len - link->tail;
+			}
+			if (n > RSM_RX_BUFFER - link->rx_len) {
+				n = RSM_RX_BUFFER - link->rx_len;
+			}
+			if (n > KIS_MAX_DATA) {
+				n = KIS_MAX_DATA;
+			}
+			err = rsm_access(link, 0, link->d2h + link->tail, link->rx + link->rx_len, n);
+			if (err != IRECV_E_SUCCESS) {
+				link->session = 0;
+				break;
+			}
+			link->rx_len += n;
+			link->tail = (link->tail + n) % link->d2h_len;
+			continue;
+		}
+		err = rsm_poll(link);
+		if (err != IRECV_E_SUCCESS) {
+			break;
+		}
+		if (link->tail != link->dev_head) {
+			wait = 1;
+			continue;
+		}
+		uint64_t now = kis_now_ms();
+		if (now - start > timeout) {
+			err = IRECV_E_TIMEOUT;
+			break;
+		}
+		if (now - link->checked >= RSM_CHECK_MS && !rsm_alive(link)) {
+			err = IRECV_E_NO_DEVICE;
+			break;
+		}
+		mutex_unlock(&link->lock);
+		kis_sleep_ms(wait);
+		if (wait < 8) {
+			wait *= 2;
+		}
+		mutex_lock(&link->lock);
+	}
+	mutex_unlock(&link->lock);
+	return err;
+}
+
+static irecv_error_t rsm_recv_ep0(struct kis_link *link, unsigned int session, uint8_t *buf, uint32_t cap, uint32_t *len, unsigned int timeout)
+{
+	for (;;) {
+		uint8_t stream = 0;
+		irecv_error_t err = rsm_recv(link, session, &stream, buf, cap, len, timeout);
+		if (err != IRECV_E_SUCCESS || stream == RSM_STREAM_EP0) {
+			return err;
+		}
+		debug("%s: passing over %u bytes on stream %02x\n", __func__, *len, stream);
+	}
+}
+
+/* End the session after an EP0 exchange went wrong: a reply that arrives late
+ * would otherwise be taken as the next request's. */
+static void rsm_drop(struct kis_link *link, unsigned int session)
+{
+	mutex_lock(&link->lock);
+	if (link->session == session) {
+		link->session = 0;
+	}
+	mutex_unlock(&link->lock);
+}
+
+/* EP0 on the tunnelled device. Caller holds link->xfer. */
+static int rsm_control_locked(struct kis_link *link, unsigned int session, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, unsigned int timeout)
+{
+	uint8_t setup[8] = { bm_request_type, b_request, w_value & 0xFF, w_value >> 8, w_index & 0xFF, w_index >> 8, w_length & 0xFF, w_length >> 8 };
+	int in = (bm_request_type & 0x80) != 0;
+	uint8_t none[1];
+	uint32_t n = 0, got = 0;
+	uint8_t status = 0xFF;
+
+	if (w_length > 0 && !data) {
+		return IRECV_E_INVALID_INPUT;
+	}
+	irecv_error_t err = rsm_send(link, session, RSM_STREAM_EP0, setup, sizeof(setup), timeout);
+	if (err == IRECV_E_SUCCESS && !in && w_length > 0) {
+		err = rsm_send(link, session, RSM_STREAM_EP0, data, w_length, timeout);
+	}
+	if (err == IRECV_E_SUCCESS && in) {
+		err = rsm_recv_ep0(link, session, w_length ? data : none, w_length, &n, timeout);
+		if (n > w_length) {
+			n = w_length;
+		}
+	}
+	if (err == IRECV_E_SUCCESS) {
+		err = rsm_recv_ep0(link, session, &status, 1, &got, timeout);
+		if (err == IRECV_E_SUCCESS && got != 1) {
+			err = IRECV_E_USB_STATUS;
+		}
+	}
+	if (err != IRECV_E_SUCCESS) {
+		rsm_drop(link, session);
+		return err;
+	}
+	if (status != 0) {
+		return IRECV_E_PIPE;
+	}
+	return in ? (int)n : w_length;
+}
+
+static void kis_link_drove(struct kis_link *link)
+{
+	mutex_lock(&kis_links_mutex);
+	link->drove = 1;
+	mutex_unlock(&kis_links_mutex);
+}
+
+static int rsm_control(struct kis_link *link, unsigned int session, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, unsigned int timeout)
+{
+	if (!(bm_request_type & 0x80) && w_length > 0) {
+		kis_link_drove(link);
+	}
+	mutex_lock(&link->xfer);
+	int ret = rsm_control_locked(link, session, bm_request_type, b_request, w_value, w_index, data, w_length, timeout);
+	mutex_unlock(&link->xfer);
+	return ret;
+}
+
+static int rsm_bulk(struct kis_link *link, unsigned int session, unsigned char endpoint, unsigned char *data, int length, int *transferred, unsigned int timeout)
+{
+	irecv_error_t err = IRECV_E_SUCCESS;
+	int done = 0;
+
+	if (transferred) {
+		*transferred = 0;
+	}
+	if (endpoint != RSM_STREAM_BULK || length < 0) {
+		return IRECV_E_UNSUPPORTED;
+	}
+	kis_link_drove(link);
+	mutex_lock(&link->xfer);
+	mutex_lock(&link->lock);
+	int chunk = (int)rsm_max_payload(link);
+	mutex_unlock(&link->lock);
+	if (chunk > RSM_BULK_CHUNK) {
+		chunk = RSM_BULK_CHUNK;
+	}
+	/* The tunnel keeps USB's packet rule: a transfer ends at a short packet,
+	 * and an empty command is the zero-length one. */
+	if (length == 0) {
+		err = rsm_send(link, session, RSM_STREAM_BULK, NULL, 0, timeout);
+	}
+	while (done < length) {
+		int n = length - done;
+		if (n > chunk) {
+			n = chunk;
+		}
+		err = rsm_send(link, session, RSM_STREAM_BULK, data + done, (uint32_t)n, timeout);
+		if (err != IRECV_E_SUCCESS) {
+			break;
+		}
+		done += n;
+	}
+	mutex_unlock(&link->xfer);
+	if (transferred) {
+		*transferred = done;
+	}
+	return err;
+}
+
+/* A string descriptor as ASCII, like libusb_get_string_descriptor_ascii.
+ * Caller holds link->xfer. */
+static int rsm_string_locked(struct kis_link *link, unsigned int session, uint8_t index, unsigned char *buffer, int size)
+{
+	uint8_t desc[255];
+	int i, j = 0;
+
+	int n = rsm_control_locked(link, session, 0x80, 6, 0x0300, 0, desc, sizeof(desc), USB_TIMEOUT);
+	if (n < 4) {
+		return n < 0 ? n : IRECV_E_UNKNOWN_ERROR;
+	}
+	uint16_t langid = desc[2] | (desc[3] << 8);
+	n = rsm_control_locked(link, session, 0x80, 6, 0x0300 | index, langid, desc, sizeof(desc), USB_TIMEOUT);
+	if (n < 2) {
+		return n < 0 ? n : IRECV_E_UNKNOWN_ERROR;
+	}
+	if (desc[1] != 3) {
+		return IRECV_E_UNKNOWN_ERROR;
+	}
+	if (desc[0] < n) {
+		n = desc[0];
+	}
+	for (i = 2; i + 1 < n && j < size - 1; i += 2) {
+		buffer[j++] = desc[i + 1] ? '?' : desc[i];
+	}
+	buffer[j] = '\0';
+	return j;
+}
+
+static int rsm_string(struct kis_link *link, unsigned int session, uint8_t index, unsigned char *buffer, int size)
+{
+	mutex_lock(&link->xfer);
+	int ret = rsm_string_locked(link, session, index, buffer, size);
+	mutex_unlock(&link->xfer);
+	return ret;
+}
+
+static int kis_info_string(const uint8_t *info, uint32_t word, char *buf, size_t size)
+{
+	size_t off = (size_t)word * 4;
+	size_t i, j = 0;
+
+	if (off + 2 > KIS_DFU_INFO_SIZE) {
+		return 0;
+	}
+	size_t len = info[off];
+	if (info[off + 1] != 3 || len < 2 || off + len > KIS_DFU_INFO_SIZE) {
+		return 0;
+	}
+	for (i = 2; i + 1 < len && j + 1 < size; i += 2) {
+		buf[j++] = info[off + i + 1] ? '?' : info[off + i];
+	}
+	buf[j] = '\0';
+	return (int)j;
+}
+
+/* Read the doorbells. Writes nothing. */
+static irecv_error_t kis_link_look(struct kis_link *link, struct kis_look *look, unsigned int timeout)
+{
+	uint32_t w[RSM_DOORBELL_COUNT];
+	uint8_t info[KIS_DFU_INFO_SIZE];
+	uint32_t got = 0;
+	unsigned int c, i;
+
+	memset(look, 0, sizeof(*look));
+	mutex_lock(&link->lock);
+	irecv_error_t err = rsm_read_regs(link, RSM_DOORBELLS, RSM_DOORBELL_COUNT, w, &got, timeout);
+	mutex_unlock(&link->lock);
+	if (err != IRECV_E_SUCCESS) {
+		look->state = KIS_STATE_FAILED;
+		return err;
+	}
+	if (got < RSM_DOORBELL_COUNT) {
+		look->state = KIS_STATE_EMPTY;
+		return IRECV_E_SUCCESS;
+	}
+	look->state = KIS_STATE_OTHER;
+	if (w[0] != RSM_MAGIC) {
+		for (i = 0; i < KIS_DFU_INFO_SIZE / 4; i++) {
+			kis_put32(info + 4 * i, w[i]);
+		}
+		if (kis_info_string(info, info[64 + 16], look->serial, sizeof(look->serial)) && strstr(look->serial, "CPID:")) {
+			look->mode = info[64 + 10] | (info[64 + 11] << 8);
+			look->state = KIS_STATE_DFU;
+		}
+		return IRECV_E_SUCCESS;
+	}
+	/* Only the 1.x layout is known. */
+	if ((w[1] >> 16) != 1) {
+		return IRECV_E_SUCCESS;
+	}
+	for (c = 0; c < 16; c++) {
+		if ((w[0x10 + c] >> 24) == RSM_TYPE_RECOVERY) {
+			look->state = KIS_STATE_RECOVERY;
+			look->chan = c;
+			look->cfg = w[0x10 + c];
+			look->h2d = w[0x20 + 2 * c] | ((uint64_t)w[0x21 + 2 * c] << 32);
+			look->d2h = w[0x40 + 2 * c] | ((uint64_t)w[0x41 + 2 * c] << 32);
+			look->host = w[0x60 + c];
+			look->dev = w[0x70 + c];
+			break;
+		}
+	}
+	return IRECV_E_SUCCESS;
+}
+
+/* Whether the link's session is the stage the doorbells show. */
+static int kis_link_current(struct kis_link *link, const struct kis_look *look)
+{
+	mutex_lock(&link->lock);
+	int current = link->session && look->state == KIS_STATE_RECOVERY && link->chan == look->chan && link->bell == look->host;
+	mutex_unlock(&link->lock);
+	return current;
+}
+
+/* Open the recovery channel the doorbells show, read just now, and read the
+ * device behind it. Caller holds link->xfer. */
+static irecv_error_t rsm_attach(struct kis_link *link, const struct kis_look *look, unsigned int *psession)
+{
+	uint8_t desc[18];
+	char serial[256];
+	unsigned int session;
+
+	*psession = 0;
+	mutex_lock(&link->lock);
+	link->chan = look->chan;
+	link->h2d_len = 0x800U << (look->cfg & 0xF);
+	link->d2h_len = 0x800U << ((look->cfg >> 4) & 0xF);
+	link->h2d = look->h2d;
+	link->d2h = look->d2h;
+	link->bell = look->host;
+	link->head = (look->host & 0xFFFFFF) << 2;
+	/* Pass over anything the device queued before we came. */
+	link->tail = link->dev_head = (look->dev & 0xFFFFFF) << 2;
+	link->dev_cons = (look->dev >> 24) * (link->h2d_len >> 8);
+	link->rx_len = 0;
+	link->checked = kis_now_ms();
+	if (++link->sessions == 0) {
+		link->sessions = 1;
+	}
+	session = link->sessions;
+	link->session = (link->head < link->h2d_len && link->tail < link->d2h_len) ? session : 0;
+	int ok = (link->session == session);
+	mutex_unlock(&link->lock);
+	if (!ok) {
+		return IRECV_E_UNKNOWN_ERROR;
+	}
+
+	debug("%s: channel %u, rings %#" PRIx64 "/%#x and %#" PRIx64 "/%#x, offsets %#x and %#x\n", __func__, look->chan, look->h2d, 0x800U << (look->cfg & 0xF), look->d2h, 0x800U << ((look->cfg >> 4) & 0xF), look->host, look->dev);
+	uint16_t pid = 0;
+	irecv_error_t err = rsm_send(link, session, RSM_STREAM_OPEN, NULL, 0, USB_TIMEOUT);
+	if (err == IRECV_E_SUCCESS) {
+		int n = rsm_control_locked(link, session, 0x80, 6, 0x0100, 0, desc, sizeof(desc), USB_TIMEOUT);
+		uint16_t vid = desc[8] | (desc[9] << 8);
+		pid = desc[10] | (desc[11] << 8);
+		if (n < 0) {
+			err = n;
+		} else if (n != sizeof(desc) || desc[1] != 1 || vid != APPLE_VENDOR_ID || pid < IRECV_K_RECOVERY_MODE_1 || pid > IRECV_K_RECOVERY_MODE_4) {
+			debug("%s: not a recovery device behind channel %u\n", __func__, look->chan);
+			err = IRECV_E_UNSUPPORTED;
+		}
+	}
+	if (err == IRECV_E_SUCCESS) {
+		int n = rsm_string_locked(link, session, desc[16], (unsigned char*)serial, sizeof(serial));
+		if (n < 0) {
+			err = n;
+		}
+	}
+	if (err == IRECV_E_SUCCESS) {
+		int n = rsm_control_locked(link, session, 0x00, 9, 1, 0, NULL, 0, USB_TIMEOUT);
+		if (n < 0) {
+			err = n;
+		}
+	}
+	mutex_lock(&link->lock);
+	if (err == IRECV_E_SUCCESS && link->session == session) {
+		link->pid = pid;
+		memcpy(link->serial, serial, sizeof(link->serial));
+		*psession = session;
+		debug("%s: %04x:%04x %s\n", __func__, APPLE_VENDOR_ID, link->pid, link->serial);
+	} else {
+		if (link->session == session) {
+			link->session = 0;
+		}
+		if (err == IRECV_E_SUCCESS) {
+			err = IRECV_E_NO_DEVICE;
+		}
+	}
+	mutex_unlock(&link->lock);
+	return err;
+}
+
+static void kis_link_free(struct kis_link *link)
+{
+	if (link->handle) {
+		libusb_release_interface(link->handle, 0);
+		libusb_close(link->handle);
+	}
+	mutex_destroy(&link->lock);
+	mutex_destroy(&link->xfer);
+	free(link->out);
+	free(link->in);
+	free(link->rx);
+	free(link);
+}
+
+static struct kis_link* kis_link_new(uint32_t location)
+{
+	struct kis_link *link = calloc(1, sizeof(struct kis_link));
+	if (!link) {
+		return NULL;
+	}
+	link->location = location;
+	link->refs = 1;
+	link->packet = 512;
+	mutex_init(&link->lock);
+	mutex_init(&link->xfer);
+	link->out = malloc(KIS_LINK_BUFFER);
+	link->in = malloc(KIS_LINK_BUFFER);
+	link->rx = malloc(RSM_RX_BUFFER);
+	if (!link->out || !link->in || !link->rx) {
+		kis_link_free(link);
+		return NULL;
+	}
+	return link;
+}
+
+/* Enable the device as libirecovery always has, plus what Apple's host
+ * writes before it reads RSM doorbells. */
+static irecv_error_t kis_link_enable(struct kis_link *link)
+{
+	irecv_error_t err = IRECV_E_SUCCESS;
+
+	mutex_lock(&link->lock);
+	if (!link->enabled) {
+		err = kis_link_write32(link, KIS_PORTAL_CONFIG, KIS_INDEX_ENABLE_A, KIS_ENABLE_A_VAL);
+		if (err == IRECV_E_SUCCESS) {
+			err = kis_link_write32(link, KIS_PORTAL_CONFIG, KIS_INDEX_ENABLE_B, KIS_ENABLE_B_VAL);
+		}
+		if (err == IRECV_E_SUCCESS) {
+			err = kis_link_write32(link, KIS_PORTAL_RSM, RSM_INDEX_TIMEOUT, RSM_TIMEOUT_VAL);
+		}
+		if (err == IRECV_E_SUCCESS) {
+			err = kis_link_write32(link, KIS_PORTAL_CONFIG, KIS_INDEX_PORTALS, KIS_PORTALS_VAL);
+		}
+		link->enabled = (err == IRECV_E_SUCCESS);
+	}
+	mutex_unlock(&link->lock);
+	return err;
+}
+
+static void kis_link_put(struct kis_link *link)
+{
+	if (!link) {
+		return;
+	}
+	mutex_lock(&kis_links_mutex);
+	int last = (--link->refs == 0);
+	if (last) {
+		collection_remove(&kis_links, link);
+	}
+	mutex_unlock(&kis_links_mutex);
+	if (last) {
+		kis_link_free(link);
+	}
+}
+
+/* A client lets go of its link. After requests that can end the device's
+ * stage, its reference goes to the event thread instead, which keeps the
+ * claim across the stage change (see kis_watch_poll). */
+static void kis_link_put_client(struct kis_link *link)
+{
+	mutex_lock(&kis_links_mutex);
+	link->clients--;
+	if (link->clients == 0) {
+		int keep = link->drove && kis_links_retained && !link->retained && !link->dead;
+		link->drove = 0;
+		if (keep) {
+			link->retained = 1;
+			mutex_unlock(&kis_links_mutex);
+			return;
+		}
+	}
+	mutex_unlock(&kis_links_mutex);
+	kis_link_put(link);
+}
+
+/* This process's link to the device at location, with a reference. */
+static struct kis_link* kis_link_find(uint32_t location)
+{
+	struct kis_link *link = NULL;
+
+	mutex_lock(&kis_links_mutex);
+	FOREACH(struct kis_link *l, &kis_links) {
+		if (!l->dead && l->location == location) {
+			l->refs++;
+			link = l;
+			break;
+		}
+	} ENDFOREACH
+	mutex_unlock(&kis_links_mutex);
+	return link;
+}
+
+/* Open and claim the KIS device at bus and address, once. */
+static libusb_device_handle* kis_link_claim(uint8_t bus, uint8_t address, int *err)
+{
+	libusb_device **list = NULL;
+	libusb_device_handle *handle = NULL;
+	int i, count, ret = LIBUSB_ERROR_NO_DEVICE;
+
+	count = libusb_get_device_list(libirecovery_context, &list);
+	for (i = 0; i < count; i++) {
+		if (libusb_get_bus_number(list[i]) == bus && libusb_get_device_address(list[i]) == address) {
+			ret = libusb_open(list[i], &handle);
+			if (ret != 0) {
+				handle = NULL;
+			}
+			break;
+		}
+	}
+	if (count >= 0) {
+		libusb_free_device_list(list, 1);
+	}
+	if (handle) {
+		int config = 0;
+		libusb_get_configuration(handle, &config);
+		if (config != 1) {
+			libusb_set_configuration(handle, 1);
+		}
+		ret = libusb_claim_interface(handle, 0);
+		if (ret != 0) {
+			libusb_close(handle);
+			handle = NULL;
+		}
+	}
+	*err = ret;
+	return handle;
+}
+
+/* The link to the KIS device at bus and address, claiming it when this
+ * process has none. A device another process holds is tried attempts times.
+ * No claim or USB request happens under kis_links_mutex. */
+static struct kis_link* kis_link_get(uint8_t bus, uint8_t address, int attempts, int enable)
+{
+	uint32_t location = ((uint32_t)bus << 16) | address;
+	libusb_device_handle *handle = NULL;
+	struct kis_link *link = NULL;
+	int attempt, ret = 0;
+
+	for (attempt = 0; ; attempt++) {
+		link = kis_link_find(location);
+		if (link) {
+			break;
+		}
+		handle = kis_link_claim(bus, address, &ret);
+		if (handle) {
+			break;
+		}
+		if (ret != LIBUSB_ERROR_BUSY || attempt + 1 >= attempts) {
+			debug("%s: can't claim the KIS device at %u:%u: %s\n", __func__, bus, address, libusb_error_name(ret));
+			return NULL;
+		}
+		kis_sleep_ms(KIS_OPEN_RETRY_MS);
+	}
+	if (!link) {
+		link = kis_link_new(location);
+		if (!link) {
+			libusb_release_interface(handle, 0);
+			libusb_close(handle);
+			return NULL;
+		}
+		int packet = libusb_get_max_packet_size(libusb_get_device(handle), 0x01);
+		if (packet > 0) {
+			link->packet = (uint16_t)packet;
+		}
+		link->handle = handle;
+		struct kis_link *other = NULL;
+		mutex_lock(&kis_links_mutex);
+		FOREACH(struct kis_link *l, &kis_links) {
+			if (!l->dead && l->location == location) {
+				l->refs++;
+				other = l;
+				break;
+			}
+		} ENDFOREACH
+		if (!other) {
+			collection_add(&kis_links, link);
+		}
+		mutex_unlock(&kis_links_mutex);
+		if (other) {
+			kis_link_free(link);
+			link = other;
+		} else {
+			debug("%s: opened the KIS device at %u:%u\n", __func__, bus, address);
+		}
+	}
+	if (enable && kis_link_enable(link) != IRECV_E_SUCCESS) {
+		debug("%s: failed to enable the KIS device\n", __func__);
+		kis_link_put(link);
+		return NULL;
+	}
+	return link;
+}
+
+static uint64_t kis_serial_ecid(const char *serial)
+{
+	const char *p = strstr(serial, "ECID:");
+	return p ? strtoull(p + 5, NULL, 16) : 0;
+}
+
+/* A client for what the link shows: a recovery device, opened here, or KIS
+ * DFU, which the caller finishes opening as before. With ecid nonzero, a
+ * device in DFU is checked against it before anything is opened. Takes the
+ * caller's reference to link. */
+static irecv_error_t kis_link_open_client(irecv_client_t *pclient, struct kis_link *link, uint64_t ecid)
+{
+	struct kis_look look;
+	irecv_client_t client = NULL;
+	unsigned int session = 0;
+	char serial[256];
+	uint16_t pid = 0;
+
+	*pclient = NULL;
+	mutex_lock(&link->xfer);
+	irecv_error_t err = kis_link_look(link, &look, USB_TIMEOUT);
+	if (err == IRECV_E_SUCCESS && look.state == KIS_STATE_DFU) {
+		if (ecid != 0 && kis_serial_ecid(look.serial) != ecid) {
+			err = IRECV_E_NO_DEVICE;
+		}
+	} else if (err == IRECV_E_SUCCESS && look.state == KIS_STATE_RECOVERY) {
+		if (kis_link_current(link, &look)) {
+			mutex_lock(&link->lock);
+			session = link->session;
+			mutex_unlock(&link->lock);
+		} else {
+			err = rsm_attach(link, &look, &session);
+		}
+		mutex_lock(&link->lock);
+		pid = link->pid;
+		memcpy(serial, link->serial, sizeof(serial));
+		mutex_unlock(&link->lock);
+		if (err == IRECV_E_SUCCESS && ecid != 0 && kis_serial_ecid(serial) != ecid) {
+			err = IRECV_E_NO_DEVICE;
+		}
+	} else if (err == IRECV_E_SUCCESS) {
+		err = IRECV_E_UNABLE_TO_CONNECT;
+	}
+	mutex_unlock(&link->xfer);
+
+	if (err == IRECV_E_SUCCESS) {
+		client = (irecv_client_t)calloc(1, sizeof(struct irecv_client_private));
+		if (!client) {
+			err = IRECV_E_OUT_OF_MEMORY;
+		}
+	}
+	if (err != IRECV_E_SUCCESS) {
+		kis_link_put(link);
+		return err;
+	}
+	client->kis = link;
+	client->handle = link->handle;
+	if (look.state == KIS_STATE_DFU) {
+		client->mode = KIS_PRODUCT_ID;
+	} else {
+		client->mode = pid;
+		client->rsm_session = session;
+		irecv_load_device_info_from_iboot_string(client, serial);
+	}
+	mutex_lock(&kis_links_mutex);
+	link->clients++;
+	mutex_unlock(&kis_links_mutex);
+	*pclient = client;
+	return IRECV_E_SUCCESS;
+}
+#endif
+
 #ifndef _WIN32
 static irecv_error_t irecv_kis_request_init(KIS_req_header *hdr, uint8_t portal, uint16_t index, size_t argCount, size_t payloadSize, size_t rplWords)
 {
@@ -761,6 +1956,11 @@ static irecv_error_t irecv_kis_request_init(KIS_req_header *hdr, uint8_t portal,
 
 static irecv_error_t irecv_kis_request(irecv_client_t client, KIS_req_header *req, size_t reqSize, KIS_req_header *rpl, size_t *rplSize)
 {
+#ifdef HAVE_KIS_LINKS
+	if (client->kis) {
+		return kis_link_raw(client->kis, req, reqSize, rpl, rplSize);
+	}
+#endif
 	int endpoint = 0;
 	switch (req->portal) {
 		case KIS_PORTAL_CONFIG:
@@ -897,6 +2097,13 @@ static BOOL win32_device_io_control(HANDLE handle, DWORD code, void* in_buf, DWO
 
 static irecv_error_t irecv_kis_init(irecv_client_t client)
 {
+#ifdef HAVE_KIS_LINKS
+	/* The link enabled the device when it opened it. */
+	if (client->kis) {
+		client->isKIS = 1;
+		return IRECV_E_SUCCESS;
+	}
+#endif
 #ifndef _WIN32
 	irecv_error_t err = irecv_kis_config_write32(client, KIS_PORTAL_CONFIG, KIS_INDEX_ENABLE_A, KIS_ENABLE_A_VAL);
 	if (err != IRECV_E_SUCCESS) {
@@ -1226,6 +2433,9 @@ int irecv_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, u
 #ifdef HAVE_IOKIT
 	return iokit_usb_control_transfer(client, bm_request_type, b_request, w_value, w_index, data, w_length, timeout);
 #else
+	if (client->rsm_session) {
+		return rsm_control(client->kis, client->rsm_session, bm_request_type, b_request, w_value, w_index, data, w_length, timeout);
+	}
 	return libusb_control_transfer(client->handle, bm_request_type, b_request, w_value, w_index, data, w_length, timeout);
 #endif
 #else
@@ -1325,6 +2535,11 @@ static void async_cb(struct libusb_transfer* usb_transfer) {
 #endif
 
 int irecv_async_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length) {
+#ifdef HAVE_KIS_LINKS
+	if (client->kis) {
+		return IRECV_E_UNSUPPORTED;
+	}
+#endif
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -1363,6 +2578,11 @@ int irecv_async_usb_control_transfer(irecv_client_t client, uint8_t bm_request_t
 }
 
 int irecv_async_usb_control_transfer_with_cancel(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, unsigned int u_time) {
+#ifdef HAVE_KIS_LINKS
+	if (client->kis) {
+		return IRECV_E_UNSUPPORTED;
+	}
+#endif
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -1584,6 +2804,9 @@ int irecv_usb_bulk_transfer(irecv_client_t client,
 #ifdef HAVE_IOKIT
 	return iokit_usb_bulk_transfer(client, endpoint, data, length, transferred, timeout);
 #else
+	if (client->rsm_session) {
+		return rsm_bulk(client->kis, client->rsm_session, endpoint, data, length, transferred, timeout);
+	}
 	ret = libusb_bulk_transfer(client->handle, endpoint, data, length, transferred, timeout);
 	if (ret == LIBUSB_ERROR_PIPE) {
 		libusb_clear_halt(client->handle, endpoint);
@@ -1613,6 +2836,11 @@ int irecv_usb_interrupt_transfer(irecv_client_t client,
 							int *transferred,
 							unsigned int timeout)
 {
+#ifdef HAVE_KIS_LINKS
+	if (client->kis) {
+		return IRECV_E_UNSUPPORTED;
+	}
+#endif
 #ifdef USE_DUMMY
 	return IRECV_E_UNSUPPORTED;
 #else
@@ -1951,6 +3179,15 @@ static irecv_error_t libusb_open_with_ecid(irecv_client_t* pclient, uint64_t eci
 
 				debug("opening device %04x:%04x...\n", usb_descriptor.idVendor, usb_descriptor.idProduct);
 
+				if (usb_descriptor.idProduct == KIS_PRODUCT_ID) {
+					struct kis_link *link = kis_link_get(libusb_get_bus_number(usb_device), libusb_get_device_address(usb_device), KIS_OPEN_ATTEMPTS, 1);
+					ret = link ? kis_link_open_client(pclient, link, ecid) : IRECV_E_UNABLE_TO_CONNECT;
+					if (ret == IRECV_E_SUCCESS) {
+						break;
+					}
+					continue;
+				}
+
 				struct libusb_device_handle* usb_handle = NULL;
 				int libusb_error = libusb_open(usb_device, &usb_handle);
 				if (usb_handle == NULL || libusb_error != 0) {
@@ -2100,6 +3337,10 @@ irecv_error_t irecv_usb_set_configuration(irecv_client_t client, int configurati
 		return IRECV_E_USB_CONFIGURATION;
 	}
 #else
+	if (client->kis) {
+		client->usb_config = configuration;
+		return IRECV_E_SUCCESS;
+	}
 	int current = 0;
 	libusb_get_configuration(client->handle, &current);
 	if (current != configuration) {
@@ -2213,6 +3454,16 @@ irecv_error_t irecv_usb_set_interface(irecv_client_t client, int usb_interface, 
 		return IRECV_E_USB_INTERFACE;
 	}
 #else
+	if (client->kis) {
+		if (client->rsm_session && usb_interface == 1) {
+			if (rsm_control(client->kis, client->rsm_session, 0x01, 0x0B, usb_alt_interface, usb_interface, NULL, 0, USB_TIMEOUT) < 0) {
+				return IRECV_E_USB_INTERFACE;
+			}
+		}
+		client->usb_interface = usb_interface;
+		client->usb_alt_interface = usb_alt_interface;
+		return IRECV_E_SUCCESS;
+	}
 	if (libusb_claim_interface(client->handle, usb_interface) < 0) {
 		return IRECV_E_USB_INTERFACE;
 	}
@@ -2260,7 +3511,10 @@ irecv_error_t irecv_reset(irecv_client_t client)
 		debug("error re-enumerating device: %#x (ignored)\n", result);
 	}
 #else
-	libusb_reset_device(client->handle);
+	/* Never the Debug USB device. */
+	if (!client->kis) {
+		libusb_reset_device(client->handle);
+	}
 #endif
 #else
 	win32_device_io_control(client->handle, 0x22000C, NULL, 0, NULL, 0, NULL, USB_TIMEOUT);
@@ -2396,6 +3650,38 @@ struct irecv_iokit_dev_ctx {
 };
 #endif
 #endif
+
+static struct irecv_usb_device_info* _irecv_announce_device(unsigned int mode, int is_kis, const char *serial, uint32_t location)
+{
+	struct irecv_client_private client_loc;
+	memset(&client_loc, 0, sizeof(client_loc));
+	client_loc.mode = mode;
+	client_loc.isKIS = is_kis;
+	irecv_load_device_info_from_iboot_string(&client_loc, serial);
+
+	struct irecv_usb_device_info *usb_dev_info = (struct irecv_usb_device_info*)malloc(sizeof(struct irecv_usb_device_info));
+	memcpy(&(usb_dev_info->device_info), &(client_loc.device_info), sizeof(struct irecv_device_info));
+	usb_dev_info->location = location;
+	usb_dev_info->alive = 1;
+	usb_dev_info->mode = client_loc.mode;
+
+	mutex_lock(&device_mutex);
+	collection_add(&devices, usb_dev_info);
+	mutex_unlock(&device_mutex);
+
+	irecv_device_event_t dev_event;
+	dev_event.type = IRECV_DEVICE_ADD;
+	dev_event.mode = client_loc.mode;
+	dev_event.device_info = &(usb_dev_info->device_info);
+
+	mutex_lock(&listener_mutex);
+	FOREACH(struct irecv_device_event_context* context, &listeners) {
+		context->callback(&dev_event, context->user_data);
+	} ENDFOREACH
+	mutex_unlock(&listener_mutex);
+
+	return usb_dev_info;
+}
 
 static int _irecv_is_recovery_device(void *device)
 {
@@ -2690,29 +3976,7 @@ static void* _irecv_handle_device_add(void *userdata)
 		irecv_close(client);
 	}
 
-	client_loc.mode = product_id;
-	irecv_load_device_info_from_iboot_string(&client_loc, serial_str);
-
-	struct irecv_usb_device_info *usb_dev_info = (struct irecv_usb_device_info*)malloc(sizeof(struct irecv_usb_device_info));
-	memcpy(&(usb_dev_info->device_info), &(client_loc.device_info), sizeof(struct irecv_device_info));
-	usb_dev_info->location = location;
-	usb_dev_info->alive = 1;
-	usb_dev_info->mode = client_loc.mode;
-
-	mutex_lock(&device_mutex);
-	collection_add(&devices, usb_dev_info);
-	mutex_unlock(&device_mutex);
-
-	irecv_device_event_t dev_event;
-	dev_event.type = IRECV_DEVICE_ADD;
-	dev_event.mode = client_loc.mode;
-	dev_event.device_info = &(usb_dev_info->device_info);
-
-	mutex_lock(&listener_mutex);
-	FOREACH(struct irecv_device_event_context* context, &listeners) {
-		context->callback(&dev_event, context->user_data);
-	} ENDFOREACH
-	mutex_unlock(&listener_mutex);
+	_irecv_announce_device(product_id, client_loc.isKIS, serial_str, location);
 
 	return NULL;
 }
@@ -2743,6 +4007,328 @@ static void _irecv_handle_device_remove(struct irecv_usb_device_info *devinfo)
 	devinfo->alive = 0;
 	free(devinfo);
 }
+
+#ifdef HAVE_KIS_LINKS
+enum kis_hold {
+	KIS_HOLD_NONE,
+	KIS_HOLD_LINGER,  /* after a client that could end the stage closed */
+	KIS_HOLD_HANDOFF, /* the stage ended: until the next one is opened */
+};
+
+/* A KIS device the event thread watches. Touched only by the event thread. */
+struct kis_watch {
+	uint32_t location;
+	uint8_t bus;
+	uint8_t address;
+	unsigned int polls;
+	int enabled;
+	/* A link kept across a stage change, and until when. */
+	struct kis_link *held;
+	enum kis_hold hold;
+	uint64_t deadline;
+	unsigned int sessions;
+	/* What the device showed last. */
+	enum kis_state state;
+	unsigned int chan;
+	uint32_t host;
+	uint32_t dev;
+	/* The identity read for this device since it arrived, and the recovery
+	 * product id a client of this process read through it. */
+	int known;
+	char serial[256];
+	uint16_t pid;
+	/* The device announced for it. */
+	enum kis_state view;
+	struct irecv_usb_device_info *announced;
+};
+
+static struct collection kis_watches;
+
+static struct kis_watch* kis_watch_find(uint32_t location)
+{
+	FOREACH(struct kis_watch *watch, &kis_watches) {
+		if (watch->location == location) {
+			return watch;
+		}
+	} ENDFOREACH
+	return NULL;
+}
+
+/* Whether link goes to the watched device. Caller holds kis_links_mutex. */
+static int kis_watch_has(const struct kis_watch *watch, const struct kis_link *link)
+{
+	return link->location == watch->location;
+}
+
+/* This process's link to the watched device, with a reference. */
+static struct kis_link* kis_watch_link(const struct kis_watch *watch)
+{
+	struct kis_link *link = NULL;
+
+	mutex_lock(&kis_links_mutex);
+	FOREACH(struct kis_link *l, &kis_links) {
+		if (!l->dead && kis_watch_has(watch, l)) {
+			l->refs++;
+			link = l;
+			break;
+		}
+	} ENDFOREACH
+	mutex_unlock(&kis_links_mutex);
+	return link;
+}
+
+/* A link a client left for the event thread, with that reference. */
+static struct kis_link* kis_watch_take_retained(const struct kis_watch *watch)
+{
+	struct kis_link *link = NULL;
+
+	mutex_lock(&kis_links_mutex);
+	FOREACH(struct kis_link *l, &kis_links) {
+		if (kis_watch_has(watch, l) && l->retained == 1) {
+			l->retained = 2;
+			link = l;
+			break;
+		}
+	} ENDFOREACH
+	mutex_unlock(&kis_links_mutex);
+	return link;
+}
+
+static void kis_link_release_retained(struct kis_link *link)
+{
+	mutex_lock(&kis_links_mutex);
+	link->retained = 0;
+	mutex_unlock(&kis_links_mutex);
+	kis_link_put(link);
+}
+
+static void kis_watch_release(struct kis_watch *watch)
+{
+	if (watch->held) {
+		debug("%s: %08x released\n", __func__, watch->location);
+		kis_link_release_retained(watch->held);
+		watch->held = NULL;
+	}
+	watch->hold = KIS_HOLD_NONE;
+}
+
+static void kis_watch_remove(uint32_t location)
+{
+	struct kis_watch *watch = kis_watch_find(location);
+	struct kis_link *left;
+
+	if (!watch) {
+		return;
+	}
+	collection_remove(&kis_watches, watch);
+	if (watch->announced) {
+		_irecv_handle_device_remove(watch->announced);
+	}
+	kis_watch_release(watch);
+	left = kis_watch_take_retained(watch);
+	if (left) {
+		kis_link_release_retained(left);
+	}
+	free(watch);
+}
+
+/* Keep, or let go of, the link held across a stage change. ended: the stage
+ * the device was in has ended; look: what it shows now. */
+static void kis_watch_hold(struct kis_watch *watch, const struct kis_look *look, int ended, int clients, unsigned int sessions)
+{
+	uint64_t now = kis_now_ms();
+
+	if (watch->hold == KIS_HOLD_LINGER) {
+		if (clients > 0) {
+			watch->deadline = now + KIS_LINGER_MS;
+		}
+		if (ended) {
+			debug("%s: %08x stage ended\n", __func__, watch->location);
+			watch->hold = KIS_HOLD_HANDOFF;
+			watch->deadline = now + KIS_HANDOFF_MS;
+			watch->sessions = sessions;
+		}
+	} else if (watch->hold == KIS_HOLD_HANDOFF) {
+		/* Done once the device is back in DFU or out of recovery, or a client
+		 * here has opened the next stage. */
+		if (look->state == KIS_STATE_DFU || look->state == KIS_STATE_OTHER || (clients > 0 && sessions != watch->sessions)) {
+			watch->deadline = now;
+		}
+	}
+	if (now >= watch->deadline) {
+		kis_watch_release(watch);
+	}
+}
+
+/* Turn what each watched device shows into device events, one per poll, so a
+ * listener sees a removal before the device that replaces it. */
+static void kis_watch_poll(void)
+{
+	FOREACH(struct kis_watch *watch, &kis_watches) {
+		struct kis_link *link;
+		struct kis_look look;
+		int borrowed = 0, clients = 0;
+		unsigned int sessions = 0;
+
+		if (!watch->held) {
+			watch->held = kis_watch_take_retained(watch);
+			if (watch->held) {
+				debug("%s: %08x kept after its client\n", __func__, watch->location);
+				watch->hold = KIS_HOLD_LINGER;
+				watch->deadline = kis_now_ms() + KIS_LINGER_MS;
+			}
+		}
+		link = watch->held;
+		if (!link) {
+			link = kis_watch_link(watch);
+			if (!link) {
+				/* No client here: look now and then, and pass over the device
+				 * while another process has it. */
+				if ((watch->polls++ % KIS_LOOK_POLLS) != 0) {
+					continue;
+				}
+				link = kis_link_get(watch->bus, watch->address, 1, 0);
+				if (!link) {
+					continue;
+				}
+			}
+			borrowed = 1;
+		}
+		kis_link_look(link, &look, KIS_LOOK_TIMEOUT);
+		if ((look.state == KIS_STATE_EMPTY || look.state == KIS_STATE_OTHER) && !watch->enabled) {
+			/* Once per arrival: the doorbells may not read back until the device
+			 * has been enabled, which nobody may have done yet. */
+			watch->enabled = 1;
+			if (kis_link_enable(link) == IRECV_E_SUCCESS) {
+				kis_link_look(link, &look, KIS_LOOK_TIMEOUT);
+			}
+		}
+		if (look.state == KIS_STATE_RECOVERY && kis_link_current(link, &look)) {
+			/* A client here has this stage open: its identity is the device's. */
+			mutex_lock(&link->lock);
+			snprintf(watch->serial, sizeof(watch->serial), "%s", link->serial);
+			watch->pid = link->pid;
+			watch->known = 1;
+			mutex_unlock(&link->lock);
+		}
+		mutex_lock(&link->lock);
+		sessions = link->sessions;
+		mutex_unlock(&link->lock);
+		mutex_lock(&kis_links_mutex);
+		clients = link->clients;
+		mutex_unlock(&kis_links_mutex);
+		if (borrowed) {
+			kis_link_put(link);
+		}
+		if (look.state == KIS_STATE_FAILED) {
+			if (watch->held) {
+				kis_watch_hold(watch, &look, 0, clients, sessions);
+			}
+			continue;
+		}
+
+		/* A stage ends when the device leaves it, or when its channel is
+		 * reinitialised: both offsets back to 0. */
+		int ended = 0;
+		if (watch->state == KIS_STATE_DFU && look.state != KIS_STATE_DFU) {
+			ended = 1;
+		} else if (watch->state == KIS_STATE_RECOVERY && (look.state != KIS_STATE_RECOVERY || look.chan != watch->chan || (look.host == 0 && look.dev == 0 && (watch->host != 0 || watch->dev != 0)))) {
+			ended = 1;
+		}
+		if (look.state != watch->state || ended) {
+			debug("%s: %08x shows %s\n", __func__, watch->location, look.state == KIS_STATE_DFU ? "DFU" : look.state == KIS_STATE_RECOVERY ? "recovery" : look.state == KIS_STATE_EMPTY ? "nothing" : "no DFU or recovery");
+		}
+		watch->state = look.state;
+		watch->chan = look.chan;
+		watch->host = look.host;
+		watch->dev = look.dev;
+		if (look.state == KIS_STATE_DFU) {
+			snprintf(watch->serial, sizeof(watch->serial), "%s", look.serial);
+			watch->known = 1;
+		}
+		if (watch->held) {
+			kis_watch_hold(watch, &look, ended, clients, sessions);
+		}
+
+		enum kis_state view = KIS_STATE_EMPTY;
+		uint16_t mode = 0;
+		if (look.state == KIS_STATE_DFU) {
+			view = KIS_STATE_DFU;
+			mode = look.mode;
+		} else if (look.state == KIS_STATE_RECOVERY && watch->known) {
+			/* The product id is the one read through a client here, if any. */
+			view = KIS_STATE_RECOVERY;
+			mode = watch->pid ? watch->pid : IRECV_K_RECOVERY_MODE_2;
+		}
+		if (watch->announced && (view != watch->view || ended)) {
+			struct irecv_usb_device_info *gone = watch->announced;
+			watch->announced = NULL;
+			_irecv_handle_device_remove(gone);
+			continue;
+		}
+		if (!watch->announced && view != KIS_STATE_EMPTY) {
+			debug("%s: %s %04x %s\n", __func__, view == KIS_STATE_DFU ? "DFU" : "recovery", mode, view == KIS_STATE_DFU ? look.serial : watch->serial);
+			watch->view = view;
+			watch->announced = _irecv_announce_device(mode, view == KIS_STATE_DFU, view == KIS_STATE_DFU ? look.serial : watch->serial, watch->location);
+		}
+	} ENDFOREACH
+}
+
+/* The event thread is ending: let go of every link kept for it. */
+static void kis_watch_clear(void)
+{
+	struct collection kept;
+
+	FOREACH(struct kis_watch *watch, &kis_watches) {
+		collection_remove(&kis_watches, watch);
+		/* The event subscription frees announced devices with the rest. */
+		kis_watch_release(watch);
+		free(watch);
+	} ENDFOREACH
+	collection_init(&kept);
+	mutex_lock(&kis_links_mutex);
+	kis_links_retained = 0;
+	FOREACH(struct kis_link *link, &kis_links) {
+		if (link->retained == 1) {
+			collection_add(&kept, link);
+		}
+	} ENDFOREACH
+	mutex_unlock(&kis_links_mutex);
+	FOREACH(struct kis_link *link, &kept) {
+		kis_link_release_retained(link);
+	} ENDFOREACH
+	collection_free(&kept);
+}
+
+static void kis_watch_start(void)
+{
+	collection_init(&kis_watches);
+	mutex_lock(&kis_links_mutex);
+	kis_links_retained = 1;
+	mutex_unlock(&kis_links_mutex);
+}
+
+static void kis_watch_add(libusb_device *device)
+{
+	uint8_t bus = libusb_get_bus_number(device);
+	uint8_t address = libusb_get_device_address(device);
+	uint32_t location = ((uint32_t)bus << 16) | address;
+	if (kis_watch_find(location)) {
+		return;
+	}
+	struct kis_watch *watch = calloc(1, sizeof(struct kis_watch));
+	if (!watch) {
+		return;
+	}
+	watch->location = location;
+	watch->bus = bus;
+	watch->address = address;
+	watch->state = KIS_STATE_FAILED;
+	watch->view = KIS_STATE_EMPTY;
+	collection_add(&kis_watches, watch);
+}
+#endif
+
 
 #if defined(_WIN32) || (!defined(HAVE_IOKIT) && !defined(HAVE_LIBUSB_HOTPLUG_API))
 static void _irecv_remove_dead_devices(void)
@@ -2851,6 +4437,15 @@ static void iokit_device_removed(void *refcon, io_iterator_t iterator)
 static int _irecv_usb_hotplug_cb(libusb_context *ctx, libusb_device *device, libusb_hotplug_event event, void *user_data)
 {
 	if (!_irecv_is_recovery_device(device)) {
+		return 0;
+	}
+	struct libusb_device_descriptor devdesc;
+	if (libusb_get_device_descriptor(device, &devdesc) == 0 && devdesc.idProduct == KIS_PRODUCT_ID) {
+		if (event == LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED) {
+			kis_watch_add(device);
+		} else if (event == LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT) {
+			kis_watch_remove(((uint32_t)libusb_get_bus_number(device) << 16) | libusb_get_device_address(device));
+		}
 		return 0;
 	}
 	if (event == LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED) {
@@ -3076,6 +4671,7 @@ static void *_irecv_event_handler(void* data)
 #else /* !HAVE_IOKIT */
 #ifdef HAVE_LIBUSB_HOTPLUG_API
 	static libusb_hotplug_callback_handle usb_hotplug_cb_handle;
+	kis_watch_start();
 	libusb_hotplug_register_callback(irecv_hotplug_ctx, LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED | LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT, LIBUSB_HOTPLUG_ENUMERATE, APPLE_VENDOR_ID, LIBUSB_HOTPLUG_MATCH_ANY, LIBUSB_HOTPLUG_MATCH_ANY, _irecv_usb_hotplug_cb, NULL, &usb_hotplug_cb_handle);
 	int running = 1;
 
@@ -3087,6 +4683,7 @@ static void *_irecv_event_handler(void* data)
 		struct timeval tv;
 		tv.tv_sec = tv.tv_usec = 0;
 		libusb_handle_events_timeout(irecv_hotplug_ctx, &tv);
+		kis_watch_poll();
 
 		mutex_lock(&listener_mutex);
 		if (collection_count(&listeners) == 0) {
@@ -3097,6 +4694,8 @@ static void *_irecv_event_handler(void* data)
 		usleep(100000);
 	} while (running);
 	libusb_hotplug_deregister_callback(irecv_hotplug_ctx, usb_hotplug_cb_handle);
+	kis_watch_clear();
+	collection_free(&kis_watches);
 #else /* !HAVE_LIBUSB_HOTPLUG_API */
 	int i, cnt;
 	libusb_device **devs;
@@ -3306,6 +4905,11 @@ static irecv_error_t irecv_cleanup(irecv_client_t client)
 			CFRelease(client->async_event_source);
 		}
 #else
+		if (client->kis) {
+			kis_link_put_client(client->kis);
+			client->kis = NULL;
+			client->handle = NULL;
+		}
 		if (client->handle != NULL) {
 			if ((client->mode != IRECV_K_DFU_MODE) && (client->mode != IRECV_K_PORT_DFU_MODE) && (client->mode != IRECV_K_WTF_MODE) && (client->isKIS == 0)) {
 				libusb_release_interface(client->handle, client->usb_interface);
@@ -3620,6 +5224,11 @@ static irecv_error_t irecv_kis_send_buffer(irecv_client_t client, unsigned char*
 	if (client->mode != IRECV_K_DFU_MODE) {
 		return IRECV_E_UNSUPPORTED;
 	}
+#ifdef HAVE_KIS_LINKS
+	if (client->kis) {
+		kis_link_drove(client->kis);
+	}
+#endif
 
 	unsigned long origLen = length;
 
@@ -4109,6 +5718,11 @@ irecv_error_t irecv_trigger_limera1n_exploit(irecv_client_t client)
 #else
 	if (check_context(client) != IRECV_E_SUCCESS)
 		return IRECV_E_NO_DEVICE;
+#ifdef HAVE_KIS_LINKS
+	if (client->kis) {
+		return IRECV_E_UNSUPPORTED;
+	}
+#endif
 
 #ifdef HAVE_IOKIT
 	IOReturn result;
