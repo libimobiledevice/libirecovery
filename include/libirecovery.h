@@ -28,13 +28,7 @@ extern "C" {
 #include <stdint.h>
 
 #ifndef IRECV_API
-  #ifdef IRECV_STATIC
-    #define IRECV_API
-  #elif defined(_WIN32)
-    #define IRECV_API __declspec(dllimport)
-  #else
-    #define IRECV_API
-  #endif
+  #define IRECV_API
 #endif
 
 enum irecv_mode {
